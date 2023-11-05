@@ -1,16 +1,18 @@
 import { useEffect, useRef } from 'react';
 import { Engine, EngineOptions, Scene, SceneOptions } from '@babylonjs/core';
 import * as React from 'react';
-import { IDistanceData } from '../geometry/sdMethods';
+import { IDistanceData, defaultDistanceData } from '../geometry/sdMethods';
+import { IGeometrySettings, createMesh, defaultGeometrySettings } from '../geometry/createMesh';
 
 export interface ISceneProps {
   antialias: boolean;
   engineOptions?: EngineOptions;
   adaptToDeviceRatio: boolean;
   sceneOptions?: SceneOptions;
-  sdfSettings: IDistanceData;
+  geometrySettings?: IGeometrySettings;
+  sdfSettings?: IDistanceData;
   onRender: (scene: Scene) => void;
-  onSceneReady: (scene: Scene, sdfSettings: IDistanceData) => void;
+  onSceneReady: (scene: Scene) => void;
   id: string;
 }
 
@@ -22,9 +24,11 @@ export const BabylonScene: React.FC<ISceneProps> = ({
   onRender,
   onSceneReady,
   id,
+  geometrySettings,
   sdfSettings,
 }) => {
   const reactCanvas = useRef(null);
+  const [scene, setScene] = React.useState<Scene>();
 
   // set up basic engine and scene
   useEffect(() => {
@@ -35,10 +39,12 @@ export const BabylonScene: React.FC<ISceneProps> = ({
     const engine = new Engine(canvas, antialias, engineOptions, adaptToDeviceRatio);
     const scene = new Scene(engine, sceneOptions);
 
+    setScene(scene);
+
     if (scene.isReady()) {
-      onSceneReady(scene, sdfSettings);
+      onSceneReady(scene);
     } else {
-      scene.onReadyObservable.addOnce((scene) => onSceneReady(scene, sdfSettings));
+      scene.onReadyObservable.addOnce((scene) => onSceneReady(scene));
     }
 
     engine.runRenderLoop(() => {
@@ -61,7 +67,11 @@ export const BabylonScene: React.FC<ISceneProps> = ({
         window.removeEventListener('resize', resize);
       }
     };
-  }, [antialias, engineOptions, adaptToDeviceRatio, sceneOptions, onRender, onSceneReady, sdfSettings]);
+  }, [antialias, engineOptions, adaptToDeviceRatio, sceneOptions, onRender, onSceneReady]);
+
+  useEffect(() => {
+    if (scene?.isReady()) createMesh(scene, geometrySettings ?? defaultGeometrySettings, sdfSettings ?? defaultDistanceData);
+  }, [onSceneReady, geometrySettings, sdfSettings, scene]);
 
   return <canvas className='babylon-scene' ref={reactCanvas} id={id} />;
 };
