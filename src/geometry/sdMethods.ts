@@ -107,7 +107,7 @@ export const defaultDistanceData: IDistanceData = {
   methods: [
     {
       method: DistanceMethodType.SDGyroid,
-      number: 1,
+      number: 2,
     },
     {
       method: DistanceMethodType.SDNeovius,
