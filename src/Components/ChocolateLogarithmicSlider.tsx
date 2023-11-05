@@ -12,13 +12,13 @@ export const ChocolateLogarithmicSlider: React.FC<{ entry: IMethodEntry; setEntr
   const [localValue, setLocalValue] = React.useState(Math.log10(entry.number));
   const [localMethod, setLocalMethod] = React.useState(entry.method);
   const updateValue = (v: number) => {
-    setEntry({ ...entry, number: 10 ** v });
+    setEntry({ method: localMethod, number: 10 ** v });
     setLocalValue(v);
   };
 
   const updateMethod = (method: DistanceMethodType) => {
     setLocalMethod(method);
-    setEntry({ ...entry, method });
+    setEntry({ number: 10 ** localValue, method });
   };
 
   const menu: MenuProps = {
