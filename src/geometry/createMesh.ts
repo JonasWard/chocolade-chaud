@@ -1,4 +1,4 @@
-import { FloatArray, Mesh, Scene, StandardMaterial, Vector3, VertexBuffer } from '@babylonjs/core';
+import { Color3, FloatArray, Mesh, Scene, StandardMaterial, Vector3, VertexBuffer } from '@babylonjs/core';
 import { DistanceMethodParser, IDistanceData } from './sdMethods';
 
 export interface IVector {
@@ -17,6 +17,7 @@ export interface IGeometrySettings {
   verticalDivisions: number | null;
   basePosition: IVector;
   displayWireframe?: boolean;
+  color?: string;
 }
 
 export const defaultGeometrySettings: IGeometrySettings = {
@@ -28,6 +29,7 @@ export const defaultGeometrySettings: IGeometrySettings = {
   horizontalDivisions: 500,
   verticalDivisions: 500,
   basePosition: { x: -25, y: 0, z: -25 },
+  color: '#9A4C0D',
 };
 
 export const createMesh = (
@@ -129,10 +131,11 @@ export const createMesh = (
   mesh.setVerticesData(VertexBuffer.PositionKind, positions);
   mesh.setIndices(faces);
 
-  const wireframeMaterial = new StandardMaterial('texture1', scene);
+  const material = new StandardMaterial('texture1', scene);
 
   mesh.getBoundingInfo();
-  // wireframeMaterial.wireframe = true;
+  material.wireframe = !!geometrySettings.displayWireframe;
+  material.diffuseColor = Color3.FromHexString(geometrySettings.color ?? '#9A4C0D');
 
-  mesh.material = wireframeMaterial;
+  mesh.material = material;
 };

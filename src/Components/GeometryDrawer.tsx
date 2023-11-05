@@ -1,4 +1,4 @@
-import { Button, Drawer, Form, InputNumber, Switch } from 'antd';
+import { Button, ColorPicker, Drawer, Form, InputNumber, Switch } from 'antd';
 import React from 'react';
 import './drawers.css';
 import { IGeometrySettings } from '../geometry/createMesh';
@@ -85,6 +85,9 @@ export const GeometryDrawer: React.FC<{ geometrySettings: IGeometrySettings; set
               value={geometrySettings.basePosition.z}
               name={'z'}
             />
+          </Form.Item>
+          <Form.Item label={'Chocolate Color'}>
+            <ColorPicker value={geometrySettings.color} onChange={(c) => setGeometrySettings({ ...geometrySettings, color: c.toHexString() })} />
           </Form.Item>
           <Form.Item label={'Show Wireframe'}>
             <Switch onChange={(v) => setGeometrySettings({ ...geometrySettings, displayWireframe: v })} checked={!!geometrySettings.displayWireframe} />
