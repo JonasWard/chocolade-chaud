@@ -107,11 +107,11 @@ export const defaultDistanceData: IDistanceData = {
   methods: [
     {
       method: DistanceMethodType.SDSchwarzP,
-      number: 0.4,
+      number: 0.05,
     },
     {
       method: DistanceMethodType.SDGyroid,
-      number: 15,
+      number: 2.5,
     },
   ],
   scale: 1,
