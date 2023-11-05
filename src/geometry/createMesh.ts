@@ -11,6 +11,7 @@ export interface IGeometrySettings {
   innerWidth: number;
   innerLength: number;
   height: number;
+  amplitude: number;
   inset: number;
   horizontalDivisions: number | null;
   verticalDivisions: number | null;
@@ -22,6 +23,7 @@ export const defaultGeometrySettings: IGeometrySettings = {
   innerWidth: 50,
   innerLength: 50,
   height: 5,
+  amplitude: 1,
   inset: -0.1,
   horizontalDivisions: 500,
   verticalDivisions: 500,
@@ -37,7 +39,7 @@ export const createMesh = (
   if (cleanScene) scene.meshes.forEach((m) => m.dispose());
 
   // set the geometry settings
-  const { innerWidth, innerLength, height, inset } = geometrySettings;
+  const { innerWidth, innerLength, height, inset, amplitude } = geometrySettings;
   const baseVector: IVector = geometrySettings.basePosition ?? { x: 0, y: 0, z: 0 };
   const horizontalDivisions = geometrySettings.horizontalDivisions ?? innerWidth;
   const verticalDivisions = geometrySettings.verticalDivisions ?? innerLength;
@@ -63,8 +65,7 @@ export const createMesh = (
   const sdf = DistanceMethodParser(sdfSettings);
 
   const baseGrid = grid.map((v, i) => v.subtract(directionGrid[i]));
-
-  const movedGrid = grid.map((v, i) => v.add(directionGrid[i].scale(sdf(v) * height)));
+  const movedGrid = grid.map((v, i) => v.add(directionGrid[i].scale((sdf(v) * amplitude) / height)));
 
   // create the faces
   // top and bottom faces
