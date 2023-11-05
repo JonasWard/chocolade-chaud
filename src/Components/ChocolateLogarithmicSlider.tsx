@@ -2,6 +2,7 @@ import { Button, MenuProps, Slider, Space } from 'antd';
 import { Dropdown } from 'antd';
 import React from 'react';
 import { DistanceMethodType, IMethodEntry } from '../geometry/sdMethods';
+import './slider.css';
 
 export const ChocolateLogarithmicSlider: React.FC<{ entry: IMethodEntry; setEntry: (v: IMethodEntry) => void; min?: number; max?: number }> = ({
   min = -5,
@@ -30,13 +31,13 @@ export const ChocolateLogarithmicSlider: React.FC<{ entry: IMethodEntry; setEntr
 
   return (
     <div className='parent'>
-      <Dropdown menu={{ ...menu, selectedKeys: [localMethod] }} trigger={['click']}>
+      <Dropdown className='method' menu={{ ...menu, selectedKeys: [localMethod] }} trigger={['click']}>
         <Button onClick={(e) => e.preventDefault()}>
           <Space>{localMethod}</Space>
         </Button>
       </Dropdown>
       <Slider
-        className='child slider'
+        className='slider'
         value={localValue}
         onChange={updateValue}
         min={min}
@@ -44,7 +45,7 @@ export const ChocolateLogarithmicSlider: React.FC<{ entry: IMethodEntry; setEntr
         step={0.01}
         tooltip={{ formatter: (v) => `${(10 ** (v ?? 0)).toPrecision(3)}` }}
       />
-      <div className='child method-name'>{`${(10 ** localValue).toPrecision(3)}`}</div>
+      <div className='number'>{`${(10 ** localValue).toPrecision(3)}`}</div>
     </div>
   );
 };

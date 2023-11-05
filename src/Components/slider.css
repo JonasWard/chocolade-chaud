@@ -1,21 +1,18 @@
 .parent {
   display: flex;
   flex-direction: row;
-  margin: 1rem;
-  padding: 2rem 2rem;
   text-align: center;
-  width: 500px;
+  width: 100%;
 }
 
-.child {
-  padding: 1rem 1rem;
-  vertical-align: middle;
+.method {
+  min-width: 100px;
 }
 
-.child.method-name {
-  width: 100px;
+.number {
+  min-width: 70px;
 }
 
-.child.slider {
-  width: 200px;
+.slider {
+  min-width: 160px;
 }
