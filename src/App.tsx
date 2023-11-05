@@ -2,13 +2,14 @@ import React from 'react';
 import './App.css';
 import { ArcRotateCamera, HemisphericLight, Scene, Vector3 } from '@babylonjs/core';
 import BabylonScene from './babylon/BabylonScene';
-import { createMesh } from './geometry/createMesh';
-import Navbar from './Navbar';
+import { IGeometrySettings, createMesh, defaultGeometrySettings } from './geometry/createMesh';
+import { MethodDrawer } from './Components/MethodDrawer';
 import { IDistanceData, defaultDistanceData } from './geometry/sdMethods';
+import { GeometryDrawer } from './Components/GeometryDrawer';
 
 let box: any;
 
-const onSceneReady = (scene: Scene, sdfSettings: IDistanceData) => {
+const onSceneReady = (scene: Scene) => {
   // This creates and positions a free camera (non-mesh)
   const camera = new ArcRotateCamera('camera1', 0.71, 0.71, 100, new Vector3(0, 0, 0), scene);
 
@@ -26,8 +27,6 @@ const onSceneReady = (scene: Scene, sdfSettings: IDistanceData) => {
   const bottomLight = new HemisphericLight('underground', new Vector3(0, 1, 0), scene);
 
   // Default intensity is 1. Let's dim the light a small amount
-  createMesh(scene, undefined, sdfSettings);
-
   light.intensity = 0.7;
   bottomLight.intensity = 0.3;
 };
@@ -46,6 +45,7 @@ const onRender = (scene: Scene) => {
 
 function App() {
   const [sdfSettings, setSdfSettings] = React.useState<IDistanceData>(defaultDistanceData);
+  const [geometrySettings, setGeometrySettings] = React.useState<IGeometrySettings>(defaultGeometrySettings);
 
   return (
     <div className='App'>
@@ -59,9 +59,11 @@ function App() {
           adaptToDeviceRatio={false}
           sceneOptions={undefined}
           sdfSettings={sdfSettings}
+          geometrySettings={geometrySettings}
         />
       </header>
-      <Navbar sdfSettings={sdfSettings} setSdfSettings={setSdfSettings} />
+      <MethodDrawer sdfSettings={sdfSettings} setSdfSettings={setSdfSettings} />
+      <GeometryDrawer geometrySettings={geometrySettings} setGeometrySettings={setGeometrySettings} />
     </div>
   );
 }
