@@ -25,7 +25,7 @@ export const defaultGeometrySettings: IGeometrySettings = {
   innerLength: 50,
   height: 5,
   amplitude: 1,
-  inset: -0.1,
+  inset: -1,
   horizontalDivisions: 500,
   verticalDivisions: 500,
   basePosition: { x: -25, y: 0, z: -25 },
