@@ -30,7 +30,7 @@ export const MethodDrawer: React.FC<{ sdfSettings: IDistanceData; setSdfSettings
       )}
       <Drawer title='SdfSettings' placement='left' closable={true} onClose={() => setShowDrawer(false)} open={showDrawer}>
         {entries.map((entry, i) => (
-          <ChocolateLogarithmicSlider min={-5} max={5} entry={entry} setEntry={(v: IMethodEntry) => updateEntries(i, v)} />
+          <ChocolateLogarithmicSlider key={i} min={-5} max={5} entry={entry} setEntry={(v: IMethodEntry) => updateEntries(i, v)} />
         ))}
         <Button onClick={() => localSetEntries([...entries, { method: DistanceMethodType.SDGyroid, number: 1 }])}>+</Button>
         <Button onClick={() => localSetEntries([...entries.slice(0, -1)])}>-</Button>
