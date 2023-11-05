@@ -98,28 +98,48 @@ export const createMesh = (
     const bottomIndex = i;
     const topIndex = i + baseGrid.length;
 
-    faces.push(...[bottomIndex, bottomIndex + 1, topIndex]);
-    faces.push(...[bottomIndex + 1, topIndex + 1, topIndex]);
+    if (i % 2 === 0) {
+      faces.push(...[bottomIndex, bottomIndex + 1, topIndex]);
+      faces.push(...[bottomIndex + 1, topIndex + 1, topIndex]);
+    } else {
+      faces.push(...[bottomIndex, bottomIndex + 1, topIndex + 1]);
+      faces.push(...[bottomIndex, topIndex + 1, topIndex]);
+    }
 
     const endBottomIndex = topIndex - horizontalDivisions - 1;
     const endTopIndex = endBottomIndex + baseGrid.length;
 
-    faces.push(...[endBottomIndex, endTopIndex, endBottomIndex + 1]);
-    faces.push(...[endBottomIndex + 1, endTopIndex, endTopIndex + 1]);
+    if ((i + horizontalDivisions) % 2 === 0) {
+      faces.push(...[endBottomIndex, endTopIndex, endBottomIndex + 1]);
+      faces.push(...[endBottomIndex + 1, endTopIndex, endTopIndex + 1]);
+    } else {
+      faces.push(...[endBottomIndex, endTopIndex + 1, endBottomIndex + 1]);
+      faces.push(...[endBottomIndex, endTopIndex, endTopIndex + 1]);
+    }
   }
 
   for (let i = 0; i < horizontalDivisions; i++) {
     const bottomIndex = i * (verticalDivisions + 1);
     const topIndex = bottomIndex + baseGrid.length;
 
-    faces.push(...[bottomIndex, topIndex, bottomIndex + verticalDivisions + 1]);
-    faces.push(...[bottomIndex + verticalDivisions + 1, topIndex, topIndex + verticalDivisions + 1]);
+    if (i % 2 === 0) {
+      faces.push(...[bottomIndex, topIndex, bottomIndex + verticalDivisions + 1]);
+      faces.push(...[bottomIndex + verticalDivisions + 1, topIndex, topIndex + verticalDivisions + 1]);
+    } else {
+      faces.push(...[bottomIndex, topIndex + verticalDivisions + 1, bottomIndex + verticalDivisions + 1]);
+      faces.push(...[bottomIndex, topIndex, topIndex + verticalDivisions + 1]);
+    }
 
     const endBottomIndex = bottomIndex + verticalDivisions;
     const endTopIndex = endBottomIndex + baseGrid.length;
 
-    faces.push(...[endBottomIndex, endBottomIndex + verticalDivisions + 1, endTopIndex]);
-    faces.push(...[endBottomIndex + verticalDivisions + 1, endTopIndex + verticalDivisions + 1, endTopIndex]);
+    if ((i + verticalDivisions) % 2 === 0) {
+      faces.push(...[endBottomIndex, endBottomIndex + verticalDivisions + 1, endTopIndex]);
+      faces.push(...[endBottomIndex + verticalDivisions + 1, endTopIndex + verticalDivisions + 1, endTopIndex]);
+    } else {
+      faces.push(...[endBottomIndex, endBottomIndex + verticalDivisions + 1, endTopIndex + verticalDivisions + 1]);
+      faces.push(...[endBottomIndex, endTopIndex + verticalDivisions + 1, endTopIndex]);
+    }
   }
 
   // create a new mesh
