@@ -1,4 +1,4 @@
-import { Color3, FloatArray, Mesh, Scene, StandardMaterial, Vector3, VertexBuffer } from '@babylonjs/core';
+import { Color3, FloatArray, Mesh, Scene, StandardMaterial, Vector3, VertexBuffer, VertexData } from '@babylonjs/core';
 import { DistanceMethodParser, IDistanceData } from './sdMethods';
 
 export interface IVector {
@@ -130,6 +130,10 @@ export const createMesh = (
 
   mesh.setVerticesData(VertexBuffer.PositionKind, positions);
   mesh.setIndices(faces);
+
+  const normals: FloatArray = [];
+  VertexData.ComputeNormals(positions, faces, normals);
+  mesh.setVerticesData(VertexBuffer.NormalKind, normals);
 
   const material = new StandardMaterial('texture1', scene);
 
