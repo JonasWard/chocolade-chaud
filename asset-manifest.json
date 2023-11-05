@@ -1,15 +1,15 @@
 {
   "files": {
-    "main.css": "/chocolade-chaud/static/css/main.65380c62.css",
-    "main.js": "/chocolade-chaud/static/js/main.40655d08.js",
+    "main.css": "/chocolade-chaud/static/css/main.930d4100.css",
+    "main.js": "/chocolade-chaud/static/js/main.7f31b3d1.js",
     "static/js/787.397b2da1.chunk.js": "/chocolade-chaud/static/js/787.397b2da1.chunk.js",
     "index.html": "/chocolade-chaud/index.html",
-    "main.65380c62.css.map": "/chocolade-chaud/static/css/main.65380c62.css.map",
-    "main.40655d08.js.map": "/chocolade-chaud/static/js/main.40655d08.js.map",
+    "main.930d4100.css.map": "/chocolade-chaud/static/css/main.930d4100.css.map",
+    "main.7f31b3d1.js.map": "/chocolade-chaud/static/js/main.7f31b3d1.js.map",
     "787.397b2da1.chunk.js.map": "/chocolade-chaud/static/js/787.397b2da1.chunk.js.map"
   },
   "entrypoints": [
-    "static/css/main.65380c62.css",
-    "static/js/main.40655d08.js"
+    "static/css/main.930d4100.css",
+    "static/js/main.7f31b3d1.js"
   ]
 }
