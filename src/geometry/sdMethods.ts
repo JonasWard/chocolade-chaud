@@ -64,13 +64,42 @@ const distanceMap = (dm: DistanceMethodType): ((v: Vector3, s: number) => number
   }
 };
 
-const localDistanceParser = (methods: IMethodEntry[]): ((v: Vector3) => number) => {
+const stringDistanceParser = (dm: DistanceMethodType): string => {
+  switch (dm) {
+    case DistanceMethodType.SDGyroid:
+      return 'sdGyroid';
+    case DistanceMethodType.SDSchwarzP:
+      return 'sdSchwarzP';
+    case DistanceMethodType.SDSchwarzD:
+      return 'sdSchwarzD';
+    case DistanceMethodType.SDNeovius:
+      return 'sdNeovius';
+    case DistanceMethodType.SDSphere:
+      return 'sdSphere';
+    case DistanceMethodType.SDBox:
+      return 'sdBox';
+    case DistanceMethodType.SDTorus:
+      return 'sdTorus';
+    case DistanceMethodType.SDCylinder:
+      return 'sdCylinder';
+  }
+};
+
+const localDistanceAsStringParser = (methods: IMethodEntry[]): ((v: Vector3, s: number) => number) => {
+  const strings = ['const v0 = v.scale(s);', 'let d = 0;'];
+  strings.push(...methods.map((m) => `d = (${distanceMap(m.method)})(v0, d * ${m.number});`));
+  strings.push('return d;');
+  // console.log(strings.join('\n'));
+  return new Function('v', 's', strings.join('\n')) as (v: Vector3, s: number) => number;
+};
+
+const localDistanceParser = (methods: IMethodEntry[]): ((v: Vector3, s: number) => number) => {
   if (methods.length === 0) {
     return () => 0;
   } else if (methods.length === 1) {
-    return (v: Vector3) => distanceMap(methods[0].method)(v.scale(methods[0].number ?? 1));
+    return (v: Vector3, s: number) => distanceMap(methods[0].method)(v, s * methods[0].number);
   } else {
-    return (v: Vector3) => distanceMap(methods[0].method)(v.scale((methods[0].number ?? 1) * localDistanceParser(methods.slice(1))(v)));
+    return (v: Vector3, s: number) => distanceMap(methods[0].method)(v, localDistanceParser(methods.slice(1))(v, s * methods[0].number));
   }
 };
 
