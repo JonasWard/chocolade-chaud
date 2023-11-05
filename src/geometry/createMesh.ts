@@ -7,28 +7,35 @@ export interface IVector {
   z: number;
 }
 
-export interface GeometrySettings {
+export interface IGeometrySettings {
   innerWidth: number;
   innerLength: number;
   height: number;
   inset: number;
-  horizontalDivisions?: number;
-  verticalDivisions?: number;
-  basePosition?: IVector;
+  horizontalDivisions: number | null;
+  verticalDivisions: number | null;
+  basePosition: IVector;
   displayWireframe?: boolean;
 }
 
-const defaultSettings: GeometrySettings = {
+export const defaultGeometrySettings: IGeometrySettings = {
   innerWidth: 50,
   innerLength: 50,
-  height: 0.25,
+  height: 5,
   inset: -0.1,
   horizontalDivisions: 500,
   verticalDivisions: 500,
   basePosition: { x: -25, y: 0, z: -25 },
 };
 
-export const createMesh = (scene: Scene, geometrySettings: GeometrySettings = defaultSettings, sdfSettings: IDistanceData) => {
+export const createMesh = (
+  scene: Scene,
+  geometrySettings: IGeometrySettings = defaultGeometrySettings,
+  sdfSettings: IDistanceData,
+  cleanScene: boolean = true
+) => {
+  if (cleanScene) scene.meshes.forEach((m) => m.dispose());
+
   // set the geometry settings
   const { innerWidth, innerLength, height, inset } = geometrySettings;
   const baseVector: IVector = geometrySettings.basePosition ?? { x: 0, y: 0, z: 0 };
