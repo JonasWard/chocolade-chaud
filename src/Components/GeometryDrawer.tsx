@@ -30,6 +30,9 @@ export const GeometryDrawer: React.FC<{ geometrySettings: IGeometrySettings; set
           <Form.Item label={'Inset'}>
             <InputNumber onChange={(v) => v && setGeometrySettings({ ...geometrySettings, inset: v })} value={geometrySettings.inset} />
           </Form.Item>
+          <Form.Item label={'Amplitude of Pattern'}>
+            <InputNumber step={0.05} onChange={(v) => v && setGeometrySettings({ ...geometrySettings, amplitude: v })} value={geometrySettings.amplitude} />
+          </Form.Item>
           <Form.Item label={'Horizontal Divisions'}>
             <InputNumber
               onChange={(v) => v && setGeometrySettings({ ...geometrySettings, horizontalDivisions: v })}
