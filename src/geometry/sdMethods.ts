@@ -117,10 +117,15 @@ export const defaultDistanceData: IDistanceData = {
   scale: 1,
 };
 
-export const DistanceMethodParser =
-  (iDD: IDistanceData): ((v: Vector3) => number) =>
-  (v: Vector3) =>
-    localDistanceParser(iDD.methods)(v.scale(iDD.scale));
+// export const DistanceMethodParser =
+//   (iDD: IDistanceData): ((v: Vector3) => number) =>
+//   (v: Vector3) =>
+//     localDistanceAsStringParser(iDD.methods)(v, iDD.scale);
+
+export const DistanceMethodParser = (iDD: IDistanceData): ((v: Vector3) => number) => {
+  // console.log(localDistanceAsStringParser(iDD.methods));
+  return (v: Vector3) => localDistanceParser(iDD.methods)(v, iDD.scale);
+};
 
 export type DistanceMethod = (v: Vector3) => number;
 export const defaultDistanceMethod: DistanceMethod = DistanceMethodParser(defaultDistanceData);
