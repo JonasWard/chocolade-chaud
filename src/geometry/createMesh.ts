@@ -7,6 +7,11 @@ export interface IVector {
   z: number;
 }
 
+export interface ITriangularMesh {
+  vertices: number[];
+  faces: number[];
+}
+
 export interface IGeometrySettings {
   innerWidth: number;
   innerLength: number;
@@ -39,7 +44,11 @@ export const createMesh = (
   cleanScene: boolean = true
 ) => {
   if (cleanScene) scene.meshes.forEach((m) => m.dispose());
+  const iMesh = createIMesh(geometrySettings, sdfSettings);
+  addMeshToScene(iMesh, scene, geometrySettings);
+};
 
+export const createIMesh = (geometrySettings: IGeometrySettings = defaultGeometrySettings, sdfSettings: IDistanceData): ITriangularMesh => {
   // set the geometry settings
   const { innerWidth, innerLength, height, inset, amplitude } = geometrySettings;
   const baseVector: IVector = geometrySettings.basePosition ?? { x: 0, y: 0, z: 0 };
@@ -69,26 +78,30 @@ export const createMesh = (
   const baseGrid = grid.map((v, i) => v.subtract(directionGrid[i]));
   const movedGrid = grid.map((v, i) => v.add(directionGrid[i].scale((sdf(v) * amplitude) / height)));
 
+  const iMesh: ITriangularMesh = {
+    vertices: [],
+    faces: [],
+  };
+
   // create the faces
   // top and bottom faces
-  const faces: number[] = [];
   for (let i = 0; i < horizontalDivisions; i++) {
     for (let j = 0; j < verticalDivisions; j++) {
       const index = i * (verticalDivisions + 1) + j;
       const nextIndex = (i + 1) * (verticalDivisions + 1) + j;
       // splitting quad into two triangles
       if ((i + j) % 2 === 0) {
-        faces.push(...[index, nextIndex, index + 1]);
-        faces.push(...[index + 1, nextIndex, nextIndex + 1]);
+        iMesh.faces.push(...[index, nextIndex, index + 1]);
+        iMesh.faces.push(...[index + 1, nextIndex, nextIndex + 1]);
 
-        faces.push(...[baseGrid.length + index, baseGrid.length + index + 1, baseGrid.length + nextIndex]);
-        faces.push(...[baseGrid.length + index + 1, baseGrid.length + nextIndex + 1, baseGrid.length + nextIndex]);
+        iMesh.faces.push(...[baseGrid.length + index, baseGrid.length + index + 1, baseGrid.length + nextIndex]);
+        iMesh.faces.push(...[baseGrid.length + index + 1, baseGrid.length + nextIndex + 1, baseGrid.length + nextIndex]);
       } else {
-        faces.push(...[index, nextIndex + 1, index + 1]);
-        faces.push(...[index, nextIndex, nextIndex + 1]);
+        iMesh.faces.push(...[index, nextIndex + 1, index + 1]);
+        iMesh.faces.push(...[index, nextIndex, nextIndex + 1]);
 
-        faces.push(...[baseGrid.length + index, baseGrid.length + index + 1, baseGrid.length + nextIndex + 1]);
-        faces.push(...[baseGrid.length + index, baseGrid.length + nextIndex + 1, baseGrid.length + nextIndex]);
+        iMesh.faces.push(...[baseGrid.length + index, baseGrid.length + index + 1, baseGrid.length + nextIndex + 1]);
+        iMesh.faces.push(...[baseGrid.length + index, baseGrid.length + nextIndex + 1, baseGrid.length + nextIndex]);
       }
     }
   }
@@ -99,22 +112,22 @@ export const createMesh = (
     const topIndex = i + baseGrid.length;
 
     if (i % 2 === 0) {
-      faces.push(...[bottomIndex, bottomIndex + 1, topIndex]);
-      faces.push(...[bottomIndex + 1, topIndex + 1, topIndex]);
+      iMesh.faces.push(...[bottomIndex, bottomIndex + 1, topIndex]);
+      iMesh.faces.push(...[bottomIndex + 1, topIndex + 1, topIndex]);
     } else {
-      faces.push(...[bottomIndex, bottomIndex + 1, topIndex + 1]);
-      faces.push(...[bottomIndex, topIndex + 1, topIndex]);
+      iMesh.faces.push(...[bottomIndex, bottomIndex + 1, topIndex + 1]);
+      iMesh.faces.push(...[bottomIndex, topIndex + 1, topIndex]);
     }
 
     const endBottomIndex = topIndex - horizontalDivisions - 1;
     const endTopIndex = endBottomIndex + baseGrid.length;
 
     if ((i + horizontalDivisions) % 2 === 0) {
-      faces.push(...[endBottomIndex, endTopIndex, endBottomIndex + 1]);
-      faces.push(...[endBottomIndex + 1, endTopIndex, endTopIndex + 1]);
+      iMesh.faces.push(...[endBottomIndex, endTopIndex, endBottomIndex + 1]);
+      iMesh.faces.push(...[endBottomIndex + 1, endTopIndex, endTopIndex + 1]);
     } else {
-      faces.push(...[endBottomIndex, endTopIndex + 1, endBottomIndex + 1]);
-      faces.push(...[endBottomIndex, endTopIndex, endTopIndex + 1]);
+      iMesh.faces.push(...[endBottomIndex, endTopIndex + 1, endBottomIndex + 1]);
+      iMesh.faces.push(...[endBottomIndex, endTopIndex, endTopIndex + 1]);
     }
   }
 
@@ -123,36 +136,39 @@ export const createMesh = (
     const topIndex = bottomIndex + baseGrid.length;
 
     if (i % 2 === 0) {
-      faces.push(...[bottomIndex, topIndex, bottomIndex + verticalDivisions + 1]);
-      faces.push(...[bottomIndex + verticalDivisions + 1, topIndex, topIndex + verticalDivisions + 1]);
+      iMesh.faces.push(...[bottomIndex, topIndex, bottomIndex + verticalDivisions + 1]);
+      iMesh.faces.push(...[bottomIndex + verticalDivisions + 1, topIndex, topIndex + verticalDivisions + 1]);
     } else {
-      faces.push(...[bottomIndex, topIndex + verticalDivisions + 1, bottomIndex + verticalDivisions + 1]);
-      faces.push(...[bottomIndex, topIndex, topIndex + verticalDivisions + 1]);
+      iMesh.faces.push(...[bottomIndex, topIndex + verticalDivisions + 1, bottomIndex + verticalDivisions + 1]);
+      iMesh.faces.push(...[bottomIndex, topIndex, topIndex + verticalDivisions + 1]);
     }
 
     const endBottomIndex = bottomIndex + verticalDivisions;
     const endTopIndex = endBottomIndex + baseGrid.length;
 
     if ((i + verticalDivisions) % 2 === 0) {
-      faces.push(...[endBottomIndex, endBottomIndex + verticalDivisions + 1, endTopIndex]);
-      faces.push(...[endBottomIndex + verticalDivisions + 1, endTopIndex + verticalDivisions + 1, endTopIndex]);
+      iMesh.faces.push(...[endBottomIndex, endBottomIndex + verticalDivisions + 1, endTopIndex]);
+      iMesh.faces.push(...[endBottomIndex + verticalDivisions + 1, endTopIndex + verticalDivisions + 1, endTopIndex]);
     } else {
-      faces.push(...[endBottomIndex, endBottomIndex + verticalDivisions + 1, endTopIndex + verticalDivisions + 1]);
-      faces.push(...[endBottomIndex, endTopIndex + verticalDivisions + 1, endTopIndex]);
+      iMesh.faces.push(...[endBottomIndex, endBottomIndex + verticalDivisions + 1, endTopIndex + verticalDivisions + 1]);
+      iMesh.faces.push(...[endBottomIndex, endTopIndex + verticalDivisions + 1, endTopIndex]);
     }
   }
 
   // create a new mesh
-  const mesh = new Mesh('custom', scene);
-  const positions: FloatArray = [];
-  movedGrid.forEach((v, i) => v.toArray(positions, i * 3));
-  baseGrid.forEach((v, i) => v.toArray(positions, (movedGrid.length + i) * 3));
+  movedGrid.forEach((v, i) => v.toArray(iMesh.vertices, i * 3));
+  baseGrid.forEach((v, i) => v.toArray(iMesh.vertices, (movedGrid.length + i) * 3));
 
-  mesh.setVerticesData(VertexBuffer.PositionKind, positions);
-  mesh.setIndices(faces);
+  return iMesh;
+};
+
+export const addMeshToScene = (iMesh: ITriangularMesh, scene: Scene, geometrySettings: IGeometrySettings = defaultGeometrySettings) => {
+  const mesh = new Mesh('custom', scene);
+  mesh.setVerticesData(VertexBuffer.PositionKind, iMesh.vertices);
+  mesh.setIndices(iMesh.faces);
 
   const normals: FloatArray = [];
-  VertexData.ComputeNormals(positions, faces, normals);
+  VertexData.ComputeNormals(iMesh.vertices, iMesh.faces, normals);
   mesh.setVerticesData(VertexBuffer.NormalKind, normals);
 
   const material = new StandardMaterial('texture1', scene);
