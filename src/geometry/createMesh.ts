@@ -184,3 +184,24 @@ export const addMeshToScene = (iMesh: ITriangularMesh, scene: Scene, geometrySet
 
   mesh.material = material;
 };
+
+export const makeMeshTiltOnSide = (mesh: ITriangularMesh, geometrySettings: IGeometrySettings) => {
+  const angle = Math.atan(geometrySettings.inset / geometrySettings.height);
+
+  const s = Math.sin(angle);
+  const c = Math.cos(angle);
+
+  const vertices: number[] = [];
+  for (let i = 0; i < mesh.vertices.length / 3; i++) {
+    const x = mesh.vertices[i * 3];
+    const y = mesh.vertices[i * 3 + 1];
+    const z = mesh.vertices[i * 3 + 2];
+
+    vertices.push(...[x, y * c - z * s, y * s + z * c]);
+  }
+
+  return {
+    ...mesh,
+    vertices,
+  };
+};
