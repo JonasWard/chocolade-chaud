@@ -2,10 +2,11 @@ import React from 'react';
 import './App.css';
 import { ArcRotateCamera, HemisphericLight, Scene, Vector3 } from '@babylonjs/core';
 import BabylonScene from './babylon/BabylonScene';
-import { IGeometrySettings, createMesh, defaultGeometrySettings } from './geometry/createMesh';
+import { IGeometrySettings, defaultGeometrySettings } from './geometry/createMesh';
 import { MethodDrawer } from './Components/MethodDrawer';
 import { IDistanceData, defaultDistanceData } from './geometry/sdMethods';
 import { GeometryDrawer } from './Components/GeometryDrawer';
+import { Export } from './Components/Export';
 
 let box: any;
 
@@ -62,6 +63,7 @@ function App() {
           geometrySettings={geometrySettings}
         />
       </header>
+      <Export sdfSettings={sdfSettings} geometrySettings={geometrySettings} />
       <MethodDrawer sdfSettings={sdfSettings} setSdfSettings={setSdfSettings} />
       <GeometryDrawer geometrySettings={geometrySettings} setGeometrySettings={setGeometrySettings} />
     </div>
