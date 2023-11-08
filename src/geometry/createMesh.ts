@@ -1,5 +1,5 @@
 import { Color3, FloatArray, Mesh, Scene, StandardMaterial, Vector3, VertexBuffer, VertexData } from '@babylonjs/core';
-import { DistanceMethodParser, IDistanceData } from './sdMethods';
+import { DistanceMethodParser, IDistanceData, defaultDistanceData } from './sdMethods';
 
 export interface IVector {
   x: number;
@@ -49,7 +49,10 @@ export const createMesh = (
   addMeshToScene(iMesh, scene, geometrySettings);
 };
 
-export const createIMesh = (geometrySettings: IGeometrySettings = defaultGeometrySettings, sdfSettings: IDistanceData): ITriangularMesh => {
+export const createIMesh = (
+  geometrySettings: IGeometrySettings = defaultGeometrySettings,
+  sdfSettings: IDistanceData = defaultDistanceData
+): ITriangularMesh => {
   // set the geometry settings
   const { innerWidth, innerLength, height, inset, amplitude } = geometrySettings;
   const baseVector: IVector = geometrySettings.basePosition ?? { x: 0, y: 0, z: 0 };
