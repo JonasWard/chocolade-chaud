@@ -1,5 +1,5 @@
 import { Button } from 'antd';
-import { IGeometrySettings, createIMesh } from '../geometry/createMesh';
+import { IGeometrySettings, createIMesh, makeMeshTiltOnSide } from '../geometry/createMesh';
 import { exportOBJ, exportSTL } from '../geometry/exportGeometry';
 import { IDistanceData } from '../geometry/sdMethods';
 import React from 'react';
@@ -8,7 +8,8 @@ import './export.css';
 export const Export: React.FC<{ geometrySettings: IGeometrySettings; sdfSettings: IDistanceData }> = ({ geometrySettings, sdfSettings }) => {
   const createSTL = () => {
     const iMesh = createIMesh(geometrySettings, sdfSettings);
-    exportSTL(iMesh);
+    const tiltedMesh = makeMeshTiltOnSide(iMesh, geometrySettings);
+    exportSTL(tiltedMesh);
   };
 
   const createObj = () => {
