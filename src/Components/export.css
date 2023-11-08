@@ -1,0 +1,11 @@
+.export-stl {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+}
+
+.export-obj {
+  position: absolute;
+  left: 125px;
+  bottom: 10px;
+}
