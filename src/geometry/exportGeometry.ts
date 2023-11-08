@@ -39,12 +39,11 @@ export const exportOBJ = (mesh: ITriangularMesh, fileName = 'chocolade-chaud') =
 
 export const exportSTL = (mesh: ITriangularMesh, fileName = 'chocolade-chaud') => {
   // get an index and face list fron the object, geometry is just fine, all faces are triangles
+
   const vertexStrings: string[] = [];
 
   for (let i = 0; i < mesh.faces.length; i += 3) {
     const f = mesh.faces.slice(i, i + 3);
-
-    console.log(f);
     if (f.length === 3) {
       const v0 = new Vector3(mesh.vertices[f[0] * 3], mesh.vertices[f[0] * 3 + 1], mesh.vertices[f[0] * 3 + 2]);
       const v1 = new Vector3(mesh.vertices[f[1] * 3], mesh.vertices[f[1] * 3 + 1], mesh.vertices[f[1] * 3 + 2]);
