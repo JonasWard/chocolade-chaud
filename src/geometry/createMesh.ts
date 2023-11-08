@@ -10,6 +10,7 @@ export interface IVector {
 export interface ITriangularMesh {
   vertices: number[];
   faces: number[];
+  normals: number[];
 }
 
 export interface IGeometrySettings {
@@ -81,6 +82,7 @@ export const createIMesh = (geometrySettings: IGeometrySettings = defaultGeometr
   const iMesh: ITriangularMesh = {
     vertices: [],
     faces: [],
+    normals: [],
   };
 
   // create the faces
@@ -159,6 +161,9 @@ export const createIMesh = (geometrySettings: IGeometrySettings = defaultGeometr
   movedGrid.forEach((v, i) => v.toArray(iMesh.vertices, i * 3));
   baseGrid.forEach((v, i) => v.toArray(iMesh.vertices, (movedGrid.length + i) * 3));
 
+  // compute the normals
+  VertexData.ComputeNormals(iMesh.vertices, iMesh.faces, iMesh.normals);
+
   return iMesh;
 };
 
@@ -166,10 +171,7 @@ export const addMeshToScene = (iMesh: ITriangularMesh, scene: Scene, geometrySet
   const mesh = new Mesh('custom', scene);
   mesh.setVerticesData(VertexBuffer.PositionKind, iMesh.vertices);
   mesh.setIndices(iMesh.faces);
-
-  const normals: FloatArray = [];
-  VertexData.ComputeNormals(iMesh.vertices, iMesh.faces, normals);
-  mesh.setVerticesData(VertexBuffer.NormalKind, normals);
+  mesh.setVerticesData(VertexBuffer.NormalKind, iMesh.normals);
 
   const material = new StandardMaterial('texture1', scene);
 
