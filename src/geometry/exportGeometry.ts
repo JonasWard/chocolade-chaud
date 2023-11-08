@@ -51,13 +51,13 @@ export const exportSTL = (mesh: ITriangularMesh, fileName = 'chocolade-chaud') =
 
       const normal = v1.subtract(v0).cross(v2.subtract(v0)).normalize();
 
-      const n = [normal.x, normal.y, normal.z].map((n) => (n < 0.0001 ? '0.000' : n.toPrecision(3)));
+      const n = [normal.x, normal.y, normal.z].map((n) => (n < 0.0001 ? '0.000' : n.toPrecision(5)));
       vertexStrings.push(
         `facet normal ${n[0]} ${n[1]} ${n[2]}
 outer loop
-vertex ${v0.x.toPrecision(3)} ${v0.y.toPrecision(3)} ${v0.z.toPrecision(3)}
-vertex ${v1.x.toPrecision(3)} ${v1.y.toPrecision(3)} ${v1.z.toPrecision(3)}
-vertex ${v2.x.toPrecision(3)} ${v2.y.toPrecision(3)} ${v2.z.toPrecision(3)}
+vertex ${v0.x.toPrecision(5)} ${v0.y.toPrecision(5)} ${v0.z.toPrecision(5)}
+vertex ${v1.x.toPrecision(5)} ${v1.y.toPrecision(5)} ${v1.z.toPrecision(5)}
+vertex ${v2.x.toPrecision(5)} ${v2.y.toPrecision(5)} ${v2.z.toPrecision(5)}
 endloop
 endfacet`
       );
