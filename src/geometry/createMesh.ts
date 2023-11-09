@@ -1,4 +1,15 @@
-import { Color3, Mesh, Scene, StandardMaterial, Vector3, VertexBuffer, VertexData } from '@babylonjs/core';
+import {
+  Color3,
+  Mesh,
+  PBRBaseMaterial,
+  PBRMaterial,
+  PBRMetallicRoughnessMaterial,
+  Scene,
+  StandardMaterial,
+  Vector3,
+  VertexBuffer,
+  VertexData,
+} from '@babylonjs/core';
 import { DistanceMethodParser, IDistanceData, defaultDistanceData } from './sdMethods';
 
 export interface IVector {
