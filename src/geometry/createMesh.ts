@@ -176,11 +176,12 @@ export const addMeshToScene = (iMesh: ITriangularMesh, scene: Scene, geometrySet
   mesh.setIndices(iMesh.faces);
   mesh.setVerticesData(VertexBuffer.NormalKind, iMesh.normals);
 
-  const material = new StandardMaterial('texture1', scene);
+  const material = new PBRMetallicRoughnessMaterial('texture1', scene);
 
   mesh.getBoundingInfo();
   material.wireframe = !!geometrySettings.displayWireframe;
-  material.diffuseColor = Color3.FromHexString(geometrySettings.color ?? '#9A4C0D');
+  material.baseColor = Color3.FromHexString(geometrySettings.color ?? '#9A4C0D');
+  material.roughness = 0.7;
 
   mesh.material = material;
 };
