@@ -135,7 +135,7 @@ export const createIMesh = (
       iMesh.faces.push(...[bottomIndex, topIndex + 1, topIndex]);
     }
 
-    const endBottomIndex = topIndex - horizontalDivisions - 1;
+    const endBottomIndex = topIndex - verticalDivisions - 1;
     const endTopIndex = endBottomIndex + baseGrid.length;
 
     if ((i + horizontalDivisions) % 2 === 0) {
