@@ -194,11 +194,10 @@ export const makeMeshTiltOnSide = (mesh: ITriangularMesh, geometrySettings: IGeo
 
   const vertices: number[] = [];
   for (let i = 0; i < mesh.vertices.length / 3; i++) {
-    const x = mesh.vertices[i * 3];
     const y = mesh.vertices[i * 3 + 1];
     const z = mesh.vertices[i * 3 + 2];
 
-    vertices.push(...[x, y * c - z * s, y * s + z * c]);
+    vertices.push(mesh.vertices[i * 3], y * c - z * s, y * s + z * c);
   }
 
   return {
