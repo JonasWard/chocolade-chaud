@@ -1,6 +1,6 @@
 import React from 'react';
 import './App.css';
-import { ArcRotateCamera, HemisphericLight, Scene, Vector3 } from '@babylonjs/core';
+import { ArcRotateCamera, Color4, HemisphericLight, Scene, Vector3 } from '@babylonjs/core';
 import BabylonScene from './babylon/BabylonScene';
 import { IGeometrySettings, defaultGeometrySettings } from './geometry/createMesh';
 import { MethodDrawer } from './Components/MethodDrawer';
@@ -12,6 +12,7 @@ let box: any;
 
 const onSceneReady = (scene: Scene) => {
   // This creates and positions a free camera (non-mesh)
+  scene.clearColor = new Color4(1, 1, 1, 1);
   const camera = new ArcRotateCamera('camera1', 0.71, 0.71, 100, new Vector3(0, 0, 0), scene);
 
   // This targets the camera to scene origin
