@@ -35,7 +35,7 @@ export const defaultGeometrySettings: IGeometrySettings = {
   horizontalDivisions: 500,
   verticalDivisions: 500,
   basePosition: { x: -25, y: 0, z: -25 },
-  color: '#9A4C0D',
+  color: '#A73A08',
 };
 
 export const createMesh = (
