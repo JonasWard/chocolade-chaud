@@ -24,13 +24,13 @@ const onSceneReady = (scene: Scene) => {
   camera.attachControl(canvas, false);
 
   // This creates a light, aiming 0,1,0 - to the sky (non-mesh)
-  const light = new HemisphericLight('light', new Vector3(0, 1, 0), scene);
+  const light = new HemisphericLight('light', new Vector3(0, 1, 1), scene);
 
-  const bottomLight = new HemisphericLight('underground', new Vector3(0, 1, 0), scene);
+  const bottomLight = new HemisphericLight('underground', new Vector3(0, -1, -1), scene);
 
   // Default intensity is 1. Let's dim the light a small amount
   light.intensity = 0.7;
-  bottomLight.intensity = 0.3;
+  bottomLight.intensity = 0.25;
 };
 
 /**
