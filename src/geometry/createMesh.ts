@@ -1,6 +1,11 @@
 import { Color3, Mesh, PBRMetallicRoughnessMaterial, Scene, Vector3, VertexBuffer, VertexData } from '@babylonjs/core';
 import { DistanceMethodParser, IDistanceData, defaultDistanceData } from './sdMethods';
 
+const SPACING_LENGTH = 8.0;
+const START_LENGTH = 2.5;
+const GRADIENT = 1;
+const INSET = 2.2;
+
 export interface IVector {
   x: number;
   y: number;
@@ -79,8 +84,57 @@ export const createIMesh = (
 
   const sdf = DistanceMethodParser(sdfSettings);
 
-  const baseGrid = grid.map((v, i) => v.subtract(directionGrid[i]));
   const movedGrid = grid.map((v, i) => v.add(directionGrid[i].scale((sdf(v) * amplitude) / height)));
+  const baseGrid = grid.map((v, i) => v.subtract(directionGrid[i]));
+
+  // moving around the back for improved back support
+  // first of all, only add backsupport if the back resolution is higher than 1/4 of the spacing
+  const horizontalDivisionsResolution = Math.floor(SPACING_LENGTH / gridWidth);
+
+  if (gridWidth < SPACING_LENGTH / 4) {
+    // helper method that returns the maximum height for a given location
+    const maxHMethod = (j: number): number => {
+      const l = gridLength * j;
+      return Math.max(0, (defaultGeometrySettings.innerLength / 2 - Math.abs(l - defaultGeometrySettings.innerLength / 2) - START_LENGTH) * GRADIENT);
+    };
+
+    const scales: number[] = [];
+
+    if (gridWidth < SPACING_LENGTH / 10) {
+      for (let i = horizontalDivisionsResolution; i < horizontalDivisions - horizontalDivisionsResolution; i += horizontalDivisionsResolution) {
+        for (let j = 1; j < verticalDivisions; j++) {
+          const indexA = i * (verticalDivisions + 1) + j;
+          const indexB = (i + 1) * (verticalDivisions + 1) + j;
+
+          [indexA, indexB].forEach((index) => {
+            const d = movedGrid[index].subtract(baseGrid[index]);
+            const dL = d.length();
+            const maxH = maxHMethod(j);
+            const h = Math.min(maxH, dL - INSET);
+            const dSc = d.scale(h / dL);
+
+            scales.push(h / dL);
+
+            baseGrid[index] = baseGrid[index].add(dSc);
+          });
+        }
+      }
+    } else {
+      for (let i = 0; i < horizontalDivisions; i++) {
+        for (let j = 0; j < verticalDivisions; j++) {
+          const index = i * (verticalDivisions + 1) + j;
+
+          const d = movedGrid[index].subtract(baseGrid[index]);
+          const dL = d.length();
+          const maxH = maxHMethod(j);
+          const h = Math.min(maxH, dL - INSET);
+          const dSc = d.scale(h / dL);
+
+          baseGrid[index] = baseGrid[index].add(dSc);
+        }
+      }
+    }
+  }
 
   const iMesh: ITriangularMesh = {
     vertices: [],
