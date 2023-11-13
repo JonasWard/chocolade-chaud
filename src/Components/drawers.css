@@ -9,3 +9,9 @@
   right: 10px;
   top: 10px;
 }
+
+.drawer-button-right-grid {
+  position: fixed;
+  right: 10px;
+  top: 50px;
+}
