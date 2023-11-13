@@ -7,6 +7,8 @@ import { MethodDrawer } from './Components/MethodDrawer';
 import { IDistanceData, defaultDistanceData } from './geometry/sdMethods';
 import { GeometryDrawer } from './Components/GeometryDrawer';
 import { Export } from './Components/Export';
+import { DefaultGridSettings, GridType, IGridSettings } from './geometry/grid';
+import { GridGeometryDrawer } from './Components/GridGeometryDrawer';
 
 let box: any;
 
@@ -48,6 +50,7 @@ const onRender = (scene: Scene) => {
 function App() {
   const [sdfSettings, setSdfSettings] = React.useState<IDistanceData>(defaultDistanceData);
   const [geometrySettings, setGeometrySettings] = React.useState<IGeometrySettings>(defaultGeometrySettings);
+  const [gridSettings, setGridSettings] = React.useState<IGridSettings>(DefaultGridSettings(GridType.Single));
 
   return (
     <div className='App'>
@@ -62,11 +65,13 @@ function App() {
           sceneOptions={undefined}
           sdfSettings={sdfSettings}
           geometrySettings={geometrySettings}
+          gridSettings={gridSettings}
         />
       </header>
       <Export sdfSettings={sdfSettings} geometrySettings={geometrySettings} />
       <MethodDrawer sdfSettings={sdfSettings} setSdfSettings={setSdfSettings} />
       <GeometryDrawer geometrySettings={geometrySettings} setGeometrySettings={setGeometrySettings} />
+      <GridGeometryDrawer gridSettings={gridSettings} setGridSettings={setGridSettings} />
     </div>
   );
 }
