@@ -7,7 +7,7 @@ import './export.css';
 
 export const Export: React.FC<{ geometrySettings: IGeometrySettings; sdfSettings: IDistanceData }> = ({ geometrySettings, sdfSettings }) => {
   const createSTL = () => {
-    const iMesh = createIMesh(geometrySettings, sdfSettings);
+    const iMesh = createIMesh(geometrySettings, sdfSettings, true); // mesh with internal support structure
     const tiltedMesh = makeMeshTiltOnSide(iMesh, geometrySettings);
     exportSTL(tiltedMesh);
   };
