@@ -1,5 +1,6 @@
 import { Color3, Mesh, PBRMetallicRoughnessMaterial, Scene, Vector3, VertexBuffer, VertexData } from '@babylonjs/core';
 import { DistanceMethodParser, IDistanceData, defaultDistanceData } from './sdMethods';
+import { GridParser, IGridSettings } from './grid';
 
 const SPACING_LENGTH = 8.0;
 const START_LENGTH = 2.5;
@@ -44,6 +45,11 @@ export const defaultGeometrySettings: IGeometrySettings = {
   basePosition: { x: -25, y: 0, z: -25 },
   color: DEFAULT_COLOR,
 };
+
+export const createMeshForGrid = (scene: Scene, grid: IGridSettings, cleanScene: boolean = true) => {
+  if (cleanScene) scene.meshes.forEach((m) => m.dispose());
+  const meshes = GridParser(grid);
+  meshes.map((m) => addMeshToScene(m, scene));
 };
 
 export const createMesh = (
