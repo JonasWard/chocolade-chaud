@@ -4,7 +4,9 @@ import { DistanceMethodParser, IDistanceData, defaultDistanceData } from './sdMe
 const SPACING_LENGTH = 8.0;
 const START_LENGTH = 2.5;
 const GRADIENT = 1;
-const INSET = 2.2;
+const INSET = 2.6;
+
+export const DEFAULT_COLOR = '#A73A08';
 
 export interface IVector {
   x: number;
@@ -40,7 +42,8 @@ export const defaultGeometrySettings: IGeometrySettings = {
   horizontalDivisions: 500,
   verticalDivisions: 500,
   basePosition: { x: -25, y: 0, z: -25 },
-  color: '#A73A08',
+  color: DEFAULT_COLOR,
+};
 };
 
 export const createMesh = (
