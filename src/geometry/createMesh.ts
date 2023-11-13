@@ -56,7 +56,8 @@ export const createMesh = (
 
 export const createIMesh = (
   geometrySettings: IGeometrySettings = defaultGeometrySettings,
-  sdfSettings: IDistanceData = defaultDistanceData
+  sdfSettings: IDistanceData = defaultDistanceData,
+  withSupports: boolean = false
 ): ITriangularMesh => {
   // set the geometry settings
   const { innerWidth, innerLength, height, inset, amplitude } = geometrySettings;
@@ -91,7 +92,7 @@ export const createIMesh = (
   // first of all, only add backsupport if the back resolution is higher than 1/4 of the spacing
   const horizontalDivisionsResolution = Math.floor(SPACING_LENGTH / gridWidth);
 
-  if (gridWidth < SPACING_LENGTH / 4) {
+  if (withSupports && gridWidth < SPACING_LENGTH / 4) {
     // helper method that returns the maximum height for a given location
     const maxHMethod = (j: number): number => {
       const l = gridLength * j;
