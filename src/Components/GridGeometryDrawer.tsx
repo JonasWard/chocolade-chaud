@@ -4,6 +4,7 @@ import './drawers.css';
 import Dropdown from 'antd/es/dropdown/dropdown';
 import { DefaultGridSettings, GridType, IGridSettings, MAX_DIV_PER_MM, MAX_UV_COUNT } from '../geometry/grid';
 import { DEFAULT_COLOR } from '../geometry/createMesh';
+import { MethodDrawer } from './MethodDrawer';
 
 export const GridGeometryDrawer: React.FC<{ gridSettings: IGridSettings; setGridSettings: (g: IGridSettings) => void }> = ({
   gridSettings,
@@ -67,11 +68,19 @@ export const GridGeometryDrawer: React.FC<{ gridSettings: IGridSettings; setGrid
                 min={0.25}
                 max={MAX_DIV_PER_MM}
                 onChange={(v) => v && setGridSettings({ ...gridSettings, divPerMM: v })}
+                onStep={(v) => v && setGridSettings({ ...gridSettings, divPerMM: v })}
                 value={gridSettings.divPerMM}
               />
             </Form.Item>
             <Form.Item label={'Show Wireframe'}>
               <Switch onChange={(v) => setGridSettings({ ...gridSettings, displayWireframe: v })} checked={!!gridSettings.displayWireframe} />
+            </Form.Item>
+            <Form.Item label={'Edit Pattern'}>
+              <MethodDrawer
+                activation={'method'}
+                sdfSettings={gridSettings.sdfSetting}
+                setSdfSettings={(sdfSetting) => setGridSettings({ ...gridSettings, sdfSetting })}
+              />
             </Form.Item>
           </Form>
         );
@@ -140,11 +149,19 @@ export const GridGeometryDrawer: React.FC<{ gridSettings: IGridSettings; setGrid
                 min={0.25}
                 max={MAX_DIV_PER_MM}
                 onChange={(v) => v && setGridSettings({ ...gridSettings, divPerMM: v })}
+                onStep={(v) => v && setGridSettings({ ...gridSettings, divPerMM: v })}
                 value={gridSettings.divPerMM}
               />
             </Form.Item>
             <Form.Item label={'Show Wireframe'}>
               <Switch onChange={(v) => setGridSettings({ ...gridSettings, displayWireframe: v })} checked={!!gridSettings.displayWireframe} />
+            </Form.Item>
+            <Form.Item label={'Edit Pattern'}>
+              <MethodDrawer
+                activation={'method'}
+                sdfSettings={gridSettings.sdfSetting}
+                setSdfSettings={(sdfSetting) => setGridSettings({ ...gridSettings, sdfSetting })}
+              />
             </Form.Item>
           </Form>
         );
@@ -160,7 +177,7 @@ export const GridGeometryDrawer: React.FC<{ gridSettings: IGridSettings; setGrid
           grid
         </Button>
       )}
-      <Drawer title='SdfSettings' placement='right' closable={true} onClose={() => setShowDrawer(false)} open={showDrawer}>
+      <Drawer title='Grid Settings' placement='right' closable={true} onClose={() => setShowDrawer(false)} open={showDrawer}>
         <Dropdown className='method' menu={{ ...menu, selectedKeys: [localGridSettings.type] }} trigger={['click']}>
           <Button onClick={(e) => e.preventDefault()}>
             <Space>{localGridSettings.type}</Space>
