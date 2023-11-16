@@ -4,7 +4,11 @@ import { DistanceMethodType, IDistanceData, IMethodEntry, defaultDistanceData } 
 import { ChocolateLogarithmicSlider } from './ChocolateLogarithmicSlider';
 import './drawers.css';
 
-export const MethodDrawer: React.FC<{ sdfSettings: IDistanceData; setSdfSettings: (ss: IDistanceData) => void }> = ({ sdfSettings, setSdfSettings }) => {
+export const MethodDrawer: React.FC<{ activation?: string; sdfSettings: IDistanceData; setSdfSettings: (ss: IDistanceData) => void }> = ({
+  activation = 'sdf',
+  sdfSettings,
+  setSdfSettings,
+}) => {
   const [showDrawer, setShowDrawer] = React.useState(false);
 
   const [entries, setEntries] = React.useState<IMethodEntry[]>(defaultDistanceData.methods);
@@ -23,11 +27,7 @@ export const MethodDrawer: React.FC<{ sdfSettings: IDistanceData; setSdfSettings
 
   return (
     <>
-      {showDrawer ? null : (
-        <Button className='drawer-button-left' onClick={() => setShowDrawer(!showDrawer)}>
-          sdf
-        </Button>
-      )}
+      {showDrawer ? null : <Button onClick={() => setShowDrawer(!showDrawer)}>{activation}</Button>}
       <Drawer title='SdfSettings' placement='left' closable={true} onClose={() => setShowDrawer(false)} open={showDrawer}>
         {entries.map((entry, i) => (
           <ChocolateLogarithmicSlider key={i} min={-5} max={5} entry={entry} setEntry={(v: IMethodEntry) => updateEntries(i, v)} />
