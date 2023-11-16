@@ -47,7 +47,11 @@ export const defaultGeometrySettings: IGeometrySettings = {
 };
 
 export const createMeshForGrid = (scene: Scene, grid: IGridSettings, cleanScene: boolean = true) => {
-  if (cleanScene) scene.meshes.forEach((m) => m.dispose());
+  if (cleanScene)
+    while (scene.meshes.length) {
+      const mesh = scene.meshes[0];
+      mesh.dispose();
+    }
   const meshes = GridParser(grid);
   meshes.map((m, i) => addMeshToScene(m, scene, undefined, `mesh-${i}`));
 };
