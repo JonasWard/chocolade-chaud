@@ -69,7 +69,6 @@ function App() {
         />
       </header>
       <Export sdfSettings={sdfSettings} geometrySettings={geometrySettings} />
-      <MethodDrawer sdfSettings={sdfSettings} setSdfSettings={setSdfSettings} />
       <GeometryDrawer geometrySettings={geometrySettings} setGeometrySettings={setGeometrySettings} />
       <GridGeometryDrawer gridSettings={gridSettings} setGridSettings={setGridSettings} />
     </div>
