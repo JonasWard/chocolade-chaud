@@ -49,7 +49,7 @@ export const defaultGeometrySettings: IGeometrySettings = {
 export const createMeshForGrid = (scene: Scene, grid: IGridSettings, cleanScene: boolean = true) => {
   if (cleanScene) scene.meshes.forEach((m) => m.dispose());
   const meshes = GridParser(grid);
-  meshes.map((m) => addMeshToScene(m, scene));
+  meshes.map((m, i) => addMeshToScene(m, scene, undefined, `mesh-${i}`));
 };
 
 export const createMesh = (
@@ -234,8 +234,13 @@ export const createIMesh = (
   return iMesh;
 };
 
-export const addMeshToScene = (iMesh: ITriangularMesh, scene: Scene, geometrySettings: IGeometrySettings = defaultGeometrySettings) => {
-  const mesh = new Mesh('custom', scene);
+export const addMeshToScene = (
+  iMesh: ITriangularMesh,
+  scene: Scene,
+  geometrySettings: IGeometrySettings = defaultGeometrySettings,
+  name: string = 'custom'
+) => {
+  const mesh = new Mesh(name, scene);
   mesh.setVerticesData(VertexBuffer.PositionKind, iMesh.vertices);
   mesh.setIndices(iMesh.faces);
   mesh.setVerticesData(VertexBuffer.NormalKind, iMesh.normals);
