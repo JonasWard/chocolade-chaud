@@ -74,7 +74,7 @@ const parsingBasicGridData = <T extends BaseGrid>(grid: T): T => ({
   ...grid,
   uCount: Math.max(Math.min(Math.round(grid.uCount), MAX_UV_COUNT), 1),
   vCount: Math.max(Math.min(Math.round(grid.vCount), MAX_UV_COUNT), 1),
-  divPerMM: Math.max(grid.divPerMM, MAX_DIV_PER_MM),
+  divPerMM: Math.min(grid.divPerMM, MAX_DIV_PER_MM),
 });
 
 const SingleGridParser = (grid: ISingleGrid): ITriangularMesh[] => {
@@ -84,8 +84,9 @@ const SingleGridParser = (grid: ISingleGrid): ITriangularMesh[] => {
       innerWidth: grid.cellWidth,
       innerLength: grid.cellLength,
       basePosition: { x: 0, y: 0, z: 0 },
-      horizontalDivisions: 1,
-      verticalDivisions: 1,
+      horizontalDivisions: Math.min(Math.round(grid.cellWidth * grid.divPerMM), MAX_DIVS_ONE_SIDE),
+      verticalDivisions: Math.min(Math.round(grid.cellLength * grid.divPerMM), MAX_DIVS_ONE_SIDE),
+      displayWireframe: grid.displayWireframe,
     },
     sdfSettings: grid.sdfSetting,
     withSupports: false,
@@ -103,8 +104,8 @@ const SimpleGridParser = (grid: ISimpleGrid): ITriangularMesh[] => {
   const uLength = (uCount - 1) * (spacing - 2 * inset) + uCount * cellWidth;
   const vLength = (vCount - 1) * (spacing - 2 * inset) + vCount * cellLength;
 
-  const uDivisions = Math.min(Math.round(uCount * divPerMM), MAX_DIVS_ONE_SIDE);
-  const vDivisions = Math.min(Math.round(vCount * divPerMM), MAX_DIVS_ONE_SIDE);
+  const uDivisions = Math.min(Math.round(cellWidth * divPerMM), MAX_DIVS_ONE_SIDE);
+  const vDivisions = Math.min(Math.round(cellLength * divPerMM), MAX_DIVS_ONE_SIDE);
 
   let x0 = -uLength / 2;
   let z0 = -vLength / 2;
@@ -117,10 +118,11 @@ const SimpleGridParser = (grid: ISimpleGrid): ITriangularMesh[] => {
         height,
         inset,
         amplitude,
-        basePosition: { x: x0 + i * (cellWidth + spacing), y: 0, z: z0 + j * (cellLength + spacing) },
+        basePosition: { x: x0 + i * (cellWidth + spacing - 2 * inset), y: 0, z: z0 + j * (cellLength + spacing - 2 * inset) },
         horizontalDivisions: uDivisions,
         verticalDivisions: vDivisions,
         color: grid.colors[0],
+        displayWireframe: grid.displayWireframe,
       };
 
       cellData.push({
@@ -166,8 +168,9 @@ export const DefaultGridSettings = (gridType: GridType): IGridSettings => {
         vCount: 1,
         cellLength: 50,
         cellWidth: 50,
+        sdfSetting: defaultDistanceData,
         color: DEFAULT_COLOR,
-      } as ISingleGrid;
+      };
     case GridType.Simple:
       return {
         ...grid,
@@ -176,7 +179,7 @@ export const DefaultGridSettings = (gridType: GridType): IGridSettings => {
         cellWidth: 50,
         sdfSetting: defaultDistanceData,
         colors: [DEFAULT_COLOR],
-      } as ISimpleGrid;
+      };
 
     case GridType.IndividuallyCustomizable:
       return {
@@ -187,7 +190,7 @@ export const DefaultGridSettings = (gridType: GridType): IGridSettings => {
         sdfSettings: [defaultDistanceData],
         colors: [DEFAULT_COLOR],
         sdfMap: [0, 0, 0, 0],
-      } as IIndividuallyCustomizableGrid;
+      };
     case GridType.Groupable:
       return {
         ...grid,
@@ -203,7 +206,7 @@ export const DefaultGridSettings = (gridType: GridType): IGridSettings => {
         sdfSettings: [defaultDistanceData],
         colors: [DEFAULT_COLOR],
         sdfMap: [0, 0],
-      } as IGroupableGrid;
+      };
   }
 };
 
