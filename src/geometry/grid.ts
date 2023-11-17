@@ -57,7 +57,7 @@ export type IGroupableGrid = BaseGrid & {
 };
 
 export type IGridSettings = ISingleGrid | ISimpleGrid | IIndividuallyCustomizableGrid | IGroupableGrid;
-type CellData = {
+export type CellData = {
   geometrySettings: IGeometrySettings;
   sdfSettings: IDistanceData;
   withSupports: boolean;
@@ -77,8 +77,8 @@ const parsingBasicGridData = <T extends BaseGrid>(grid: T): T => ({
   divPerMM: Math.min(grid.divPerMM, MAX_DIV_PER_MM),
 });
 
-const SingleGridParser = (grid: ISingleGrid): ITriangularMesh[] => {
-  const cellData: CellData = {
+const SingleGridParser = (grid: ISingleGrid, cellData: CellData[], withSupports: boolean = false): ITriangularMesh[] => {
+  cellData.push({
     geometrySettings: {
       ...grid,
       innerWidth: grid.cellWidth,
@@ -89,15 +89,13 @@ const SingleGridParser = (grid: ISingleGrid): ITriangularMesh[] => {
       displayWireframe: grid.displayWireframe,
     },
     sdfSettings: grid.sdfSetting,
-    withSupports: false,
-  };
+    withSupports,
+  });
 
-  return [applyGridData(cellData)];
+  return cellData.map((c) => applyGridData(c));
 };
 
-const SimpleGridParser = (grid: ISimpleGrid): ITriangularMesh[] => {
-  const cellData: CellData[] = [];
-
+const SimpleGridParser = (grid: ISimpleGrid, cellData: CellData[], withSupports: boolean = false): ITriangularMesh[] => {
   // loading in variables
   const { uCount, vCount, divPerMM, height, inset, spacing, amplitude, cellLength, cellWidth, sdfSetting } = parsingBasicGridData(grid);
 
@@ -128,7 +126,7 @@ const SimpleGridParser = (grid: ISimpleGrid): ITriangularMesh[] => {
       cellData.push({
         geometrySettings,
         sdfSettings: sdfSetting,
-        withSupports: false,
+        withSupports,
       });
     }
   }
@@ -136,15 +134,11 @@ const SimpleGridParser = (grid: ISimpleGrid): ITriangularMesh[] => {
   return cellData.map(applyGridData);
 };
 
-const IndividuallyCustomizableGridParser = (grid: IIndividuallyCustomizableGrid): ITriangularMesh[] => {
-  const cellData: CellData[] = [];
-
+const IndividuallyCustomizableGridParser = (grid: IIndividuallyCustomizableGrid, cellData: CellData[], withSupports: boolean = false): ITriangularMesh[] => {
   return cellData.map(applyGridData);
 };
 
-const GroupableGridParser = (grid: IGroupableGrid): ITriangularMesh[] => {
-  const cellData: CellData[] = [];
-
+const GroupableGridParser = (grid: IGroupableGrid, cellData: CellData[], withSupports: boolean = false): ITriangularMesh[] => {
   return cellData.map(applyGridData);
 };
 
@@ -210,15 +204,15 @@ export const DefaultGridSettings = (gridType: GridType): IGridSettings => {
   }
 };
 
-export const GridParser = (grid: IGridSettings): ITriangularMesh[] => {
+export const GridParser = (grid: IGridSettings, cellDate: CellData[] = [], withSupports = false): ITriangularMesh[] => {
   switch (grid.type) {
     case GridType.Single:
-      return SingleGridParser(grid);
+      return SingleGridParser(grid, cellDate, withSupports);
     case GridType.Simple:
-      return SimpleGridParser(grid);
+      return SimpleGridParser(grid, cellDate, withSupports);
     case GridType.IndividuallyCustomizable:
-      return IndividuallyCustomizableGridParser(grid);
+      return IndividuallyCustomizableGridParser(grid, cellDate, withSupports);
     case GridType.Groupable:
-      return GroupableGridParser(grid);
+      return GroupableGridParser(grid, cellDate, withSupports);
   }
 };
