@@ -3,8 +3,6 @@ import './App.css';
 import { ArcRotateCamera, Color4, HemisphericLight, Scene, Vector3 } from '@babylonjs/core';
 import BabylonScene from './babylon/BabylonScene';
 import { IGeometrySettings, defaultGeometrySettings } from './geometry/createMesh';
-import { MethodDrawer } from './Components/MethodDrawer';
-import { IDistanceData, defaultDistanceData } from './geometry/sdMethods';
 import { GeometryDrawer } from './Components/GeometryDrawer';
 import { Export } from './Components/Export';
 import { DefaultGridSettings, GridType, IGridSettings } from './geometry/grid';
@@ -48,7 +46,6 @@ const onRender = (scene: Scene) => {
 };
 
 function App() {
-  const [sdfSettings, setSdfSettings] = React.useState<IDistanceData>(defaultDistanceData);
   const [geometrySettings, setGeometrySettings] = React.useState<IGeometrySettings>(defaultGeometrySettings);
   const [gridSettings, setGridSettings] = React.useState<IGridSettings>(DefaultGridSettings(GridType.Single));
 
@@ -63,12 +60,10 @@ function App() {
           engineOptions={undefined}
           adaptToDeviceRatio={false}
           sceneOptions={undefined}
-          sdfSettings={sdfSettings}
-          geometrySettings={geometrySettings}
           gridSettings={gridSettings}
         />
       </header>
-      <Export sdfSettings={sdfSettings} geometrySettings={geometrySettings} />
+      <Export gridSettings={gridSettings} />
       <GeometryDrawer geometrySettings={geometrySettings} setGeometrySettings={setGeometrySettings} />
       <GridGeometryDrawer gridSettings={gridSettings} setGridSettings={setGridSettings} />
     </div>

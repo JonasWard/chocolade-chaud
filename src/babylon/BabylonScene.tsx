@@ -3,16 +3,14 @@ import { Engine, EngineOptions, Scene, SceneOptions } from '@babylonjs/core';
 import * as React from 'react';
 import { IDistanceData, defaultDistanceData } from '../geometry/sdMethods';
 import { IGeometrySettings, createMesh, createMeshForGrid, defaultGeometrySettings } from '../geometry/createMesh';
-import { IGridSettings } from '../geometry/grid';
+import { DefaultGridSettings, GridType, IGridSettings } from '../geometry/grid';
 
 export interface ISceneProps {
   antialias: boolean;
   engineOptions?: EngineOptions;
   adaptToDeviceRatio: boolean;
   sceneOptions?: SceneOptions;
-  geometrySettings?: IGeometrySettings;
   gridSettings?: IGridSettings;
-  sdfSettings?: IDistanceData;
   onRender: (scene: Scene) => void;
   onSceneReady: (scene: Scene) => void;
   id: string;
@@ -26,9 +24,7 @@ export const BabylonScene: React.FC<ISceneProps> = ({
   onRender,
   onSceneReady,
   id,
-  geometrySettings,
   gridSettings,
-  sdfSettings,
 }) => {
   const reactCanvas = useRef(null);
   const [scene, setScene] = React.useState<Scene>();
@@ -73,11 +69,8 @@ export const BabylonScene: React.FC<ISceneProps> = ({
   }, [antialias, engineOptions, adaptToDeviceRatio, sceneOptions, onRender, onSceneReady]);
 
   useEffect(() => {
-    if (scene?.isReady())
-      gridSettings
-        ? createMeshForGrid(scene, gridSettings)
-        : createMesh(scene, geometrySettings ?? defaultGeometrySettings, sdfSettings ?? defaultDistanceData);
-  }, [onSceneReady, geometrySettings, sdfSettings, scene, gridSettings]);
+    if (scene?.isReady()) createMeshForGrid(scene, gridSettings ?? DefaultGridSettings(GridType.Single));
+  }, [onSceneReady, scene, gridSettings]);
 
   return <canvas className='babylon-scene' ref={reactCanvas} id={id} />;
 };

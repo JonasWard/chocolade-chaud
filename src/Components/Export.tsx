@@ -1,20 +1,21 @@
 import { Button } from 'antd';
-import { IGeometrySettings, createIMesh, makeMeshTiltOnSide } from '../geometry/createMesh';
+import { makeMeshTiltOnSide } from '../geometry/createMesh';
 import { exportOBJ, exportSTL } from '../geometry/exportGeometry';
-import { IDistanceData } from '../geometry/sdMethods';
 import React from 'react';
 import './export.css';
+import { CellData, GridParser, IGridSettings } from '../geometry/grid';
 
-export const Export: React.FC<{ geometrySettings: IGeometrySettings; sdfSettings: IDistanceData }> = ({ geometrySettings, sdfSettings }) => {
+export const Export: React.FC<{ gridSettings: IGridSettings }> = ({ gridSettings }) => {
   const createSTL = () => {
-    const iMesh = createIMesh(geometrySettings, sdfSettings, true); // mesh with internal support structure
-    const tiltedMesh = makeMeshTiltOnSide(iMesh, geometrySettings);
-    exportSTL(tiltedMesh);
+    const cellData: CellData[] = [];
+    const meshes = GridParser(gridSettings, cellData, true); // mesh with internal support structure
+    meshes.map((m, i) => exportSTL(makeMeshTiltOnSide(m, cellData[i].geometrySettings), `mesh-${i}`));
   };
 
   const createObj = () => {
-    const iMesh = createIMesh(geometrySettings, sdfSettings);
-    exportOBJ(iMesh);
+    const cellData: CellData[] = [];
+    const meshes = GridParser(gridSettings, cellData, true); // mesh with internal support structure
+    meshes.map((m, i) => exportOBJ(makeMeshTiltOnSide(m, cellData[i].geometrySettings), `mesh-${i}`));
   };
 
   return (
