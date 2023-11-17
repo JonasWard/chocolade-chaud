@@ -27,8 +27,8 @@ export interface IGeometrySettings {
   height: number;
   amplitude: number;
   inset: number;
-  horizontalDivisions: number | null;
-  verticalDivisions: number | null;
+  horizontalDivisions: number;
+  verticalDivisions: number;
   basePosition: IVector;
   displayWireframe?: boolean;
   color?: string;
@@ -52,7 +52,7 @@ export const createMeshForGrid = (scene: Scene, grid: IGridSettings, cleanScene:
       const mesh = scene.meshes[0];
       mesh.dispose();
     }
-  const meshes = GridParser(grid);
+  const meshes = GridParser(grid, undefined, true);
   meshes.map((m, i) => addMeshToScene(m, scene, undefined, `mesh-${i}`));
 };
 
@@ -73,10 +73,8 @@ export const createIMesh = (
   withSupports: boolean = false
 ): ITriangularMesh => {
   // set the geometry settings
-  const { innerWidth, innerLength, height, inset, amplitude } = geometrySettings;
-  const baseVector: IVector = geometrySettings.basePosition ?? { x: 0, y: 0, z: 0 };
-  const horizontalDivisions = geometrySettings.horizontalDivisions ?? innerWidth;
-  const verticalDivisions = geometrySettings.verticalDivisions ?? innerLength;
+  const { innerWidth, innerLength, height, inset, amplitude, horizontalDivisions, verticalDivisions } = geometrySettings;
+  const baseVector: IVector = geometrySettings.basePosition;
 
   // create the base grid
   const gridWidth = innerWidth / horizontalDivisions;
@@ -104,18 +102,24 @@ export const createIMesh = (
   // moving around the back for improved back support
   // first of all, only add backsupport if the back resolution is higher than 1/4 of the spacing
   const horizontalDivisionsResolution = Math.floor(SPACING_LENGTH / gridWidth);
+  const supportStart = Math.ceil(START_LENGTH / gridWidth);
+  const openingWidth = Math.ceil(1.5 / gridWidth);
 
   if (withSupports && gridWidth < SPACING_LENGTH / 4) {
     // helper method that returns the maximum height for a given location
     const maxHMethod = (j: number): number => {
       const l = gridLength * j;
-      return Math.max(0, (defaultGeometrySettings.innerLength / 2 - Math.abs(l - defaultGeometrySettings.innerLength / 2) - START_LENGTH) * GRADIENT);
+      return Math.max(0, (innerLength / 2 - Math.abs(l - innerLength / 2) - START_LENGTH) * GRADIENT); // switch to negative value to visualize on the outside support geometry
     };
 
     const scales: number[] = [];
 
     if (gridWidth < SPACING_LENGTH / 10) {
-      for (let i = horizontalDivisionsResolution; i < horizontalDivisions - horizontalDivisionsResolution; i += horizontalDivisionsResolution) {
+      for (let i = supportStart; i < horizontalDivisions - supportStart; i += 1) {
+        if (i % horizontalDivisionsResolution === 0) {
+          i += openingWidth;
+          continue;
+        }
         for (let j = 1; j < verticalDivisions; j++) {
           const indexA = i * (verticalDivisions + 1) + j;
           const indexB = (i + 1) * (verticalDivisions + 1) + j;
