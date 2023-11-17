@@ -1,4 +1,5 @@
 import { Vector3 } from '@babylonjs/core';
+import { IVector } from './createMesh';
 
 export const sdGyroid = (v: Vector3, scale = 1) =>
   Math.sin(v.x * scale) * Math.cos(v.y * scale) + Math.sin(v.y * scale) * Math.cos(v.z * scale) + Math.sin(v.z * scale) * Math.cos(v.x * scale);
@@ -8,7 +9,7 @@ export const sdSchwarzD = (v: Vector3, scale = 1) =>
 export const sdNeovius = (v: Vector3, scale = 1) =>
   3 * (Math.cos(v.x * scale) + Math.cos(v.y * scale) + Math.cos(v.z * scale)) - 4 * Math.cos(v.x * scale) * Math.cos(v.y * scale) * Math.cos(v.z * scale);
 
-export const sdSphere = (v: Vector3, scale = 1) => v.length() - 1;
+export const sdSphere = (v: Vector3, scale = 1) => v.scale(scale).length() - 1;
 export const sdBox = (v: Vector3, scale = 1) => Math.max(Math.abs(v.x * scale), Math.abs(v.y * scale), Math.abs(v.z * scale)) - 1;
 export const sdTorus = (v: Vector3, scale = 1) => {
   const r1 = 1;
@@ -20,6 +21,38 @@ export const sdCylinder = (v: Vector3, scale = 1) => {
   const r = 1;
   const q = new Vector3(v.x * scale, new Vector3(v.y * scale, v.z * scale).length());
   return new Vector3(q.length() - r, q.y).length();
+};
+
+export const sdLine = (v: Vector3, v0: Vector3, d: Vector3): number => Vector3.Dot(v.subtract(v0), d);
+
+export const sdBoolean = (d0: number, d1: number): number => Math.min(d0, d1);
+export const sdDifference = (d0: number, d1: number): number => Math.max(-d0, d1);
+export const sdIntersection = (d0: number, d1: number): number => Math.max(d0, d1);
+
+export const sdCircle = (v: Vector3, position: Vector3, radius: number) => v.subtract(position).length() - radius;
+const cs = [
+  [new Vector3(18, 0, -86), 100],
+  [new Vector3(20, 0, -119), 150],
+  [new Vector3(214, 0, -23), 198],
+  [new Vector3(187, 0, -45), 160],
+  [new Vector3(159, 0, -76), 134],
+  [new Vector3(-209, 0, -34), 200],
+  [new Vector3(-178, 0, -58), 160],
+] as [Vector3, number][];
+
+const vShift = new Vector3(80, 0, 0);
+const l0 = new Vector3(3, 0, 0);
+const ld = new Vector3(100, 0, 5).normalize();
+const s = 1;
+
+const sideMap = (n: number): number => (Math.abs(n) + n * 0.5) / 1.5;
+
+export const sdGeometry = (v: Vector3): number => {
+  const locV = new Vector3(v.x, 0, v.z).subtract(vShift);
+  const l = sideMap(sdLine(locV, l0.scale(s), ld));
+  const cDs = cs.map(([c, r]) => sideMap(sdCircle(locV, c.scale(s), r * s))).reduce((a, b) => sdBoolean(a, b));
+  const d = sdBoolean(l, cDs);
+  return d - 2;
 };
 
 export enum DistanceMethodType {
@@ -124,7 +157,7 @@ export const defaultDistanceData: IDistanceData = {
 
 export const DistanceMethodParser = (iDD: IDistanceData): ((v: Vector3) => number) => {
   // console.log(localDistanceAsStringParser(iDD.methods));
-  return (v: Vector3) => localDistanceParser(iDD.methods)(v, iDD.scale);
+  return (v: Vector3) => Math.min(localDistanceParser(iDD.methods)(v, iDD.scale) * 0.3, sdGeometry(v));
 };
 
 export type DistanceMethod = (v: Vector3) => number;
