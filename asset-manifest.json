@@ -1,15 +1,15 @@
 {
   "files": {
     "main.css": "/chocolade-chaud/static/css/main.4aed03c6.css",
-    "main.js": "/chocolade-chaud/static/js/main.be918fbf.js",
+    "main.js": "/chocolade-chaud/static/js/main.eb29bbcd.js",
     "static/js/787.397b2da1.chunk.js": "/chocolade-chaud/static/js/787.397b2da1.chunk.js",
     "index.html": "/chocolade-chaud/index.html",
     "main.4aed03c6.css.map": "/chocolade-chaud/static/css/main.4aed03c6.css.map",
-    "main.be918fbf.js.map": "/chocolade-chaud/static/js/main.be918fbf.js.map",
+    "main.eb29bbcd.js.map": "/chocolade-chaud/static/js/main.eb29bbcd.js.map",
     "787.397b2da1.chunk.js.map": "/chocolade-chaud/static/js/787.397b2da1.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.4aed03c6.css",
-    "static/js/main.be918fbf.js"
+    "static/js/main.eb29bbcd.js"
   ]
 }
