@@ -152,7 +152,7 @@ export const DefaultGridSettings = (gridType: GridType): IGridSettings => {
   const grid: BaseGrid = {
     uCount: 2,
     vCount: 2,
-    divPerMM: 1,
+    divPerMM: 4,
     height: 7,
     inset: -2,
     spacing: 1,
@@ -166,8 +166,8 @@ export const DefaultGridSettings = (gridType: GridType): IGridSettings => {
         type: GridType.Single,
         uCount: 1,
         vCount: 1,
-        cellLength: 50,
-        cellWidth: 50,
+        cellLength: 40,
+        cellWidth: 160,
         sdfSetting: defaultDistanceData,
         color: DEFAULT_COLOR,
       };
