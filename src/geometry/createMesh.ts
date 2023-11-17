@@ -4,8 +4,8 @@ import { GridParser, IGridSettings } from './grid';
 
 const SPACING_LENGTH = 8.0;
 const START_LENGTH = 2.5;
-const GRADIENT = 1;
-const INSET = 2.6;
+const GRADIENT = 0.5;
+const INSET = 2.9;
 
 export const DEFAULT_COLOR = '#A73A08';
 
@@ -37,9 +37,9 @@ export interface IGeometrySettings {
 export const defaultGeometrySettings: IGeometrySettings = {
   innerWidth: 50,
   innerLength: 50,
-  height: 7,
-  amplitude: 0.3,
-  inset: -1.5,
+  height: 10,
+  amplitude: 1,
+  inset: -3,
   horizontalDivisions: 500,
   verticalDivisions: 500,
   basePosition: { x: -25, y: 0, z: -25 },

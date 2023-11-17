@@ -139,12 +139,12 @@ const localDistanceParser = (methods: IMethodEntry[]): ((v: Vector3, s: number) 
 export const defaultDistanceData: IDistanceData = {
   methods: [
     {
-      method: DistanceMethodType.SDSchwarzD,
-      number: 0.05,
+      method: DistanceMethodType.SDNeovius,
+      number: 0.004,
     },
     {
       method: DistanceMethodType.SDSchwarzD,
-      number: 1.4,
+      number: 8.5,
     },
   ],
   scale: 1,
