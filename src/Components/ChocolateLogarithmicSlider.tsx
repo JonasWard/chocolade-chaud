@@ -3,6 +3,37 @@ import { Dropdown } from 'antd';
 import React from 'react';
 import { DistanceMethodType, IMethodEntry } from '../geometry/sdMethods';
 import './slider.css';
+import gyroid from '../assets/icons/gyroid.png';
+import neovius from '../assets/icons/neovius.png';
+import perlin from '../assets/icons/perlin.png';
+import schwarzD from '../assets/icons/schwarzD.png';
+import schwarzP from '../assets/icons/schwarzP.png';
+
+const LocalMethodImage: React.FC<{ method: DistanceMethodType }> = ({ method }) => {
+  const imageStyle: React.CSSProperties = { width: 32, height: 32, marginRight: 8 };
+
+  switch (method) {
+    case DistanceMethodType.SDGyroid:
+      return <img style={imageStyle} src={gyroid} />;
+    case DistanceMethodType.SDSchwarzP:
+      return <img style={imageStyle} src={schwarzP} />;
+    case DistanceMethodType.SDSchwarzD:
+      return <img style={imageStyle} src={schwarzD} />;
+    case DistanceMethodType.SDNeovius:
+      return <img style={imageStyle} src={neovius} />;
+    default:
+      return <img style={imageStyle} />;
+  }
+};
+
+export const MethodIcon: React.FC<{ method: DistanceMethodType }> = ({ method }) => {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', width: 80 }}>
+      <LocalMethodImage method={method} />
+      <div style={{ width: 40, textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden' }}>{method.slice(2)}</div>
+    </div>
+  );
+};
 
 export const ChocolateLogarithmicSlider: React.FC<{ entry: IMethodEntry; setEntry: (v: IMethodEntry) => void; min?: number; max?: number }> = ({
   min = -5,
@@ -25,15 +56,21 @@ export const ChocolateLogarithmicSlider: React.FC<{ entry: IMethodEntry; setEntr
   const menu: MenuProps = {
     items: Object.keys(DistanceMethodType).map((v) => ({
       key: v,
-      label: <div onClick={() => updateMethod(v as DistanceMethodType)}>{v}</div>,
+      label: (
+        <div onClick={() => updateMethod(v as DistanceMethodType)}>
+          <MethodIcon method={v as DistanceMethodType} />
+        </div>
+      ),
     })),
   };
 
   return (
     <div className='parent'>
       <Dropdown className='method' menu={{ ...menu, selectedKeys: [localMethod] }} trigger={['click']}>
-        <Button onClick={(e) => e.preventDefault()}>
-          <Space>{localMethod}</Space>
+        <Button style={{ height: 40, width: 120 }} onClick={(e) => e.preventDefault()}>
+          <Space>
+            <MethodIcon method={localMethod} />
+          </Space>
         </Button>
       </Dropdown>
       <Slider
