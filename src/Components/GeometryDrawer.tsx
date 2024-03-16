@@ -16,7 +16,7 @@ export const GeometryDrawer: React.FC<{ geometrySettings: IGeometrySettings; set
           geo
         </Button>
       )}
-      <Drawer title='SdfSettings' placement='right' closable={true} onClose={() => setShowDrawer(false)} open={showDrawer}>
+      <Drawer title='SdfSettings' placement='right'>
         <Form layout='vertical'>
           <Form.Item label={'Inner Width'}>
             <InputNumber
