@@ -66,7 +66,7 @@ export type CellData = {
 const applyGridData = (cellData: CellData): ITriangularMesh => createIMesh(cellData.geometrySettings, cellData.sdfSettings, cellData.withSupports);
 
 export const MAX_UV_COUNT = 10;
-export const MAX_DIV_PER_MM = 4;
+export const MAX_DIV_PER_MM = 8;
 export const MAX_DIVS_ONE_SIDE = 2048;
 
 // rounding some key parameters
