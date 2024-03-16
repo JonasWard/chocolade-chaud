@@ -81,6 +81,7 @@ const SingleGridParser = (grid: ISingleGrid, cellData: CellData[], withSupports:
   cellData.push({
     geometrySettings: {
       ...grid,
+      color: grid.color,
       innerWidth: grid.cellWidth,
       innerLength: grid.cellLength,
       basePosition: { x: 0, y: 0, z: 0 },
@@ -119,7 +120,7 @@ const SimpleGridParser = (grid: ISimpleGrid, cellData: CellData[], withSupports:
         basePosition: { x: x0 + i * (cellWidth + spacing - 2 * inset), y: 0, z: z0 + j * (cellLength + spacing - 2 * inset) },
         horizontalDivisions: uDivisions,
         verticalDivisions: vDivisions,
-        color: grid.colors[0],
+        color: grid.colors[(i + j * uCount) % grid.colors.length],
         displayWireframe: grid.displayWireframe,
       };
 
@@ -150,7 +151,7 @@ export const DefaultGridSettings = (gridType: GridType): IGridSettings => {
     height: 10,
     inset: -3,
     spacing: 1,
-    amplitude: 1,
+    amplitude: 0.2,
     displayWireframe: false,
   };
   switch (gridType) {

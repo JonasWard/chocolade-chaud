@@ -19,6 +19,7 @@ export interface ITriangularMesh {
   vertices: number[];
   faces: number[];
   normals: number[];
+  color: string;
 }
 
 export interface IGeometrySettings {
@@ -158,6 +159,7 @@ export const createIMesh = (
     vertices: [],
     faces: [],
     normals: [],
+    color: geometrySettings.color ?? DEFAULT_COLOR,
   };
 
   // create the faces
@@ -253,11 +255,11 @@ export const addMeshToScene = (
   mesh.setIndices(iMesh.faces);
   mesh.setVerticesData(VertexBuffer.NormalKind, iMesh.normals);
 
-  const material = new PBRMetallicRoughnessMaterial('texture1', scene);
+  const material = new PBRMetallicRoughnessMaterial(`chocolate-material-for-${iMesh.color}`, scene);
 
   mesh.getBoundingInfo();
   material.wireframe = !!geometrySettings.displayWireframe;
-  material.baseColor = Color3.FromHexString(geometrySettings.color ?? '#9A4C0D');
+  material.baseColor = Color3.FromHexString(iMesh.color);
   material.roughness = 0.7;
 
   mesh.material = material;

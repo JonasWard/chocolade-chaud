@@ -3,8 +3,8 @@ import React from 'react';
 import './drawers.css';
 import Dropdown from 'antd/es/dropdown/dropdown';
 import { DefaultGridSettings, GridType, IGridSettings, MAX_DIV_PER_MM, MAX_UV_COUNT } from '../geometry/grid';
+import { MethodContent } from './MethodContent';
 import { DEFAULT_COLOR } from '../geometry/createMesh';
-import { MethodDrawer } from './MethodDrawer';
 
 export const GridGeometryDrawer: React.FC<{ gridSettings: IGridSettings; setGridSettings: (g: IGridSettings) => void }> = ({
   gridSettings,
@@ -36,7 +36,7 @@ export const GridGeometryDrawer: React.FC<{ gridSettings: IGridSettings; setGrid
               <InputNumber
                 step={5}
                 min={5}
-                max={200}
+                max={400}
                 onChange={(v) => v && setGridSettings({ ...gridSettings, cellWidth: v })}
                 value={gridSettings.cellWidth}
               />
@@ -45,7 +45,7 @@ export const GridGeometryDrawer: React.FC<{ gridSettings: IGridSettings; setGrid
               <InputNumber
                 step={5}
                 min={5}
-                max={200}
+                max={400}
                 onChange={(v) => v && setGridSettings({ ...gridSettings, cellLength: v })}
                 value={gridSettings.cellLength}
               />
@@ -76,11 +76,7 @@ export const GridGeometryDrawer: React.FC<{ gridSettings: IGridSettings; setGrid
               <Switch onChange={(v) => setGridSettings({ ...gridSettings, displayWireframe: v })} checked={!!gridSettings.displayWireframe} />
             </Form.Item>
             <Form.Item label={'Edit Pattern'}>
-              <MethodDrawer
-                activation={'method'}
-                sdfSettings={gridSettings.sdfSetting}
-                setSdfSettings={(sdfSetting) => setGridSettings({ ...gridSettings, sdfSetting })}
-              />
+              <MethodContent sdfSettings={gridSettings.sdfSetting} setSdfSettings={(sdfSetting) => setGridSettings({ ...gridSettings, sdfSetting })} />
             </Form.Item>
           </Form>
         );
@@ -132,16 +128,27 @@ export const GridGeometryDrawer: React.FC<{ gridSettings: IGridSettings; setGrid
             <Form.Item label={'Amplitude of Pattern'}>
               <InputNumber step={0.05} onChange={(v) => v && setGridSettings({ ...gridSettings, amplitude: v })} value={gridSettings.amplitude} />
             </Form.Item>
-            <Form.Item label={'Chocolate Color'}>
+            <Form.Item label={'Chocolate Color'} style={{ alignItems: 'center' }}>
               {gridSettings.colors.map((colorString, i) => (
                 <ColorPicker
+                  key={`color-${i}`}
                   value={colorString}
-                  onChange={(c) =>
-                    setGridSettings({ ...gridSettings, colors: [...gridSettings.colors.slice(0, i), c.toHexString(), ...gridSettings.colors.slice(i)] })
-                  }
+                  size='large'
+                  onChange={(c) => {
+                    const hexString = c.toHexString();
+                    if (hexString === colorString) return;
+                    setGridSettings({ ...gridSettings, colors: [...gridSettings.colors.slice(0, i), hexString, ...gridSettings.colors.slice(i + 1)] });
+                  }}
                 />
               ))}
-              <Button onClick={() => setGridSettings({ ...gridSettings, colors: [...gridSettings.colors, DEFAULT_COLOR] })}>Add Color</Button>
+              <Button
+                size='large'
+                onClick={() => {
+                  setGridSettings({ ...gridSettings, colors: [...gridSettings.colors, DEFAULT_COLOR] });
+                }}
+              >
+                +
+              </Button>
             </Form.Item>
             <Form.Item label={'Divisions per mm'}>
               <InputNumber
@@ -157,11 +164,7 @@ export const GridGeometryDrawer: React.FC<{ gridSettings: IGridSettings; setGrid
               <Switch onChange={(v) => setGridSettings({ ...gridSettings, displayWireframe: v })} checked={!!gridSettings.displayWireframe} />
             </Form.Item>
             <Form.Item label={'Edit Pattern'}>
-              <MethodDrawer
-                activation={'method'}
-                sdfSettings={gridSettings.sdfSetting}
-                setSdfSettings={(sdfSetting) => setGridSettings({ ...gridSettings, sdfSetting })}
-              />
+              <MethodContent sdfSettings={gridSettings.sdfSetting} setSdfSettings={(sdfSetting) => setGridSettings({ ...gridSettings, sdfSetting })} />
             </Form.Item>
           </Form>
         );
