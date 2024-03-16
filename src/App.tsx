@@ -13,10 +13,10 @@ let box: any;
 const onSceneReady = (scene: Scene) => {
   // This creates and positions a free camera (non-mesh)
   scene.clearColor = new Color4(1, 1, 1, 1);
-  const camera = new ArcRotateCamera('camera1', 0.71, 0.71, 100, new Vector3(0, 0, 0), scene);
+  const camera = new ArcRotateCamera('camera1', 1.57, 0, 0, new Vector3(100, 250, 0), scene);
 
   // This targets the camera to scene origin
-  camera.setTarget(Vector3.Zero());
+  camera.setTarget(new Vector3(100, 0, 0));
 
   const canvas = scene.getEngine().getRenderingCanvas();
 
@@ -64,7 +64,7 @@ function App() {
         />
       </header>
       <Export gridSettings={gridSettings} />
-      <GeometryDrawer geometrySettings={geometrySettings} setGeometrySettings={setGeometrySettings} />
+      {/* <GeometryDrawer geometrySettings={geometrySettings} setGeometrySettings={setGeometrySettings} /> */}
       <GridGeometryDrawer gridSettings={gridSettings} setGridSettings={setGridSettings} />
     </div>
   );
