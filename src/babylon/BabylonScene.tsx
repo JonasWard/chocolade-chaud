@@ -1,15 +1,15 @@
 import { useEffect, useRef } from 'react';
 import { Engine, EngineOptions, Scene, SceneOptions } from '@babylonjs/core';
 import * as React from 'react';
-import { createMeshForGrid } from '../geometry/createMesh';
-import { DefaultGridSettings, GridType, IGridSettings } from '../geometry/grid';
+import { GridMeshes } from '../hooks/useGridMeshes';
+import { replaceSceneMeshes } from './sceneMeshes';
 
 export interface ISceneProps {
   antialias: boolean;
   engineOptions?: EngineOptions;
   adaptToDeviceRatio: boolean;
   sceneOptions?: SceneOptions;
-  gridSettings?: IGridSettings;
+  meshes?: GridMeshes;
   onRender?: (scene: Scene) => void;
   onSceneReady: (scene: Scene) => void;
   id: string;
@@ -23,7 +23,7 @@ export const BabylonScene: React.FC<ISceneProps> = ({
   onRender,
   onSceneReady,
   id,
-  gridSettings,
+  meshes,
 }) => {
   const reactCanvas = useRef(null);
   const [scene, setScene] = React.useState<Scene>();
@@ -68,8 +68,8 @@ export const BabylonScene: React.FC<ISceneProps> = ({
   }, [antialias, engineOptions, adaptToDeviceRatio, sceneOptions, onRender, onSceneReady]);
 
   useEffect(() => {
-    if (scene?.isReady()) createMeshForGrid(scene, gridSettings ?? DefaultGridSettings(GridType.Single));
-  }, [onSceneReady, scene, gridSettings]);
+    if (scene && meshes) replaceSceneMeshes(scene, meshes);
+  }, [scene, meshes]);
 
   return <canvas className='babylon-scene' ref={reactCanvas} id={id} />;
 };

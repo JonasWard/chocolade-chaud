@@ -5,6 +5,8 @@ import BabylonScene from './babylon/BabylonScene';
 import { Export } from './Components/Export';
 import { DefaultGridSettings, GridType, IGridSettings } from './geometry/grid';
 import { GridGeometryDrawer } from './Components/GridGeometryDrawer';
+import { useGridMeshes } from './hooks/useGridMeshes';
+import { Spin } from 'antd';
 
 const onSceneReady = (scene: Scene) => {
   // This creates and positions a free camera (non-mesh)
@@ -31,6 +33,7 @@ const onSceneReady = (scene: Scene) => {
 
 function App() {
   const [gridSettings, setGridSettings] = React.useState<IGridSettings>(DefaultGridSettings(GridType.Single));
+  const { result, pending, error } = useGridMeshes(gridSettings);
 
   return (
     <div className='App'>
@@ -42,10 +45,12 @@ function App() {
           engineOptions={undefined}
           adaptToDeviceRatio={false}
           sceneOptions={undefined}
-          gridSettings={gridSettings}
+          meshes={result}
         />
       </header>
-      <Export gridSettings={gridSettings} />
+      <Spin className='mesh-status' spinning={pending} />
+      {error && <div className='mesh-status'>{error}</div>}
+      <Export meshes={pending ? undefined : result} />
       <GridGeometryDrawer gridSettings={gridSettings} setGridSettings={setGridSettings} />
     </div>
   );

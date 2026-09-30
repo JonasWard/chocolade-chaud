@@ -36,3 +36,9 @@
     transform: rotate(360deg);
   }
 }
+
+.mesh-status {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+}

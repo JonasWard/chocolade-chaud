@@ -1,5 +1,18 @@
-import { Vector2 } from '@babylonjs/core';
-import { sdCircle, sdCurtailedLine, sdCurtailedPolyLine, sdLine, sdLineParametric, vectorInPolygon } from './sdMethods';
+import {
+  DistanceMethodParser,
+  DistanceMethodType,
+  sdCircle,
+  sdCurtailedLine,
+  sdCurtailedPolyLine,
+  sdCylinder,
+  sdGyroid,
+  sdLine,
+  sdLineParametric,
+  sdSchwarzD,
+  sdTorus,
+  vectorInPolygon,
+} from './sdMethods';
+import { Vec2 as Vector2 } from './vec2';
 
 test('line and pyline distance', () => {
   expect(sdLine(new Vector2(0, 0), new Vector2(0, 0), new Vector2(1, 0))).toBe(0);
@@ -71,4 +84,38 @@ test('vector in polygon', () => {
   expect(vectorInPolygon(new Vector2(3, 0), [new Vector2(0, 0), new Vector2(2, 0), new Vector2(2, 2), new Vector2(0, 2)])).toBe(false);
   expect(vectorInPolygon(new Vector2(1, 1), [new Vector2(0, 0), new Vector2(2, 0), new Vector2(2, 2), new Vector2(0, 2)])).toBe(true);
   expect(vectorInPolygon(new Vector2(0.5, 1), [new Vector2(0, 2), new Vector2(2, 2), new Vector2(2, 0), new Vector2(0, 0)])).toBe(true); // inside the square, orientation does not matter
+});
+
+test('vector in polygon for points far from the polygon', () => {
+  const square = [new Vector2(0, 0), new Vector2(2, 0), new Vector2(2, 2), new Vector2(0, 2)];
+  expect(vectorInPolygon(new Vector2(100, 1), square)).toBe(false);
+  expect(vectorInPolygon(new Vector2(1, 1.5), square)).toBe(true);
+  // concave polygon, the point is in the notch
+  const u = [new Vector2(0, 0), new Vector2(3, 0), new Vector2(3, 3), new Vector2(2, 3), new Vector2(2, 1), new Vector2(1, 1), new Vector2(1, 3), new Vector2(0, 3)];
+  expect(vectorInPolygon(new Vector2(1.5, 2), u)).toBe(false);
+  expect(vectorInPolygon(new Vector2(0.5, 2), u)).toBe(true);
+});
+
+test('3d distance methods', () => {
+  expect(sdGyroid(0, 0, 0, 1)).toBe(0);
+  expect(sdTorus(1, 0, 0, 1)).toBe(-0.25);
+  expect(sdTorus(2, 0, 0, 0.5)).toBe(-0.25);
+  expect(sdCylinder(0, 1, 0, 1)).toBe(1);
+});
+
+test('distance method chain uses the inner method as the scale of the outer one', () => {
+  const sdf = DistanceMethodParser({
+    methods: [
+      { method: DistanceMethodType.SDGyroid, number: 0.5 },
+      { method: DistanceMethodType.SDSchwarzD, number: 2 },
+    ],
+    center: { x: 1, y: 2, z: 3 },
+    rotation: 0,
+    scale: 1,
+  });
+  expect(sdf(4, 5, 6)).toBe(sdGyroid(3, 3, 3, sdSchwarzD(3, 3, 3, 1 * 0.5 * 2)));
+});
+
+test('empty distance method chain is flat', () => {
+  expect(DistanceMethodParser({ methods: [], center: { x: 0, y: 0, z: 0 }, rotation: 0, scale: 1 })(1, 2, 3)).toBe(0);
 });
