@@ -24,5 +24,5 @@ CI runs typecheck, lint, tests and build on every push and pull request.
 
 - `src/geometry` is the engine-free geometry core: distance methods (`sdMethods.ts`), mesh generation on typed arrays (`createMesh.ts`), grid layouts (`grid.ts`) and the STL/OBJ exporters. It must not import the render engine, a test guards this.
 - `src/geometry/meshWorker.ts` and `src/hooks/useGridMeshes.ts` generate the meshes in a web worker, so editing settings never blocks the UI. The scene and the exports share the generated meshes.
-- `src/babylon` renders the meshes with Babylon.js.
+- `src/three` renders the meshes with three.js via react-three-fiber (drei for camera fitting and orbit controls).
 - `src/Components` holds the settings drawer and export buttons.

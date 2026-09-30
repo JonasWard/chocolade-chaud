@@ -46,7 +46,7 @@ export const defaultGeometrySettings: IGeometrySettings = {
 };
 
 /**
- * Averaged vertex normals of the normalized face normals, same convention as babylon's VertexData.ComputeNormals
+ * Averaged vertex normals of the normalized face normals, counter clockwise triangles face outward (right handed)
  */
 export const computeNormals = (vertices: ArrayLike<number>, faces: ArrayLike<number>): Float32Array => {
   const normals = new Float64Array(vertices.length);
@@ -56,16 +56,17 @@ export const computeNormals = (vertices: ArrayLike<number>, faces: ArrayLike<num
     const b = faces[f + 1] * 3;
     const c = faces[f + 2] * 3;
 
-    const abx = vertices[a] - vertices[b];
-    const aby = vertices[a + 1] - vertices[b + 1];
-    const abz = vertices[a + 2] - vertices[b + 2];
-    const cbx = vertices[c] - vertices[b];
-    const cby = vertices[c + 1] - vertices[b + 1];
-    const cbz = vertices[c + 2] - vertices[b + 2];
+    // (b - a) x (c - a)
+    const abx = vertices[b] - vertices[a];
+    const aby = vertices[b + 1] - vertices[a + 1];
+    const abz = vertices[b + 2] - vertices[a + 2];
+    const acx = vertices[c] - vertices[a];
+    const acy = vertices[c + 1] - vertices[a + 1];
+    const acz = vertices[c + 2] - vertices[a + 2];
 
-    let nx = aby * cbz - abz * cby;
-    let ny = abz * cbx - abx * cbz;
-    let nz = abx * cby - aby * cbx;
+    let nx = aby * acz - abz * acy;
+    let ny = abz * acx - abx * acz;
+    let nz = abx * acy - aby * acx;
     const l = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
     nx /= l;
     ny /= l;
@@ -186,10 +187,11 @@ export const createIMesh = (
   // create the faces, 4 triangles per quad (top and bottom) and 4 per side segment
   const faces = new Uint32Array(3 * (4 * horizontalDivisions * verticalDivisions + 4 * (horizontalDivisions + verticalDivisions)));
   let f = 0;
+  // the indices below are listed clockwise (seen from outside), they are stored counter clockwise
   const tri = (a: number, b: number, c: number) => {
     faces[f++] = a;
-    faces[f++] = b;
     faces[f++] = c;
+    faces[f++] = b;
   };
 
   // top and bottom faces

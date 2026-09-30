@@ -3,7 +3,8 @@ import { CellData, IGridSettings } from '../geometry/grid';
 import { ITriangularMesh } from '../geometry/createMesh';
 import type { MeshRequest, MeshResponse } from '../geometry/meshWorker';
 
-export type GridMeshes = { grid: IGridSettings; meshes: ITriangularMesh[]; cellData: CellData[] };
+// id is unique per generated result
+export type GridMeshes = { id: number; grid: IGridSettings; meshes: ITriangularMesh[]; cellData: CellData[] };
 
 /**
  * Generates the meshes for a grid in a web worker, so editing the settings never blocks the ui.
@@ -43,7 +44,7 @@ export const useGridMeshes = (grid: IGridSettings, withSupports = true): { resul
       if ('error' in data) setError(data.error);
       else if (requestGrid) {
         setError(undefined);
-        setResult({ grid: requestGrid, meshes: data.meshes, cellData: data.cellData });
+        setResult({ id: data.id, grid: requestGrid, meshes: data.meshes, cellData: data.cellData });
       }
     };
 
