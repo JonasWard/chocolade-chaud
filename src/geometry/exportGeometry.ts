@@ -1,17 +1,5 @@
 import { ITriangularMesh } from './createMesh';
 
-const downloadFile = (content: string, fileName: string) => {
-  const url = URL.createObjectURL(new Blob([content], { type: 'text/plain' }));
-  const element = document.createElement('a');
-  element.href = url;
-  element.download = fileName;
-  document.body.appendChild(element);
-  element.click();
-  element.remove();
-  // give the browser a moment to start the download before releasing the blob
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-};
-
 // float32 has ~7 significant digits, don't print the float64 noise
 const f32 = (n: number): number => Number(n.toPrecision(7));
 
@@ -35,40 +23,58 @@ export const meshToOBJ = (mesh: ITriangularMesh): string => {
   return [positionStrings, normalStrings, faceStrings].join('\n');
 };
 
-export const meshToSTL = (mesh: ITriangularMesh): string => {
-  const vertexStrings: string[] = [];
+const STL_HEADER = 'Exported by JonasWard with chocolate-chaud'; // must not start with "solid", that marks ascii stl
 
-  const vertex = (index: number): [number, number, number] => [mesh.vertices[index * 3], mesh.vertices[index * 3 + 1], mesh.vertices[index * 3 + 2]];
-  const format = (v: number[]) => v.map((n) => n.toPrecision(6)).join(' ');
+/**
+ * Binary STL: 80 byte header, uint32 triangle count, then per triangle
+ * the normal and 3 vertices as float32 and a uint16 attribute count, little endian
+ */
+export const meshToSTL = (mesh: ITriangularMesh): ArrayBuffer => {
+  const { vertices, faces } = mesh;
+  const triangleCount = Math.floor(faces.length / 3);
+  const buffer = new ArrayBuffer(84 + 50 * triangleCount);
+  const view = new DataView(buffer);
 
-  for (let i = 0; i + 2 < mesh.faces.length; i += 3) {
-    const v0 = vertex(mesh.faces[i]);
-    const v1 = vertex(mesh.faces[i + 1]);
-    const v2 = vertex(mesh.faces[i + 2]);
+  for (let i = 0; i < STL_HEADER.length; i++) view.setUint8(i, STL_HEADER.charCodeAt(i));
+  view.setUint32(80, triangleCount, true);
+
+  let offset = 84;
+  const write = (value: number) => {
+    view.setFloat32(offset, value, true);
+    offset += 4;
+  };
+  const writeVertex = (v: number) => {
+    write(vertices[v]);
+    write(vertices[v + 1]);
+    write(vertices[v + 2]);
+  };
+
+  for (let t = 0; t < triangleCount; t++) {
+    const a = faces[t * 3] * 3;
+    const b = faces[t * 3 + 1] * 3;
+    const c = faces[t * 3 + 2] * 3;
 
     // (v1 - v0) x (v2 - v0)
-    const a = [v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2]];
-    const b = [v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2]];
-    const normal = [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
-    const l = Math.sqrt(normal[0] ** 2 + normal[1] ** 2 + normal[2] ** 2) || 1;
+    const abx = vertices[b] - vertices[a];
+    const aby = vertices[b + 1] - vertices[a + 1];
+    const abz = vertices[b + 2] - vertices[a + 2];
+    const acx = vertices[c] - vertices[a];
+    const acy = vertices[c + 1] - vertices[a + 1];
+    const acz = vertices[c + 2] - vertices[a + 2];
+    const nx = aby * acz - abz * acy;
+    const ny = abz * acx - abx * acz;
+    const nz = abx * acy - aby * acx;
+    const l = Math.sqrt(nx * nx + ny * ny + nz * nz) || 1;
 
-    const n = normal.map((n) => n / l).map((n) => (Math.abs(n) < 0.0001 ? '0.000' : n.toPrecision(6)));
-    vertexStrings.push(
-      `facet normal ${n[0]} ${n[1]} ${n[2]}
-outer loop
-vertex ${format(v0)}
-vertex ${format(v1)}
-vertex ${format(v2)}
-endloop
-endfacet`
-    );
+    write(nx / l);
+    write(ny / l);
+    write(nz / l);
+    writeVertex(a);
+    writeVertex(b);
+    writeVertex(c);
+    view.setUint16(offset, 0, true);
+    offset += 2;
   }
 
-  return `solid Exported by JonasWard with chocolate-chaud
-${vertexStrings.join('\n')}
-endsolid Exported by JonasWard with chocolate-chaud`;
+  return buffer;
 };
-
-export const exportOBJ = (mesh: ITriangularMesh, fileName = 'chocolade-chaud') => downloadFile(meshToOBJ(mesh), `${fileName}.obj`);
-
-export const exportSTL = (mesh: ITriangularMesh, fileName = 'chocolade-chaud') => downloadFile(meshToSTL(mesh), `${fileName}.stl`);

@@ -3,7 +3,7 @@ import * as path from 'path';
 import { computeNormals, makeMeshTiltOnSide } from './createMesh';
 import { GridParser } from './grid';
 import { meshToSTL } from './exportGeometry';
-import { singleGrid } from './testUtils';
+import { readSTL, singleGrid } from './testUtils';
 // normals babylon's VertexData.ComputeNormals computed for singleGrid(3, 2, 1) with supports, before babylon was replaced
 import babylonNormals from './fixtures/babylonNormals.json';
 
@@ -57,7 +57,7 @@ test('triangles face outward (right handed, counter clockwise)', () => {
 
 test('stl facet normals agree with the vertex normals', () => {
   const [mesh] = GridParser(singleGrid(6, 4, 1), [], true);
-  const facetNormals = [...meshToSTL(mesh).matchAll(/facet normal (\S+) (\S+) (\S+)/g)].map((m) => m.slice(1).map(Number));
+  const facetNormals = readSTL(meshToSTL(mesh)).triangles.map((t) => t.normal);
   expect(facetNormals.length).toBe(mesh.faces.length / 3);
   facetNormals.forEach((n, f) => {
     // compare with the summed normals of the facet's vertices, a single one can be averaged over a sharp edge

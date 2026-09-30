@@ -1,5 +1,6 @@
 import { ITriangularMesh } from './createMesh';
 import { meshToOBJ, meshToSTL } from './exportGeometry';
+import { readSTL } from './testUtils';
 
 // single triangle in the xz-plane, facing down (-y)
 const triangle: ITriangularMesh = {
@@ -21,6 +22,21 @@ test('obj numbers are not padded with float32 noise', () => {
   expect(obj.split('\n')[0]).toBe('v 0.1 0 0');
 });
 
+test('binary stl layout', () => {
+  const buffer = meshToSTL(triangle);
+  expect(buffer.byteLength).toBe(84 + 50);
+  const stl = readSTL(buffer);
+  expect(stl.header.startsWith('solid')).toBe(false); // would make readers treat it as ascii
+  expect(stl.count).toBe(1);
+  expect(stl.triangles[0].vertices).toEqual([
+    [0, 0, 0],
+    [1, 0, 0],
+    [0, 0, 1],
+  ]);
+  expect(stl.triangles[0].attribute).toBe(0);
+});
+
 test('stl keeps negative normal components', () => {
-  expect(meshToSTL(triangle)).toContain('facet normal 0.000 -1.00000 0.000');
+  // (1, 0, 0) x (0, 0, 1) = (0, -1, 0)
+  expect(readSTL(meshToSTL(triangle)).triangles[0].normal).toEqual([0, -1, 0]);
 });
