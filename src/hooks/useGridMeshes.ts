@@ -26,7 +26,7 @@ export const useGridMeshes = (grid: IGridSettings, withSupports = true): { resul
   }, []);
 
   React.useEffect(() => {
-    const w = new Worker(new URL('../geometry/meshWorker.ts', import.meta.url));
+    const w = new Worker(new URL('../geometry/meshWorker.ts', import.meta.url), { type: 'module' });
     const requestGrids = grids.current;
     worker.current = w;
 

@@ -1,4 +1,3 @@
-/* eslint-disable no-restricted-globals */
 import { CellData, GridParser, IGridSettings } from './grid';
 import { ITriangularMesh } from './createMesh';
 

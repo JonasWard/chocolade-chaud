@@ -1,7 +1,6 @@
-import { Button, ColorPicker, Drawer, Form, InputNumber, MenuProps, Space, Switch } from 'antd';
+import { Button, ColorPicker, Drawer, Dropdown, Form, InputNumber, MenuProps, Space, Switch } from 'antd';
 import React from 'react';
 import './drawers.css';
-import Dropdown from 'antd/es/dropdown/dropdown';
 import { DefaultGridSettings, GridType, IGridSettings, MAX_DIV_PER_MM, MAX_UV_COUNT } from '../geometry/grid';
 import { MethodContent } from './MethodContent';
 import { DEFAULT_COLOR } from '../geometry/createMesh';
