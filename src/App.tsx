@@ -2,13 +2,9 @@ import React from 'react';
 import './App.css';
 import { ArcRotateCamera, Color4, HemisphericLight, Scene, Vector3 } from '@babylonjs/core';
 import BabylonScene from './babylon/BabylonScene';
-import { IGeometrySettings, defaultGeometrySettings } from './geometry/createMesh';
-import { GeometryDrawer } from './Components/GeometryDrawer';
 import { Export } from './Components/Export';
 import { DefaultGridSettings, GridType, IGridSettings } from './geometry/grid';
 import { GridGeometryDrawer } from './Components/GridGeometryDrawer';
-
-let box: any;
 
 const onSceneReady = (scene: Scene) => {
   // This creates and positions a free camera (non-mesh)
@@ -33,20 +29,7 @@ const onSceneReady = (scene: Scene) => {
   bottomLight.intensity = 0.25;
 };
 
-/**
- * Will run on every frame render.  We are spinning the box on y-axis.
- */
-const onRender = (scene: Scene) => {
-  if (box !== undefined) {
-    const deltaTimeInMillis = scene.getEngine().getDeltaTime();
-
-    const rpm = 10;
-    box.rotation.y += (rpm / 60) * Math.PI * 2 * (deltaTimeInMillis / 1000);
-  }
-};
-
 function App() {
-  const [geometrySettings, setGeometrySettings] = React.useState<IGeometrySettings>(defaultGeometrySettings);
   const [gridSettings, setGridSettings] = React.useState<IGridSettings>(DefaultGridSettings(GridType.Single));
 
   return (
@@ -55,7 +38,6 @@ function App() {
         <BabylonScene
           antialias
           onSceneReady={onSceneReady}
-          onRender={onRender}
           id='my-canvas'
           engineOptions={undefined}
           adaptToDeviceRatio={false}
@@ -64,7 +46,6 @@ function App() {
         />
       </header>
       <Export gridSettings={gridSettings} />
-      {/* <GeometryDrawer geometrySettings={geometrySettings} setGeometrySettings={setGeometrySettings} /> */}
       <GridGeometryDrawer gridSettings={gridSettings} setGridSettings={setGridSettings} />
     </div>
   );

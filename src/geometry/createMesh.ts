@@ -1,6 +1,6 @@
 import { Color3, Mesh, PBRMetallicRoughnessMaterial, Scene, Vector3, VertexBuffer, VertexData } from '@babylonjs/core';
 import { DistanceMethodParser, IDistanceData, defaultDistanceData } from './sdMethods';
-import { GridParser, IGridSettings } from './grid';
+import { CellData, GridParser, IGridSettings } from './grid';
 
 const SPACING_LENGTH = 8.0;
 const START_LENGTH = 2.5;
@@ -51,21 +51,11 @@ export const createMeshForGrid = (scene: Scene, grid: IGridSettings, cleanScene:
   if (cleanScene)
     while (scene.meshes.length) {
       const mesh = scene.meshes[0];
-      mesh.dispose();
+      mesh.dispose(false, true); // also dispose the material, otherwise every update leaks one
     }
-  const meshes = GridParser(grid, undefined, true);
-  meshes.map((m, i) => addMeshToScene(m, scene, undefined, `mesh-${i}`));
-};
-
-export const createMesh = (
-  scene: Scene,
-  geometrySettings: IGeometrySettings = defaultGeometrySettings,
-  sdfSettings: IDistanceData,
-  cleanScene: boolean = true
-) => {
-  if (cleanScene) scene.meshes.forEach((m) => m.dispose());
-  const iMesh = createIMesh(geometrySettings, sdfSettings);
-  addMeshToScene(iMesh, scene, geometrySettings);
+  const cellData: CellData[] = [];
+  const meshes = GridParser(grid, cellData, true);
+  meshes.forEach((m, i) => addMeshToScene(m, scene, cellData[i].geometrySettings, `mesh-${i}`));
 };
 
 export const createIMesh = (
@@ -271,16 +261,21 @@ export const makeMeshTiltOnSide = (mesh: ITriangularMesh, geometrySettings: IGeo
   const s = Math.sin(angle);
   const c = Math.cos(angle);
 
-  const vertices: number[] = [];
-  for (let i = 0; i < mesh.vertices.length / 3; i++) {
-    const y = mesh.vertices[i * 3 + 1];
-    const z = mesh.vertices[i * 3 + 2];
+  // rotate around the x-axis
+  const rotate = (values: number[]): number[] => {
+    const rotated: number[] = [];
+    for (let i = 0; i < values.length / 3; i++) {
+      const y = values[i * 3 + 1];
+      const z = values[i * 3 + 2];
 
-    vertices.push(mesh.vertices[i * 3], y * c - z * s, y * s + z * c);
-  }
+      rotated.push(values[i * 3], y * c - z * s, y * s + z * c);
+    }
+    return rotated;
+  };
 
   return {
     ...mesh,
-    vertices,
+    vertices: rotate(mesh.vertices),
+    normals: rotate(mesh.normals),
   };
 };

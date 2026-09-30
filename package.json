@@ -36,6 +36,11 @@
       "react-app/jest"
     ]
   },
+  "jest": {
+    "transformIgnorePatterns": [
+      "node_modules/(?!@babylonjs)"
+    ]
+  },
   "browserslist": {
     "production": [
       ">0.2%",

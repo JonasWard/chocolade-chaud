@@ -86,12 +86,6 @@ const vector2Angle = (v0: Vector2, v1: Vector2): number => {
 
 const vector2Cross = (v0: Vector2, v1: Vector2): number => v0.x * v1.y - v0.y * v1.x;
 
-const vector2Rotate = (v: Vector2, angle: number, translate: Vector2): Vector2 => {
-  const c = Math.cos(angle);
-  const s = Math.sin(angle);
-  return new Vector2(v.x * c - v.y * s + translate.x, v.x * s + v.y * c + translate.y);
-};
-
 /**
  * Checks if a point is inside of a closed polyline
  *
@@ -116,27 +110,10 @@ export const vectorInPolygon = (v: Vector2, vs: Vector2[]): boolean => {
   return Math.abs(angleSum) > Math.PI; // this will be negative if the curve is CW
 };
 
-/**
- * Computes the area of a closed polyline
- *
- * @param points the vertices of a closed polyline. Will be projected to XY plane (the Z coordinate is ignored)
- * @returns signed polygon area (negative if clockwise)
- */
-const signedPolygonArea = (points: Vector3[]): number => {
-  // Polygon area formula: ((x1y2 - x2y1) + (x2y3 - x3y2) + ... + (xny1 - x1yn)) / 2
-  let area = 0;
-  for (let i = 0; i < points.length; i++) {
-    const p1 = points[i];
-    const p2 = points[(i + 1) % points.length];
-    area += p1.x * p2.z - p2.x * p1.z;
-  }
-  return area * 0.5;
-};
-
 export const sdCurtailedPolyLine = (v: Vector2, vs: Vector2[], closed?: boolean): number => {
   let d = Infinity;
   for (let i = 0; i < vs.length - (closed ? 0 : 1); i++) d = Math.min(d, sdCurtailedLine(v, vs[i], vs[(i + 1) % vs.length]));
-  return closed ? (vectorInPolygon(v, vs) ? -1 : 1 * d) : d;
+  return closed && vectorInPolygon(v, vs) ? -d : d;
 };
 
 export const sdCircle = (v: Vector2, c: Vector2, radius: number) => v.subtract(c).length() - radius;
@@ -150,40 +127,6 @@ const cs = [
   [new Vector2(-209, -34), 200, -1],
   [new Vector2(-178, -58), 160, -1],
 ] as [Vector2, number, -1 | 1][];
-
-const cSs = [
-  [new Vector2(34.998646, 44.265769), 8.17819, 1],
-  [new Vector2(48.144327, 40.597789), 5.469631, -1],
-  [new Vector2(63.76365, 36.726881), 10.622204, 1],
-  [new Vector2(56.868644, 20.942161), 6.602734, -1],
-  [new Vector2(42.900881, 9.008452), 11.768761, 1],
-  [new Vector2(31.02926, 26.862558), 9.671959, -1],
-] as [Vector2, number, -1 | 1][];
-
-const plg = [
-  new Vector2(42.875937, 42.067799),
-  new Vector2(53.45335, 39.282063),
-  new Vector2(59.511664, 26.992825),
-  new Vector2(51.848616, 16.653174),
-  new Vector2(36.384576, 18.808529),
-  new Vector2(33.180035, 36.292349),
-].reverse();
-
-const curvePolygon = (v: Vector2): number => {
-  const cDs = cSs.map(([c, r, m]) => -m * sdCircle(v, c.scale(s), r));
-  let d = sdCurtailedPolyLine(
-    v,
-    plg.map((v) => v.scale(s)),
-    true
-  );
-  // d = 0;
-  cDs.forEach((cD, i) => {
-    if (i % 2 === 0) d = sdBoolean(d, cD);
-    if (i % 2 === 1) d = sdDifference(d, cD);
-  });
-
-  return -d;
-};
 
 const swatchLines = [
   [
@@ -1751,19 +1694,7 @@ const circles = (
   ] as [{ x: number; y: number }, number][]
 ).map(([c, r]) => [new Vector2(c.x, c.y), r]) as [Vector2, number][];
 
-const vs = [new Vector3(0, 0, 0), new Vector3(0, 0, 100), new Vector3(200, 0, 200), new Vector3(100, 0, 300)];
-
-// const vShift = new Vector2(-120, -70);
 const vShift = new Vector2(-67, -33);
-const l0 = new Vector2(3, 0);
-const ld = new Vector2(5, 100);
-const s = 1;
-
-const sideMap = (n: number): number => {
-  const theta = 0.2;
-  if (n <= theta) return n / theta;
-  return 1 - (n - theta) / (1 - theta);
-};
 
 export const sdCentrePompidou = (p: Vector2): number => {
   let d = 1000;
@@ -1864,8 +1795,6 @@ export const sdGeometry = (p: Vector2): number => {
   );
 
   return d;
-
-  return Math.abs(((d * 1) % 1) - 0.5);
 };
 
 export const sdGeometryBis = (v: Vector2, s: number): number => {
@@ -1926,42 +1855,17 @@ const distanceMap = (dm: DistanceMethodType): ((v: Vector3, s: number) => number
   }
 };
 
-const stringDistanceParser = (dm: DistanceMethodType): string => {
-  switch (dm) {
-    case DistanceMethodType.SDGyroid:
-      return 'sdGyroid';
-    case DistanceMethodType.SDSchwarzP:
-      return 'sdSchwarzP';
-    case DistanceMethodType.SDSchwarzD:
-      return 'sdSchwarzD';
-    case DistanceMethodType.SDNeovius:
-      return 'sdNeovius';
-    case DistanceMethodType.SDSphere:
-      return 'sdSphere';
-    case DistanceMethodType.SDBox:
-      return 'sdBox';
-    case DistanceMethodType.SDTorus:
-      return 'sdTorus';
-    case DistanceMethodType.SDCylinder:
-      return 'sdCylinder';
-  }
-};
-
-const localDistanceAsStringParser = (methods: IMethodEntry[]): ((v: Vector3, s: number) => number) => {
-  const strings = ['const v0 = v.scale(s);', 'let d = 0;'];
-  strings.push(...methods.map((m) => `d = (${distanceMap(m.method)})(v0, d * ${m.number});`));
-  strings.push('return d;');
-  return new Function('v', 's', strings.join('\n')) as (v: Vector3, s: number) => number;
-};
-
+// compiles the method chain once, each method's scale is driven by the rest of the chain
 const localDistanceParser = (methods: IMethodEntry[]): ((v: Vector3, s: number) => number) => {
-  if (methods.length === 0) {
-    return () => 0;
-  } else if (methods.length === 1) {
-    return (v: Vector3, s: number) => distanceMap(methods[0].method)(v, s * methods[0].number);
-  } else {
-    return (v: Vector3, s: number) => distanceMap(methods[0].method)(v, localDistanceParser(methods.slice(1))(v, s * methods[0].number));
-  }
+  if (methods.length === 0) return () => 0;
+
+  const [{ method, number }, ...rest] = methods;
+  const distance = distanceMap(method);
+
+  if (rest.length === 0) return (v: Vector3, s: number) => distance(v, s * number);
+
+  const inner = localDistanceParser(rest);
+  return (v: Vector3, s: number) => distance(v, inner(v, s * number));
 };
 
 export const defaultDistanceData: IDistanceData = {
@@ -1980,41 +1884,9 @@ export const defaultDistanceData: IDistanceData = {
   scale: 1,
 };
 
-// export const DistanceMethodParser =
-//   (iDD: IDistanceData): ((v: Vector3) => number) =>
-//   (v: Vector3) =>
-//     localDistanceAsStringParser(iDD.methods)(v, iDD.scale);
-
 export const DistanceMethodParser = (iDD: IDistanceData): ((v: Vector3) => number) => {
-  // console.log(localDistanceAsStringParser(iDD.methods));
-  return (v: Vector3) => {
-    // const v2 = new Vector2(v.x, v.z);
-    // let d = sdSwatch(v2);
-    // // return d;
-    // const l = -2 * Math.atan(2 - 5 * d);
-    // return l;
-    // let d = sdGeometry(vector2Rotate(v2, 0.9, new Vector2(0.5, 0)));
-    // d = sdBoolean(sdGeometry(vector2Rotate(v2, 0.94, new Vector2(1, 1))), d);
-    // d = sdBoolean(sdGeometry(vector2Rotate(v2, 0.98, new Vector2(1.5, 2))), d);
-    // d = sdBoolean(sdGeometry(vector2Rotate(v2, 1.02, new Vector2(2, 3))), d);
-    // // const dP = sideMap((d ** 1.5 * 0.2 + 0.25) % 1);
-    // const l = Math.atan(2 - 3 * d);
-    // d = l < -2 ? d - 2 : l;
-    // d += 1;
-    // // return d;
-    const dP = localDistanceParser(iDD.methods)(new Vector3(v.x - iDD.center.x, v.y - iDD.center.y, v.z - iDD.center.z), iDD.scale);
-    return dP;
-    // return -sdDifference(dP, -l);
-    // const d2 = sdDifference(d, -d);
-    // return d2;
-    // return d2;
-    // const sdg = sdGeometryBis(new Vector2(v.x - 50, v.z - 100), 1) - 10;
-    // return -Math.min(dP * 0.25, -d * 2 + 1);
-    // return -Math.max(-d, 1 - sdg);
-
-    // return -Math.max(-dP, 1 - sdg);
-    // return Math.max(d2, -Math.max(-dP, 1 - sdg));
-  };
+  const localDistance = localDistanceParser(iDD.methods);
+  return (v: Vector3) => localDistance(new Vector3(v.x - iDD.center.x, v.y - iDD.center.y, v.z - iDD.center.z), iDD.scale);
 };
 
 export type DistanceMethod = (v: Vector3) => number;

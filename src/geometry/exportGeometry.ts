@@ -1,9 +1,19 @@
 import { Vector3 } from '@babylonjs/core';
 import { ITriangularMesh } from './createMesh';
 
-export const exportOBJ = (mesh: ITriangularMesh, fileName = 'chocolade-chaud') => {
-  // get an index and face list fron the object, geometry is just fine, all faces are quad
+const downloadFile = (content: string, fileName: string) => {
+  const url = URL.createObjectURL(new Blob([content], { type: 'text/plain' }));
+  const element = document.createElement('a');
+  element.href = url;
+  element.download = fileName;
+  document.body.appendChild(element);
+  element.click();
+  element.remove();
+  // give the browser a moment to start the download before releasing the blob
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
 
+export const meshToOBJ = (mesh: ITriangularMesh): string => {
   const positionStrings = [...Array(mesh.vertices.length / 3).keys()]
     .map((i) => `v ${mesh.vertices[i * 3]} ${mesh.vertices[i * 3 + 1]} ${mesh.vertices[i * 3 + 2]}`)
     .join('\n');
@@ -11,35 +21,19 @@ export const exportOBJ = (mesh: ITriangularMesh, fileName = 'chocolade-chaud') =
   const normalStrings = [...Array(mesh.normals.length / 3).keys()]
     .map((i) => `vn ${mesh.normals[i * 3]} ${mesh.normals[i * 3 + 1]} ${mesh.normals[i * 3 + 2]}`)
     .join('\n');
+
+  // v//vn - there are no texture coordinates
   const faceStrings = [...Array(mesh.faces.length / 3).keys()]
-    .map(
-      (i) =>
-        `f ${mesh.faces[i * 3] + 1}/${mesh.faces[i * 3] + 1} ${mesh.faces[i * 3 + 1] + 1}/${mesh.faces[i * 3 + 1] + 1} ${mesh.faces[i * 3 + 2] + 1}/${
-          mesh.faces[i * 3 + 2] + 1
-        }`
-    )
+    .map((i) => {
+      const [a, b, c] = [mesh.faces[i * 3] + 1, mesh.faces[i * 3 + 1] + 1, mesh.faces[i * 3 + 2] + 1];
+      return `f ${a}//${a} ${b}//${b} ${c}//${c}`;
+    })
     .join('\n');
 
-  const objContent = [
-    positionStrings,
-    // textureStrings,
-    normalStrings,
-    faceStrings,
-  ].join('\n');
-
-  const element = document.createElement('a');
-  const file = new Blob([objContent], {
-    type: 'text/plain',
-  });
-  element.href = URL.createObjectURL(file);
-  element.download = `${fileName}.obj`;
-  document.body.appendChild(element);
-  element.click();
+  return [positionStrings, normalStrings, faceStrings].join('\n');
 };
 
-export const exportSTL = (mesh: ITriangularMesh, fileName = 'chocolade-chaud') => {
-  // get an index and face list fron the object, geometry is just fine, all faces are triangles
-
+export const meshToSTL = (mesh: ITriangularMesh): string => {
   const vertexStrings: string[] = [];
 
   for (let i = 0; i < mesh.faces.length; i += 3) {
@@ -51,7 +45,7 @@ export const exportSTL = (mesh: ITriangularMesh, fileName = 'chocolade-chaud') =
 
       const normal = v1.subtract(v0).cross(v2.subtract(v0)).normalize();
 
-      const n = [normal.x, normal.y, normal.z].map((n) => (n < 0.0001 ? '0.000' : n.toPrecision(6)));
+      const n = [normal.x, normal.y, normal.z].map((n) => (Math.abs(n) < 0.0001 ? '0.000' : n.toPrecision(6)));
       vertexStrings.push(
         `facet normal ${n[0]} ${n[1]} ${n[2]}
 outer loop
@@ -64,17 +58,11 @@ endfacet`
     }
   }
 
-  const element = document.createElement('a');
-
-  const stlContent = `solid Exported by JonasWard with chocolate-chaud
+  return `solid Exported by JonasWard with chocolate-chaud
 ${vertexStrings.join('\n')}
 endsolid Exported by JonasWard with chocolate-chaud`;
-
-  const file = new Blob([stlContent], {
-    type: 'text/plain',
-  });
-  element.href = URL.createObjectURL(file);
-  element.download = `${fileName}.stl`;
-  document.body.appendChild(element);
-  element.click();
 };
+
+export const exportOBJ = (mesh: ITriangularMesh, fileName = 'chocolade-chaud') => downloadFile(meshToOBJ(mesh), `${fileName}.obj`);
+
+export const exportSTL = (mesh: ITriangularMesh, fileName = 'chocolade-chaud') => downloadFile(meshToSTL(mesh), `${fileName}.stl`);

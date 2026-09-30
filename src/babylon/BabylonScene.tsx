@@ -1,8 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Engine, EngineOptions, Scene, SceneOptions } from '@babylonjs/core';
 import * as React from 'react';
-import { IDistanceData, defaultDistanceData } from '../geometry/sdMethods';
-import { IGeometrySettings, createMesh, createMeshForGrid, defaultGeometrySettings } from '../geometry/createMesh';
+import { createMeshForGrid } from '../geometry/createMesh';
 import { DefaultGridSettings, GridType, IGridSettings } from '../geometry/grid';
 
 export interface ISceneProps {
@@ -11,7 +10,7 @@ export interface ISceneProps {
   adaptToDeviceRatio: boolean;
   sceneOptions?: SceneOptions;
   gridSettings?: IGridSettings;
-  onRender: (scene: Scene) => void;
+  onRender?: (scene: Scene) => void;
   onSceneReady: (scene: Scene) => void;
   id: string;
 }
@@ -47,7 +46,7 @@ export const BabylonScene: React.FC<ISceneProps> = ({
     }
 
     engine.runRenderLoop(() => {
-      if (typeof onRender === 'function') onRender(scene);
+      onRender?.(scene);
       scene.render();
     });
 

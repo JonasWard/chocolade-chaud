@@ -70,5 +70,5 @@ test('vector in polygon', () => {
   expect(vectorInPolygon(new Vector2(0.99, 1.01), [new Vector2(-1, 0), new Vector2(1, 1), new Vector2(1, 2), new Vector2(0, 2)])).toBe(true);
   expect(vectorInPolygon(new Vector2(3, 0), [new Vector2(0, 0), new Vector2(2, 0), new Vector2(2, 2), new Vector2(0, 2)])).toBe(false);
   expect(vectorInPolygon(new Vector2(1, 1), [new Vector2(0, 0), new Vector2(2, 0), new Vector2(2, 2), new Vector2(0, 2)])).toBe(true);
-  expect(vectorInPolygon(new Vector2(0.5, 1), [new Vector2(0, 2), new Vector2(2, 2), new Vector2(2, 0), new Vector2(0, 0)])).toBe(false);
+  expect(vectorInPolygon(new Vector2(0.5, 1), [new Vector2(0, 2), new Vector2(2, 2), new Vector2(2, 0), new Vector2(0, 0)])).toBe(true); // inside the square, orientation does not matter
 });
