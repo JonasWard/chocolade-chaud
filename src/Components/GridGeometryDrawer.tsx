@@ -1,9 +1,37 @@
-import { Button, ColorPicker, Drawer, Dropdown, Form, InputNumber, MenuProps, Space, Switch } from 'antd';
+import { Button, ColorPicker, Drawer, Dropdown, Form, Input, InputNumber, MenuProps, Select, Space, Switch } from 'antd';
 import React from 'react';
 import './drawers.css';
 import { DefaultGridSettings, GridType, IGridSettings, MAX_DIV_PER_MM, MAX_UV_COUNT } from '../geometry/grid';
 import { MethodContent } from './MethodContent';
 import { DEFAULT_COLOR } from '../geometry/createMesh';
+import { FONT_FAMILIES, ITextSettings, defaultTextSettings } from '../geometry/text/textField';
+
+const TextContent: React.FC<{ text: ITextSettings; setText: (t: ITextSettings) => void }> = ({ text, setText }) => {
+  const number = (label: string, key: 'size' | 'depth' | 'bevelWidth' | 'patternFade' | 'offsetX' | 'offsetZ', props: { step: number; min?: number; max?: number }) => (
+    <Space.Compact block>
+      <Space.Addon>{label}</Space.Addon>
+      <InputNumber {...props} value={text[key]} onChange={(v) => v !== null && setText({ ...text, [key]: v })} />
+    </Space.Compact>
+  );
+
+  return (
+    <>
+      <Input placeholder='text on the bar' value={text.text} onChange={(e) => setText({ ...text, text: e.target.value })} />
+      <Select
+        style={{ width: '100%' }}
+        value={text.fontFamily}
+        options={FONT_FAMILIES.map((f) => ({ value: f, label: f }))}
+        onChange={(fontFamily) => setText({ ...text, fontFamily })}
+      />
+      {number('Size', 'size', { step: 1, min: 1, max: 200 })}
+      {number('Height', 'depth', { step: 0.1, min: -5, max: 5 })}
+      {number('Bevel', 'bevelWidth', { step: 0.1, min: 0, max: 10 })}
+      {number('Flatten', 'patternFade', { step: 0.1, min: 0, max: 1 })}
+      {number('X', 'offsetX', { step: 1 })}
+      {number('Z', 'offsetZ', { step: 1 })}
+    </>
+  );
+};
 
 // IndividuallyCustomizable and Groupable are not implemented yet (their parsers return no meshes)
 const IMPLEMENTED_GRID_TYPES = [GridType.Single, GridType.Simple];
@@ -73,6 +101,9 @@ export const GridGeometryDrawer: React.FC<{ gridSettings: IGridSettings; setGrid
             </Form.Item>
             <Form.Item label={'Edit Pattern'}>
               <MethodContent sdfSettings={gridSettings.sdfSetting} setSdfSettings={(sdfSetting) => setGridSettings({ ...gridSettings, sdfSetting })} />
+            </Form.Item>
+            <Form.Item label={'Text'}>
+              <TextContent text={gridSettings.text ?? defaultTextSettings} setText={(text) => setGridSettings({ ...gridSettings, text })} />
             </Form.Item>
           </Form>
         );

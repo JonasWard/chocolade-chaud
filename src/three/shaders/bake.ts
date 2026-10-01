@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CellData } from '../../geometry/grid';
 import { sdfGLSL, sdfUniformValues } from './sdf';
+import { ITextField, MIN_BEVEL_WIDTH } from '../../geometry/text/textField';
 
 // Bakes the top surface of a bar into two float textures of one texel per grid vertex:
 // the location of the vertex (relative to the base position of the bar) and its normal.
@@ -29,11 +30,41 @@ uniform float uHeight;
 uniform float uInset;
 uniform float uAmplitude;
 
+// the relief of the text, see geometry/text/textField.ts
+uniform sampler2D uText;
+uniform bool uHasText;
+uniform float uTextPixelSize;
+uniform float uTextDepth;
+uniform float uTextBevelWidth;
+uniform float uTextPatternFade;
+
+float textTexel(ivec2 p) {
+  return texelFetch(uText, clamp(p, ivec2(0), textureSize(uText, 0) - 1), 0).r;
+}
+
+// bilinear by hand: float textures don't filter everywhere, and this way it is the same sample the exported mesh takes
+float textDistance(vec2 local) {
+  vec2 f = local / uTextPixelSize - 0.5;
+  vec2 f0 = floor(f);
+  vec2 t = f - f0;
+  ivec2 p = ivec2(f0);
+  float near = mix(textTexel(p), textTexel(p + ivec2(1, 0)), t.x);
+  float far = mix(textTexel(p + ivec2(0, 1)), textTexel(p + ivec2(1, 1)), t.x);
+  return mix(near, far, t.y);
+}
+
+float reliefHeight(float pattern, vec2 local) {
+  if (!uHasText) return pattern * uAmplitude;
+  float t = clamp(0.5 - textDistance(local) / max(uTextBevelWidth, ${MIN_BEVEL_WIDTH.toFixed(6)}), 0.0, 1.0);
+  float mask = t * t * (3.0 - 2.0 * t);
+  return pattern * uAmplitude * (1.0 - uTextPatternFade * mask) + uTextDepth * mask;
+}
+
 void main() {
   vec2 ij = floor(gl_FragCoord.xy);
   vec2 local = ij * uStep;
   vec2 d = fanOffset(ij, uDivisions, uInset);
-  float s = (sdf(vec3(uOrigin.x + local.x, uHeight, uOrigin.y + local.y)) * uAmplitude) / uHeight;
+  float s = reliefHeight(sdf(vec3(uOrigin.x + local.x, uHeight, uOrigin.y + local.y)), local) / uHeight;
   gl_FragColor = vec4(local.x + d.x * s, uHeight + uHeight * s, local.y + d.y * s, 1.0);
 }
 `;
@@ -96,6 +127,12 @@ const createBaker = () => {
       uHeight: { value: 1 },
       uInset: { value: 0 },
       uAmplitude: { value: 0 },
+      uText: { value: null },
+      uHasText: { value: false },
+      uTextPixelSize: { value: 1 },
+      uTextDepth: { value: 0 },
+      uTextBevelWidth: { value: 0 },
+      uTextPatternFade: { value: 0 },
     },
   });
   const normalMaterial = new THREE.ShaderMaterial({
@@ -114,7 +151,20 @@ const createBaker = () => {
 
 let baker: ReturnType<typeof createBaker> | undefined;
 
-export const bakeTopSurface = (gl: THREE.WebGLRenderer, { positions, normals }: ITopSurface, { geometrySettings, sdfSettings }: CellData) => {
+/** the distance field of a text as a texture for the bake, to be disposed by the caller */
+export const createTextTexture = ({ width, height, distances }: ITextField): THREE.DataTexture => {
+  const texture = new THREE.DataTexture(distances, width, height, THREE.RedFormat, THREE.FloatType);
+  texture.needsUpdate = true;
+  return texture;
+};
+
+/** textTexture holds the distance field of the text of the cell, when it has one */
+export const bakeTopSurface = (
+  gl: THREE.WebGLRenderer,
+  { positions, normals }: ITopSurface,
+  { geometrySettings, sdfSettings, text }: CellData,
+  textTexture?: THREE.Texture
+) => {
   baker ??= createBaker();
   const { scene, mesh, camera, positionMaterial, normalMaterial } = baker;
   const { innerWidth, innerLength, height, inset, amplitude, horizontalDivisions, verticalDivisions, basePosition } = geometrySettings;
@@ -127,6 +177,14 @@ export const bakeTopSurface = (gl: THREE.WebGLRenderer, { positions, normals }: 
   uniforms.uHeight.value = height;
   uniforms.uInset.value = inset;
   uniforms.uAmplitude.value = amplitude;
+  uniforms.uHasText.value = !!text && !!textTexture;
+  uniforms.uText.value = textTexture ?? null;
+  if (text) {
+    uniforms.uTextPixelSize.value = text.field.pixelSize;
+    uniforms.uTextDepth.value = text.depth;
+    uniforms.uTextBevelWidth.value = text.bevelWidth;
+    uniforms.uTextPatternFade.value = text.patternFade;
+  }
 
   const previousTarget = gl.getRenderTarget();
 

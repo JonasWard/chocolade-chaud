@@ -140,7 +140,12 @@ const logParity = (gl: THREE.WebGLRenderer, surface: Parameters<typeof readTopSu
  * A bar drawn from its baked top surface: the top takes location and normal from it, the bottom and the sides refer to it.
  * reference is the exported mesh of the same bar, only used to check the bake against in development
  */
-export const BarMesh: React.FC<{ cell: CellData; geometry: THREE.BufferGeometry; reference?: ITriangularMesh }> = ({ cell, geometry, reference }) => {
+export const BarMesh: React.FC<{ cell: CellData; geometry: THREE.BufferGeometry; textTexture?: THREE.Texture; reference?: ITriangularMesh }> = ({
+  cell,
+  geometry,
+  textTexture,
+  reference,
+}) => {
   const gl = useThree((state) => state.gl);
   const invalidate = useThree((state) => state.invalidate);
   const { geometrySettings } = cell;
@@ -153,12 +158,12 @@ export const BarMesh: React.FC<{ cell: CellData; geometry: THREE.BufferGeometry;
   React.useEffect(() => () => material.dispose(), [material]);
 
   React.useLayoutEffect(() => {
-    bakeTopSurface(gl, surface, cell);
+    bakeTopSurface(gl, surface, cell, textTexture);
     uniforms.uPositions.value = surface.positions.texture;
     uniforms.uNormals.value = surface.normals.texture;
     setBarUniforms(uniforms, cell.geometrySettings);
     invalidate();
-  }, [gl, surface, cell, uniforms, invalidate]);
+  }, [gl, surface, cell, textTexture, uniforms, invalidate]);
 
   React.useLayoutEffect(() => {
     material.color.set(geometrySettings.color ?? DEFAULT_COLOR);
@@ -168,7 +173,7 @@ export const BarMesh: React.FC<{ cell: CellData; geometry: THREE.BufferGeometry;
 
   React.useEffect(() => {
     if (import.meta.env.DEV && reference) logParity(gl, surface, reference, cell.geometrySettings);
-  }, [gl, surface, cell, reference]);
+  }, [gl, surface, cell, textTexture, reference]);
 
   // the pattern is not part of the bounding box, so don't cull on it
   return <mesh geometry={geometry} material={material} position={[basePosition.x, 0, basePosition.z]} frustumCulled={false} />;

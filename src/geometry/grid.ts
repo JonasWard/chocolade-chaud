@@ -1,5 +1,6 @@
 import { DEFAULT_COLOR, IGeometrySettings, ITriangularMesh, createIMesh } from './createMesh';
 import { IDistanceData, defaultDistanceData } from './sdMethods';
+import { ITextRelief, ITextSettings } from './text/textField';
 
 export enum GridType {
   Single = 'Single',
@@ -25,6 +26,7 @@ export type ISingleGrid = BaseGrid & {
   cellWidth: number;
   sdfSetting: IDistanceData;
   color: string;
+  text?: ITextSettings;
 };
 
 export type ISimpleGrid = BaseGrid & {
@@ -61,9 +63,10 @@ export type CellData = {
   geometrySettings: IGeometrySettings;
   sdfSettings: IDistanceData;
   withSupports: boolean;
+  text?: ITextRelief;
 };
 
-const applyGridData = (cellData: CellData): ITriangularMesh => createIMesh(cellData.geometrySettings, cellData.sdfSettings, cellData.withSupports);
+const applyGridData = (cellData: CellData): ITriangularMesh => createIMesh(cellData.geometrySettings, cellData.sdfSettings, cellData.withSupports, cellData.text);
 
 export const MAX_UV_COUNT = 10;
 export const MAX_DIV_PER_MM = 8;
@@ -77,7 +80,7 @@ const parsingBasicGridData = <T extends BaseGrid>(grid: T): T => ({
   divPerMM: Math.min(grid.divPerMM, MAX_DIV_PER_MM),
 });
 
-const singleGridCells = (grid: ISingleGrid, withSupports: boolean): CellData[] => [
+const singleGridCells = (grid: ISingleGrid, withSupports: boolean, text?: ITextRelief): CellData[] => [
   {
     geometrySettings: {
       ...grid,
@@ -91,6 +94,7 @@ const singleGridCells = (grid: ISingleGrid, withSupports: boolean): CellData[] =
     },
     sdfSettings: grid.sdfSetting,
     withSupports,
+    text,
   },
 ];
 
@@ -133,11 +137,11 @@ const simpleGridCells = (grid: ISimpleGrid, withSupports: boolean): CellData[] =
   return cellData;
 };
 
-/** the settings of every bar of a grid */
-export const gridCells = (grid: IGridSettings, withSupports = false): CellData[] => {
+/** the settings of every bar of a grid, text is the relief of the text of the grid (only a single bar has one) */
+export const gridCells = (grid: IGridSettings, withSupports = false, text?: ITextRelief): CellData[] => {
   switch (grid.type) {
     case GridType.Single:
-      return singleGridCells(grid, withSupports);
+      return singleGridCells(grid, withSupports, text);
     case GridType.Simple:
       return simpleGridCells(grid, withSupports);
     // not implemented yet
@@ -209,7 +213,7 @@ export const DefaultGridSettings = (gridType: GridType): IGridSettings => {
   }
 };
 
-export const GridParser = (grid: IGridSettings, cellData: CellData[] = [], withSupports = false): ITriangularMesh[] => {
-  cellData.push(...gridCells(grid, withSupports));
+export const GridParser = (grid: IGridSettings, cellData: CellData[] = [], withSupports = false, text?: ITextRelief): ITriangularMesh[] => {
+  cellData.push(...gridCells(grid, withSupports, text));
   return cellData.map(applyGridData);
 };

@@ -2,15 +2,16 @@ import React from 'react';
 import { CellData, IGridSettings } from '../geometry/grid';
 import { ITriangularMesh } from '../geometry/createMesh';
 import type { MeshRequest, MeshResponse } from '../geometry/meshWorker';
+import { ITextRelief } from '../geometry/text/textField';
 
 // id is unique per generated result
-export type GridMeshes = { id: number; grid: IGridSettings; meshes: ITriangularMesh[]; cellData: CellData[] };
+export type GridMeshes = { id: number; grid: IGridSettings; text?: ITextRelief; meshes: ITriangularMesh[]; cellData: CellData[] };
 
 /**
  * Generates the meshes for a grid in a web worker, so editing the settings never blocks the ui.
  * While the worker is busy only the latest request is kept, intermediate settings are skipped.
  */
-export const useGridMeshes = (grid: IGridSettings, withSupports = true): { result?: GridMeshes; pending: boolean; error?: string } => {
+export const useGridMeshes = (grid: IGridSettings, text?: ITextRelief, withSupports = true): { result?: GridMeshes; pending: boolean; error?: string } => {
   const [result, setResult] = React.useState<GridMeshes>();
   const [error, setError] = React.useState<string>();
   const [pending, setPending] = React.useState(true);
@@ -18,7 +19,7 @@ export const useGridMeshes = (grid: IGridSettings, withSupports = true): { resul
   const worker = React.useRef<Worker | undefined>(undefined);
   const busy = React.useRef(false);
   const queued = React.useRef<MeshRequest | undefined>(undefined);
-  const grids = React.useRef(new Map<number, IGridSettings>());
+  const requests = React.useRef(new Map<number, MeshRequest>());
   const lastId = React.useRef(0);
 
   const post = React.useCallback((request: MeshRequest) => {
@@ -28,13 +29,13 @@ export const useGridMeshes = (grid: IGridSettings, withSupports = true): { resul
 
   React.useEffect(() => {
     const w = new Worker(new URL('../geometry/meshWorker.ts', import.meta.url), { type: 'module' });
-    const requestGrids = grids.current;
+    const pendingRequests = requests.current;
     worker.current = w;
 
     w.onmessage = ({ data }: MessageEvent<MeshResponse>) => {
       busy.current = false;
-      const requestGrid = requestGrids.get(data.id);
-      requestGrids.delete(data.id);
+      const request = pendingRequests.get(data.id);
+      pendingRequests.delete(data.id);
 
       if (queued.current) {
         post(queued.current);
@@ -42,9 +43,9 @@ export const useGridMeshes = (grid: IGridSettings, withSupports = true): { resul
       } else setPending(false);
 
       if ('error' in data) setError(data.error);
-      else if (requestGrid) {
+      else if (request) {
         setError(undefined);
-        setResult({ id: data.id, grid: requestGrid, meshes: data.meshes, cellData: data.cellData });
+        setResult({ id: data.id, grid: request.grid, text: request.text, meshes: data.meshes, cellData: data.cellData });
       }
     };
 
@@ -53,21 +54,21 @@ export const useGridMeshes = (grid: IGridSettings, withSupports = true): { resul
       worker.current = undefined;
       busy.current = false;
       queued.current = undefined;
-      requestGrids.clear();
+      pendingRequests.clear();
     };
   }, [post]);
 
   React.useEffect(() => {
-    const request: MeshRequest = { id: ++lastId.current, grid, withSupports };
-    grids.current.set(request.id, grid);
+    const request: MeshRequest = { id: ++lastId.current, grid, withSupports, text };
+    requests.current.set(request.id, request);
     setPending(true);
 
     if (busy.current) {
       // replace an older queued request, it is outdated now
-      if (queued.current) grids.current.delete(queued.current.id);
+      if (queued.current) requests.current.delete(queued.current.id);
       queued.current = request;
     } else post(request);
-  }, [grid, withSupports, post]);
+  }, [grid, text, withSupports, post]);
 
   return { result, pending, error };
 };

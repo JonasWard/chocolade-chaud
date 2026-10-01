@@ -2,6 +2,7 @@ import { DistanceMethodParser, IDistanceData, defaultDistanceData } from './sdMe
 
 import { INSET, fanOffset, supportColumns, supportMaxHeight } from './barMath';
 import { createBarFaces, weldedWallVertex } from './barLayout';
+import { ITextRelief, reliefHeight } from './text/textField';
 
 export const DEFAULT_COLOR = '#A73A08';
 
@@ -94,7 +95,8 @@ export const computeNormals = (vertices: ArrayLike<number>, faces: ArrayLike<num
 export const createIMesh = (
   geometrySettings: IGeometrySettings = defaultGeometrySettings,
   sdfSettings: IDistanceData = defaultDistanceData,
-  withSupports: boolean = false
+  withSupports: boolean = false,
+  text?: ITextRelief
 ): ITriangularMesh => {
   // set the geometry settings
   const { innerWidth, innerLength, height, inset, amplitude, horizontalDivisions, verticalDivisions } = geometrySettings;
@@ -125,7 +127,7 @@ export const createIMesh = (
       const dy = height;
       const dz = fanOffset(j, verticalDivisions, inset);
 
-      const s = (sdf(x, y, z) * amplitude) / height;
+      const s = reliefHeight(sdf(x, y, z), amplitude, i * gridWidth, j * gridLength, text) / height;
       movedGrid[k] = x + dx * s;
       movedGrid[k + 1] = y + dy * s;
       movedGrid[k + 2] = z + dz * s;

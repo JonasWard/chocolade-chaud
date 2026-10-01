@@ -6,7 +6,8 @@ import { GridMeshes } from '../hooks/useGridMeshes';
 import { IGridSettings, gridCells } from '../geometry/grid';
 import { ChocolateMesh } from './ChocolateMesh';
 import { BarMesh, barGeometryKey, createBarGeometry } from './BarMesh';
-import { canBakeTopSurface } from './shaders/bake';
+import { canBakeTopSurface, createTextTexture } from './shaders/bake';
+import { ITextRelief } from '../geometry/text/textField';
 import { sdfFitsShader } from './shaders/sdf';
 
 // the part of the settings that changes the outline of the grid, the camera is only refitted when it changes
@@ -30,10 +31,17 @@ const FitCamera: React.FC<{ fitKey?: string }> = ({ fitKey }) => {
   return null;
 };
 
+// text is the relief of the text of the grid, meshes what the worker made for the export
+type SceneProps = { grid: IGridSettings; text?: ITextRelief; meshes?: GridMeshes };
+
 // the bars of the current settings, drawn from their top surface baked on the gpu
-const Bars: React.FC<{ grid: IGridSettings; meshes?: GridMeshes }> = ({ grid, meshes }) => {
+const Bars: React.FC<SceneProps> = ({ grid, text, meshes }) => {
   // the same bars the worker generates for the export
-  const cells = React.useMemo(() => gridCells(grid, true), [grid]);
+  const cells = React.useMemo(() => gridCells(grid, true, text), [grid, text]);
+
+  const field = text?.field;
+  const textTexture = React.useMemo(() => field && createTextTexture(field), [field]);
+  React.useEffect(() => () => textTexture?.dispose(), [textTexture]);
 
   const geometryKeys = cells.map(barGeometryKey);
   const geometryKey = JSON.stringify([...new Set(geometryKeys)]);
@@ -45,20 +53,28 @@ const Bars: React.FC<{ grid: IGridSettings; meshes?: GridMeshes }> = ({ grid, me
   React.useEffect(() => () => geometries.forEach((g) => g.dispose()), [geometries]);
 
   // the worker result lags behind while editing, only compare with it when it belongs to these settings
-  const references = meshes?.grid === grid ? meshes.meshes : undefined;
+  const references = meshes?.grid === grid && meshes.text === text ? meshes.meshes : undefined;
 
-  return cells.map((cell, i) => <BarMesh key={i} cell={cell} geometry={geometries.get(geometryKeys[i]) as THREE.BufferGeometry} reference={references?.[i]} />);
+  return cells.map((cell, i) => (
+    <BarMesh
+      key={i}
+      cell={cell}
+      geometry={geometries.get(geometryKeys[i]) as THREE.BufferGeometry}
+      textTexture={cell.text && textTexture}
+      reference={references?.[i]}
+    />
+  ));
 };
 
 // without float render targets (or with a pattern the shader can't hold) the meshes of the worker are shown instead
-const Meshes: React.FC<{ grid: IGridSettings; meshes?: GridMeshes }> = ({ grid, meshes }) => {
+const Meshes: React.FC<SceneProps> = ({ grid, text, meshes }) => {
   const gl = useThree((state) => state.gl);
   const baked = React.useMemo(() => canBakeTopSurface(gl), [gl]) && gridCells(grid).every((c) => sdfFitsShader(c.sdfSettings));
 
   if (baked)
     return (
       <>
-        <Bars grid={grid} meshes={meshes} />
+        <Bars grid={grid} text={text} meshes={meshes} />
         <FitCamera fitKey={footprint(grid)} />
       </>
     );
@@ -72,7 +88,7 @@ const Meshes: React.FC<{ grid: IGridSettings; meshes?: GridMeshes }> = ({ grid, 
   );
 };
 
-export const Scene: React.FC<{ grid: IGridSettings; meshes?: GridMeshes }> = ({ grid, meshes }) => (
+export const Scene: React.FC<SceneProps> = ({ grid, text, meshes }) => (
   <div className='scene'>
     {/* looking down on the bar, slightly off the pole so the orbit controls keep a stable up direction */}
     <Canvas camera={{ position: [0, 250, 0.01], fov: 45, near: 0.1, far: 10000 }} dpr={[1, 2]}>
@@ -81,7 +97,7 @@ export const Scene: React.FC<{ grid: IGridSettings; meshes?: GridMeshes }> = ({ 
       <directionalLight position={[60, 200, -80]} intensity={1.6} />
       <directionalLight position={[-80, -60, 100]} intensity={0.4} />
       <Bounds margin={1.2}>
-        <Meshes grid={grid} meshes={meshes} />
+        <Meshes grid={grid} text={text} meshes={meshes} />
       </Bounds>
       <OrbitControls makeDefault />
     </Canvas>

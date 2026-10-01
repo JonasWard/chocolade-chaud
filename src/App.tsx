@@ -5,16 +5,18 @@ import { Export } from './Components/Export';
 import { DefaultGridSettings, GridType, IGridSettings } from './geometry/grid';
 import { GridGeometryDrawer } from './Components/GridGeometryDrawer';
 import { useGridMeshes } from './hooks/useGridMeshes';
+import { useTextRelief } from './hooks/useTextRelief';
 import { Spin } from 'antd';
 
 function App() {
   const [gridSettings, setGridSettings] = React.useState<IGridSettings>(DefaultGridSettings(GridType.Single));
-  const { result, pending, error } = useGridMeshes(gridSettings);
+  const text = useTextRelief(gridSettings);
+  const { result, pending, error } = useGridMeshes(gridSettings, text);
 
   return (
     <div className='App'>
       <header className='App-header'>
-        <Scene grid={gridSettings} meshes={result} />
+        <Scene grid={gridSettings} text={text} meshes={result} />
       </header>
       <Spin className='mesh-status' spinning={pending} />
       {error && <div className='mesh-status'>{error}</div>}
