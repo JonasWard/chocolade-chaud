@@ -3,6 +3,11 @@ name: CI
 on:
   push:
   pull_request:
+  # redeploy main by hand from the Actions tab
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   check:
@@ -21,3 +26,49 @@ jobs:
       - run: bun run lint
       - run: bun run test
       - run: bun run build
+      # hand the verified build to the deploy job
+      - if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build
+          path: build
+          retention-days: 7
+
+  # publishes main to GitHub Pages (the gh-pages branch), only after all checks passed
+  deploy:
+    needs: check
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    # never run two deploys at once, but don't cancel one halfway
+    concurrency:
+      group: deploy-gh-pages
+      cancel-in-progress: false
+    environment:
+      name: production
+      url: https://jonasward.github.io/chocolade-chaud/
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+      - run: bun install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          name: build
+          path: build
+      # gh-pages can't parse "[bot]" in --user, it falls back to the git identity
+      - run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Publish build/ to the gh-pages branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: >
+          bunx gh-pages --dist build --nojekyll
+          --repo "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          --message "Deploy ${GITHUB_SHA}"
