@@ -20,6 +20,11 @@ bun run deploy     # build and publish build/ to the gh-pages branch
 
 CI runs typecheck, lint, tests and build on every push and pull request.
 
+Pinned dependencies:
+
+- `three` stays on `~0.182`: react-three-fiber 9 still uses `THREE.Clock`, which logs a deprecation warning from three r183 on.
+- `react` / `react-dom` stay on `~19.3`: react-three-fiber 9.8 supports `react >=19 <19.4`.
+
 ## Code map
 
 - `src/geometry` is the engine-free geometry core: distance methods (`sdMethods.ts`), mesh generation on typed arrays (`createMesh.ts`), grid layouts (`grid.ts`) and the binary STL / OBJ serializers (`exportGeometry.ts`). It must not import the render engine, a test guards this.

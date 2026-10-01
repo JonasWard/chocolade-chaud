@@ -15,9 +15,9 @@ export const useGridMeshes = (grid: IGridSettings, withSupports = true): { resul
   const [error, setError] = React.useState<string>();
   const [pending, setPending] = React.useState(true);
 
-  const worker = React.useRef<Worker>();
+  const worker = React.useRef<Worker | undefined>(undefined);
   const busy = React.useRef(false);
-  const queued = React.useRef<MeshRequest>();
+  const queued = React.useRef<MeshRequest | undefined>(undefined);
   const grids = React.useRef(new Map<number, IGridSettings>());
   const lastId = React.useRef(0);
 

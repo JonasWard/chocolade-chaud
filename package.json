@@ -16,19 +16,19 @@
     "deploy": "gh-pages -d build"
   },
   "dependencies": {
-    "@react-three/drei": "^9",
-    "@react-three/fiber": "^8",
-    "antd": "^5.10.3",
+    "@react-three/drei": "^10",
+    "@react-three/fiber": "^9",
+    "antd": "^6",
     "fflate": "^0.8.3",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
+    "react": "~19.3",
+    "react-dom": "~19.3",
     "three": "~0.182.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^22",
-    "@types/react": "^18.2.33",
-    "@types/react-dom": "^18.2.14",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
     "@types/three": "~0.182.0",
     "@vitejs/plugin-react": "^6.1.1",
     "eslint": "^10.11.0",

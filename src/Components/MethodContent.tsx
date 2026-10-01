@@ -1,4 +1,4 @@
-import { Button, InputNumber } from 'antd';
+import { Button, InputNumber, Space } from 'antd';
 import React from 'react';
 import { DistanceMethodType, IDistanceData, IMethodEntry } from '../geometry/sdMethods';
 import { ChocolateLogarithmicSlider } from './ChocolateLogarithmicSlider';
@@ -22,7 +22,10 @@ export const MethodContent: React.FC<{ sdfSettings: IDistanceData; setSdfSetting
         <ChocolateLogarithmicSlider key={i} min={-5} max={5} entry={entry} setEntry={(v: IMethodEntry) => updateEntries(i, v)} />
       ))}
       {(['x', 'y', 'z'] as const).map((axis) => (
-        <InputNumber key={axis} addonBefore={axis.toUpperCase()} step={1} value={sdfSettings.center[axis]} onChange={(v) => updateCenter(axis, v)} />
+        <Space.Compact key={axis} block>
+          <Space.Addon>{axis.toUpperCase()}</Space.Addon>
+          <InputNumber step={1} value={sdfSettings.center[axis]} onChange={(v) => updateCenter(axis, v)} />
+        </Space.Compact>
       ))}
       <span>
         <Button onClick={() => setEntries([...entries, { method: DistanceMethodType.SDGyroid, number: 1 }])}>+</Button>
