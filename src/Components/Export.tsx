@@ -1,31 +1,46 @@
 import { Button } from 'antd';
 import { makeMeshTiltOnSide } from '../geometry/createMesh';
-import { exportOBJ, exportSTL } from '../geometry/exportGeometry';
+import { meshToOBJ, meshToSTL } from '../geometry/exportGeometry';
 import React from 'react';
 import './export.css';
-import { CellData, GridParser, IGridSettings } from '../geometry/grid';
+import { GridMeshes } from '../hooks/useGridMeshes';
+import { downloadFiles, Files } from '../export/download';
 
-export const Export: React.FC<{ gridSettings: IGridSettings }> = ({ gridSettings }) => {
-  const createSTL = () => {
-    const cellData: CellData[] = [];
-    const meshes = GridParser(gridSettings, cellData, true); // mesh with internal support structure
-    meshes.map((m, i) => exportSTL(makeMeshTiltOnSide(m, cellData[i].geometrySettings), `mesh-${i}`));
-  };
+type Format = 'stl' | 'obj';
 
-  const createObj = () => {
-    const cellData: CellData[] = [];
-    const meshes = GridParser(gridSettings, cellData, true); // mesh with internal support structure
-    meshes.map((m, i) => exportOBJ(makeMeshTiltOnSide(m, cellData[i].geometrySettings), `mesh-${i}`));
+const serialize: Record<Format, (mesh: ReturnType<typeof makeMeshTiltOnSide>) => Uint8Array> = {
+  stl: (mesh) => new Uint8Array(meshToSTL(mesh)),
+  obj: (mesh) => new TextEncoder().encode(meshToOBJ(mesh)),
+};
+
+// exports the meshes shown in the scene, those already contain the internal support structure
+export const Export: React.FC<{ meshes?: GridMeshes }> = ({ meshes }) => {
+  const [busy, setBusy] = React.useState<Format>();
+
+  const exportAs = async (format: Format) => {
+    if (!meshes) return;
+    setBusy(format);
+    // let the loading state render before the (synchronous) serialization starts
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    try {
+      const files: Files = {};
+      meshes.meshes.forEach((m, i) => {
+        files[`mesh-${i}.${format}`] = serialize[format](makeMeshTiltOnSide(m, meshes.cellData[i].geometrySettings));
+      });
+      await downloadFiles(files, `chocolade-chaud-${format}.zip`);
+    } finally {
+      setBusy(undefined);
+    }
   };
 
   return (
-    <>
-      <Button className='export-stl' onClick={createSTL}>
+    <div className='export-buttons'>
+      <Button onClick={() => exportAs('stl')} disabled={!meshes || !!busy} loading={busy === 'stl'}>
         Export STL
       </Button>
-      <Button className='export-obj' onClick={createObj}>
+      <Button onClick={() => exportAs('obj')} disabled={!meshes || !!busy} loading={busy === 'obj'}>
         Export OBJ
       </Button>
-    </>
+    </div>
   );
 };

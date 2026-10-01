@@ -5,7 +5,6 @@ import { DistanceMethodType, IMethodEntry } from '../geometry/sdMethods';
 import './slider.css';
 import gyroid from '../assets/icons/gyroid.png';
 import neovius from '../assets/icons/neovius.png';
-import perlin from '../assets/icons/perlin.png';
 import schwarzD from '../assets/icons/schwarzD.png';
 import schwarzP from '../assets/icons/schwarzP.png';
 
@@ -14,15 +13,15 @@ const LocalMethodImage: React.FC<{ method: DistanceMethodType }> = ({ method }) 
 
   switch (method) {
     case DistanceMethodType.SDGyroid:
-      return <img style={imageStyle} src={gyroid} />;
+      return <img style={imageStyle} src={gyroid} alt={method} />;
     case DistanceMethodType.SDSchwarzP:
-      return <img style={imageStyle} src={schwarzP} />;
+      return <img style={imageStyle} src={schwarzP} alt={method} />;
     case DistanceMethodType.SDSchwarzD:
-      return <img style={imageStyle} src={schwarzD} />;
+      return <img style={imageStyle} src={schwarzD} alt={method} />;
     case DistanceMethodType.SDNeovius:
-      return <img style={imageStyle} src={neovius} />;
+      return <img style={imageStyle} src={neovius} alt={method} />;
     default:
-      return <img style={imageStyle} />;
+      return <img style={imageStyle} alt='' />;
   }
 };
 
@@ -41,17 +40,12 @@ export const ChocolateLogarithmicSlider: React.FC<{ entry: IMethodEntry; setEntr
   entry,
   setEntry,
 }) => {
-  const [localValue, setLocalValue] = React.useState(Math.log10(entry.number));
-  const [localMethod, setLocalMethod] = React.useState(entry.method);
-  const updateValue = (v: number) => {
-    setEntry({ method: localMethod, number: 10 ** v });
-    setLocalValue(v);
-  };
+  const localValue = Math.log10(entry.number);
+  const localMethod = entry.method;
 
-  const updateMethod = (method: DistanceMethodType) => {
-    setLocalMethod(method);
-    setEntry({ number: 10 ** localValue, method });
-  };
+  const updateValue = (v: number) => setEntry({ method: localMethod, number: 10 ** v });
+
+  const updateMethod = (method: DistanceMethodType) => setEntry({ number: entry.number, method });
 
   const menu: MenuProps = {
     items: Object.keys(DistanceMethodType).map((v) => ({

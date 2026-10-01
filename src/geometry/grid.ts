@@ -106,8 +106,8 @@ const SimpleGridParser = (grid: ISimpleGrid, cellData: CellData[], withSupports:
   const uDivisions = Math.min(Math.round(cellWidth * divPerMM), MAX_DIVS_ONE_SIDE);
   const vDivisions = Math.min(Math.round(cellLength * divPerMM), MAX_DIVS_ONE_SIDE);
 
-  let x0 = -uLength / 2;
-  let z0 = -vLength / 2;
+  const x0 = -uLength / 2;
+  const z0 = -vLength / 2;
 
   for (let i = 0; i < uCount; i++) {
     for (let j = 0; j < vCount; j++) {
@@ -135,11 +135,13 @@ const SimpleGridParser = (grid: ISimpleGrid, cellData: CellData[], withSupports:
   return cellData.map(applyGridData);
 };
 
-const IndividuallyCustomizableGridParser = (grid: IIndividuallyCustomizableGrid, cellData: CellData[], withSupports: boolean = false): ITriangularMesh[] => {
+// not implemented yet
+const IndividuallyCustomizableGridParser = (_grid: IIndividuallyCustomizableGrid, cellData: CellData[], _withSupports: boolean = false): ITriangularMesh[] => {
   return cellData.map(applyGridData);
 };
 
-const GroupableGridParser = (grid: IGroupableGrid, cellData: CellData[], withSupports: boolean = false): ITriangularMesh[] => {
+// not implemented yet
+const GroupableGridParser = (_grid: IGroupableGrid, cellData: CellData[], _withSupports: boolean = false): ITriangularMesh[] => {
   return cellData.map(applyGridData);
 };
 

@@ -1,27 +1,23 @@
-import { Button, ColorPicker, Drawer, Form, InputNumber, MenuProps, Space, Switch } from 'antd';
+import { Button, ColorPicker, Drawer, Dropdown, Form, InputNumber, MenuProps, Space, Switch } from 'antd';
 import React from 'react';
 import './drawers.css';
-import Dropdown from 'antd/es/dropdown/dropdown';
 import { DefaultGridSettings, GridType, IGridSettings, MAX_DIV_PER_MM, MAX_UV_COUNT } from '../geometry/grid';
 import { MethodContent } from './MethodContent';
 import { DEFAULT_COLOR } from '../geometry/createMesh';
+
+// IndividuallyCustomizable and Groupable are not implemented yet (their parsers return no meshes)
+const IMPLEMENTED_GRID_TYPES = [GridType.Single, GridType.Simple];
 
 export const GridGeometryDrawer: React.FC<{ gridSettings: IGridSettings; setGridSettings: (g: IGridSettings) => void }> = ({
   gridSettings,
   setGridSettings,
 }) => {
   const [showDrawer, setShowDrawer] = React.useState(false);
-  const [localGridSettings, setLocalGridSettings] = React.useState<IGridSettings>(DefaultGridSettings(GridType.Single));
 
-  const updateType = (type: GridType) => updateMethod({ ...localGridSettings, ...DefaultGridSettings(type) });
-
-  const updateMethod = (gridSettings: IGridSettings) => {
-    setLocalGridSettings(gridSettings);
-    setGridSettings(gridSettings);
-  };
+  const updateType = (type: GridType) => setGridSettings(DefaultGridSettings(type));
 
   const menu: MenuProps = {
-    items: Object.keys(GridType).map((v) => ({
+    items: IMPLEMENTED_GRID_TYPES.map((v) => ({
       key: v,
       label: <div onClick={() => updateType(v as GridType)}>{v}</div>,
     })),
@@ -37,7 +33,7 @@ export const GridGeometryDrawer: React.FC<{ gridSettings: IGridSettings; setGrid
                 step={5}
                 min={5}
                 max={400}
-                onChange={(v) => v && setGridSettings({ ...gridSettings, cellWidth: v })}
+                onChange={(v) => v !== null && setGridSettings({ ...gridSettings, cellWidth: v })}
                 value={gridSettings.cellWidth}
               />
             </Form.Item>
@@ -46,18 +42,18 @@ export const GridGeometryDrawer: React.FC<{ gridSettings: IGridSettings; setGrid
                 step={5}
                 min={5}
                 max={400}
-                onChange={(v) => v && setGridSettings({ ...gridSettings, cellLength: v })}
+                onChange={(v) => v !== null && setGridSettings({ ...gridSettings, cellLength: v })}
                 value={gridSettings.cellLength}
               />
             </Form.Item>
             <Form.Item label={'Height'}>
-              <InputNumber step={0.5} min={2.5} max={10} onChange={(v) => v && setGridSettings({ ...gridSettings, height: v })} value={gridSettings.height} />
+              <InputNumber step={0.5} min={2.5} max={10} onChange={(v) => v !== null && setGridSettings({ ...gridSettings, height: v })} value={gridSettings.height} />
             </Form.Item>
             <Form.Item label={'Inset'}>
-              <InputNumber onChange={(v) => v && setGridSettings({ ...gridSettings, inset: v })} value={gridSettings.inset} />
+              <InputNumber onChange={(v) => v !== null && setGridSettings({ ...gridSettings, inset: v })} value={gridSettings.inset} />
             </Form.Item>
             <Form.Item label={'Amplitude of Pattern'}>
-              <InputNumber step={0.05} onChange={(v) => v && setGridSettings({ ...gridSettings, amplitude: v })} value={gridSettings.amplitude} />
+              <InputNumber step={0.05} onChange={(v) => v !== null && setGridSettings({ ...gridSettings, amplitude: v })} value={gridSettings.amplitude} />
             </Form.Item>
             <Form.Item label={'Chocolate Color'}>
               <ColorPicker value={gridSettings.color} onChange={(c) => setGridSettings({ ...gridSettings, color: c.toHexString() })} />
@@ -67,8 +63,8 @@ export const GridGeometryDrawer: React.FC<{ gridSettings: IGridSettings; setGrid
                 step={0.1}
                 min={0.25}
                 max={MAX_DIV_PER_MM}
-                onChange={(v) => v && setGridSettings({ ...gridSettings, divPerMM: v })}
-                onStep={(v) => v && setGridSettings({ ...gridSettings, divPerMM: v })}
+                onChange={(v) => v !== null && setGridSettings({ ...gridSettings, divPerMM: v })}
+                onStep={(v) => v !== null && setGridSettings({ ...gridSettings, divPerMM: v })}
                 value={gridSettings.divPerMM}
               />
             </Form.Item>
@@ -88,7 +84,7 @@ export const GridGeometryDrawer: React.FC<{ gridSettings: IGridSettings; setGrid
                 step={5}
                 min={5}
                 max={200}
-                onChange={(v) => v && setGridSettings({ ...gridSettings, cellWidth: v })}
+                onChange={(v) => v !== null && setGridSettings({ ...gridSettings, cellWidth: v })}
                 value={gridSettings.cellWidth}
               />
             </Form.Item>
@@ -97,7 +93,7 @@ export const GridGeometryDrawer: React.FC<{ gridSettings: IGridSettings; setGrid
                 step={5}
                 min={5}
                 max={200}
-                onChange={(v) => v && setGridSettings({ ...gridSettings, cellLength: v })}
+                onChange={(v) => v !== null && setGridSettings({ ...gridSettings, cellLength: v })}
                 value={gridSettings.cellLength}
               />
             </Form.Item>
@@ -106,7 +102,7 @@ export const GridGeometryDrawer: React.FC<{ gridSettings: IGridSettings; setGrid
                 step={1}
                 min={1}
                 max={MAX_UV_COUNT}
-                onChange={(v) => v && setGridSettings({ ...gridSettings, uCount: v })}
+                onChange={(v) => v !== null && setGridSettings({ ...gridSettings, uCount: v })}
                 value={gridSettings.uCount}
               />
             </Form.Item>
@@ -115,18 +111,18 @@ export const GridGeometryDrawer: React.FC<{ gridSettings: IGridSettings; setGrid
                 step={1}
                 min={1}
                 max={MAX_UV_COUNT}
-                onChange={(v) => v && setGridSettings({ ...gridSettings, vCount: v })}
+                onChange={(v) => v !== null && setGridSettings({ ...gridSettings, vCount: v })}
                 value={gridSettings.vCount}
               />
             </Form.Item>
             <Form.Item label={'Height'}>
-              <InputNumber step={0.5} min={2.5} max={10} onChange={(v) => v && setGridSettings({ ...gridSettings, height: v })} value={gridSettings.height} />
+              <InputNumber step={0.5} min={2.5} max={10} onChange={(v) => v !== null && setGridSettings({ ...gridSettings, height: v })} value={gridSettings.height} />
             </Form.Item>
             <Form.Item label={'Inset'}>
-              <InputNumber onChange={(v) => v && setGridSettings({ ...gridSettings, inset: v })} value={gridSettings.inset} />
+              <InputNumber onChange={(v) => v !== null && setGridSettings({ ...gridSettings, inset: v })} value={gridSettings.inset} />
             </Form.Item>
             <Form.Item label={'Amplitude of Pattern'}>
-              <InputNumber step={0.05} onChange={(v) => v && setGridSettings({ ...gridSettings, amplitude: v })} value={gridSettings.amplitude} />
+              <InputNumber step={0.05} onChange={(v) => v !== null && setGridSettings({ ...gridSettings, amplitude: v })} value={gridSettings.amplitude} />
             </Form.Item>
             <Form.Item label={'Chocolate Color'} style={{ alignItems: 'center' }}>
               {gridSettings.colors.map((colorString, i) => (
@@ -155,8 +151,8 @@ export const GridGeometryDrawer: React.FC<{ gridSettings: IGridSettings; setGrid
                 step={0.1}
                 min={0.25}
                 max={MAX_DIV_PER_MM}
-                onChange={(v) => v && setGridSettings({ ...gridSettings, divPerMM: v })}
-                onStep={(v) => v && setGridSettings({ ...gridSettings, divPerMM: v })}
+                onChange={(v) => v !== null && setGridSettings({ ...gridSettings, divPerMM: v })}
+                onStep={(v) => v !== null && setGridSettings({ ...gridSettings, divPerMM: v })}
                 value={gridSettings.divPerMM}
               />
             </Form.Item>
@@ -181,9 +177,9 @@ export const GridGeometryDrawer: React.FC<{ gridSettings: IGridSettings; setGrid
         </Button>
       )}
       <Drawer title='Grid Settings' placement='right' closable={true} onClose={() => setShowDrawer(false)} open={showDrawer}>
-        <Dropdown className='method' menu={{ ...menu, selectedKeys: [localGridSettings.type] }} trigger={['click']}>
+        <Dropdown className='method' menu={{ ...menu, selectedKeys: [gridSettings.type] }} trigger={['click']}>
           <Button onClick={(e) => e.preventDefault()}>
-            <Space>{localGridSettings.type}</Space>
+            <Space>{gridSettings.type}</Space>
           </Button>
         </Dropdown>
         {formRenderer(gridSettings)}
