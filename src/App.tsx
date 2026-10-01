@@ -14,7 +14,7 @@ function App() {
   return (
     <div className='App'>
       <header className='App-header'>
-        <Scene meshes={result} />
+        <Scene grid={gridSettings} meshes={result} />
       </header>
       <Spin className='mesh-status' spinning={pending} />
       {error && <div className='mesh-status'>{error}</div>}

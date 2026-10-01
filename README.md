@@ -15,6 +15,8 @@ Live at [jonasward.github.io/chocolade-chaud](https://JonasWard.github.io/chocol
 
 Each bar is a grid of vertices on the top surface. The pattern's distance function moves every vertex along a direction that fans out with the inset, the bottom surface is offset from it and, where it helps the print, raised into ribs that support the top. Top, bottom and the side walls are stitched into one closed, outward-facing triangle mesh.
 
+That closed mesh is what gets exported. The preview draws the same bar split up in parts, so each part has its own normals: the pattern is baked on the GPU into a _top surface_ (two float textures holding the location and the normal of every top vertex) whenever the settings change. The vertices of the preview have no location of their own, they only refer to a vertex of that top surface: the top takes its location and normal from it, the side walls take their top edge from it and share one normal per wall (they are planes, tilted by the inset), and the bottom is offset from it. Drawing a bar is then only a texture lookup per vertex. Without float render targets the preview falls back to the exported mesh.
+
 ## Development
 
 This is a [bun](https://bun.sh) project built with [Vite](https://vite.dev).

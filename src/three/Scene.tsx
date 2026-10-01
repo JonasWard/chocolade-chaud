@@ -1,9 +1,13 @@
 import React from 'react';
-import { Canvas } from '@react-three/fiber';
+import * as THREE from 'three';
+import { Canvas, useThree } from '@react-three/fiber';
 import { Bounds, OrbitControls, useBounds } from '@react-three/drei';
 import { GridMeshes } from '../hooks/useGridMeshes';
-import { IGridSettings } from '../geometry/grid';
+import { IGridSettings, gridCells } from '../geometry/grid';
 import { ChocolateMesh } from './ChocolateMesh';
+import { BarMesh, barGeometryKey, createBarGeometry } from './BarMesh';
+import { canBakeTopSurface } from './shaders/bake';
+import { sdfFitsShader } from './shaders/sdf';
 
 // the part of the settings that changes the outline of the grid, the camera is only refitted when it changes
 const footprint = (grid: IGridSettings): string => {
@@ -26,7 +30,49 @@ const FitCamera: React.FC<{ fitKey?: string }> = ({ fitKey }) => {
   return null;
 };
 
-export const Scene: React.FC<{ meshes?: GridMeshes }> = ({ meshes }) => (
+// the bars of the current settings, drawn from their top surface baked on the gpu
+const Bars: React.FC<{ grid: IGridSettings; meshes?: GridMeshes }> = ({ grid, meshes }) => {
+  // the same bars the worker generates for the export
+  const cells = React.useMemo(() => gridCells(grid, true), [grid]);
+
+  const geometryKeys = cells.map(barGeometryKey);
+  const geometryKey = JSON.stringify([...new Set(geometryKeys)]);
+  const geometries = React.useMemo(
+    () => new Map((JSON.parse(geometryKey) as string[]).map((key) => [key, createBarGeometry(cells[geometryKeys.indexOf(key)])])),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the cells only matter as far as they are in the key
+    [geometryKey]
+  );
+  React.useEffect(() => () => geometries.forEach((g) => g.dispose()), [geometries]);
+
+  // the worker result lags behind while editing, only compare with it when it belongs to these settings
+  const references = meshes?.grid === grid ? meshes.meshes : undefined;
+
+  return cells.map((cell, i) => <BarMesh key={i} cell={cell} geometry={geometries.get(geometryKeys[i]) as THREE.BufferGeometry} reference={references?.[i]} />);
+};
+
+// without float render targets (or with a pattern the shader can't hold) the meshes of the worker are shown instead
+const Meshes: React.FC<{ grid: IGridSettings; meshes?: GridMeshes }> = ({ grid, meshes }) => {
+  const gl = useThree((state) => state.gl);
+  const baked = React.useMemo(() => canBakeTopSurface(gl), [gl]) && gridCells(grid).every((c) => sdfFitsShader(c.sdfSettings));
+
+  if (baked)
+    return (
+      <>
+        <Bars grid={grid} meshes={meshes} />
+        <FitCamera fitKey={footprint(grid)} />
+      </>
+    );
+  return (
+    <>
+      {meshes?.meshes.map((mesh, i) => (
+        <ChocolateMesh key={`${meshes.id}-${i}`} mesh={mesh} wireframe={!!meshes.cellData[i].geometrySettings.displayWireframe} />
+      ))}
+      <FitCamera fitKey={meshes && footprint(meshes.grid)} />
+    </>
+  );
+};
+
+export const Scene: React.FC<{ grid: IGridSettings; meshes?: GridMeshes }> = ({ grid, meshes }) => (
   <div className='scene'>
     {/* looking down on the bar, slightly off the pole so the orbit controls keep a stable up direction */}
     <Canvas camera={{ position: [0, 250, 0.01], fov: 45, near: 0.1, far: 10000 }} dpr={[1, 2]}>
@@ -35,10 +81,7 @@ export const Scene: React.FC<{ meshes?: GridMeshes }> = ({ meshes }) => (
       <directionalLight position={[60, 200, -80]} intensity={1.6} />
       <directionalLight position={[-80, -60, 100]} intensity={0.4} />
       <Bounds margin={1.2}>
-        {meshes?.meshes.map((mesh, i) => (
-          <ChocolateMesh key={`${meshes.id}-${i}`} mesh={mesh} wireframe={!!meshes.cellData[i].geometrySettings.displayWireframe} />
-        ))}
-        <FitCamera fitKey={meshes && footprint(meshes.grid)} />
+        <Meshes grid={grid} meshes={meshes} />
       </Bounds>
       <OrbitControls makeDefault />
     </Canvas>

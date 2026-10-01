@@ -1,9 +1,7 @@
 import { DistanceMethodParser, IDistanceData, defaultDistanceData } from './sdMethods';
 
-const SPACING_LENGTH = 8.0;
-const START_LENGTH = 2.5;
-const GRADIENT = 0.5;
-const INSET = 2.9;
+import { INSET, fanOffset, supportColumns, supportMaxHeight } from './barMath';
+import { createBarFaces, weldedWallVertex } from './barLayout';
 
 export const DEFAULT_COLOR = '#A73A08';
 
@@ -123,9 +121,9 @@ export const createIMesh = (
       const z = baseVector.z + j * gridLength;
 
       // direction in which the pattern moves the surface, fanning out with the inset
-      const dx = (i * inset * 2) / (horizontalDivisions + 1) - inset;
+      const dx = fanOffset(i, horizontalDivisions, inset);
       const dy = height;
-      const dz = (j * inset * 2) / (verticalDivisions + 1) - inset;
+      const dz = fanOffset(j, verticalDivisions, inset);
 
       const s = (sdf(x, y, z) * amplitude) / height;
       movedGrid[k] = x + dx * s;
@@ -139,131 +137,30 @@ export const createIMesh = (
   }
 
   // moving around the back for improved back support
-  // first of all, only add backsupport if the back resolution is higher than 1/4 of the spacing
-  const horizontalDivisionsResolution = Math.floor(SPACING_LENGTH / gridWidth);
-  const supportStart = Math.ceil(START_LENGTH / gridWidth);
-  const openingWidth = Math.ceil(1.5 / gridWidth);
+  const { counts, jStart, jEnd } = supportColumns(horizontalDivisions, verticalDivisions, gridWidth, withSupports);
 
-  if (withSupports && gridWidth < SPACING_LENGTH / 4) {
-    // helper method that returns the maximum height for a given location
-    const maxHMethod = (j: number): number => {
-      const l = gridLength * j;
-      return Math.max(0, (innerLength / 2 - Math.abs(l - innerLength / 2) - START_LENGTH) * GRADIENT); // switch to negative value to visualize on the outside support geometry
-    };
+  // moves a base vertex towards its top vertex, leaving at least INSET of material
+  const raiseBase = (index: number, j: number) => {
+    const k = index * 3;
+    const dx = movedGrid[k] - baseGrid[k];
+    const dy = movedGrid[k + 1] - baseGrid[k + 1];
+    const dz = movedGrid[k + 2] - baseGrid[k + 2];
+    const dL = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    const h = Math.min(supportMaxHeight(gridLength * j, innerLength), dL - INSET);
+    const s = h / dL;
 
-    // moves a base vertex towards its top vertex, leaving at least INSET of material
-    const raiseBase = (index: number, j: number) => {
-      const k = index * 3;
-      const dx = movedGrid[k] - baseGrid[k];
-      const dy = movedGrid[k + 1] - baseGrid[k + 1];
-      const dz = movedGrid[k + 2] - baseGrid[k + 2];
-      const dL = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      const h = Math.min(maxHMethod(j), dL - INSET);
-      const s = h / dL;
-
-      baseGrid[k] += dx * s;
-      baseGrid[k + 1] += dy * s;
-      baseGrid[k + 2] += dz * s;
-    };
-
-    if (gridWidth < SPACING_LENGTH / 10) {
-      for (let i = supportStart; i < horizontalDivisions - supportStart; i += 1) {
-        if (i % horizontalDivisionsResolution === 0) {
-          i += openingWidth;
-          continue;
-        }
-        for (let j = 1; j < verticalDivisions; j++) {
-          raiseBase(i * (verticalDivisions + 1) + j, j);
-          raiseBase((i + 1) * (verticalDivisions + 1) + j, j);
-        }
-      }
-    } else {
-      for (let i = 0; i < horizontalDivisions; i++) {
-        for (let j = 0; j < verticalDivisions; j++) raiseBase(i * (verticalDivisions + 1) + j, j);
-      }
-    }
-  }
-
-  // create the faces, 4 triangles per quad (top and bottom) and 4 per side segment
-  const faces = new Uint32Array(3 * (4 * horizontalDivisions * verticalDivisions + 4 * (horizontalDivisions + verticalDivisions)));
-  let f = 0;
-  // the indices below are listed clockwise (seen from outside), they are stored counter clockwise
-  const tri = (a: number, b: number, c: number) => {
-    faces[f++] = a;
-    faces[f++] = c;
-    faces[f++] = b;
+    baseGrid[k] += dx * s;
+    baseGrid[k + 1] += dy * s;
+    baseGrid[k + 2] += dz * s;
   };
 
-  // top and bottom faces
-  for (let i = 0; i < horizontalDivisions; i++) {
-    for (let j = 0; j < verticalDivisions; j++) {
-      const index = i * (verticalDivisions + 1) + j;
-      const nextIndex = (i + 1) * (verticalDivisions + 1) + j;
-      // splitting quad into two triangles
-      if ((i + j) % 2 === 0) {
-        tri(index, nextIndex, index + 1);
-        tri(index + 1, nextIndex, nextIndex + 1);
-
-        tri(vertexCount + index, vertexCount + index + 1, vertexCount + nextIndex);
-        tri(vertexCount + index + 1, vertexCount + nextIndex + 1, vertexCount + nextIndex);
-      } else {
-        tri(index, nextIndex + 1, index + 1);
-        tri(index, nextIndex, nextIndex + 1);
-
-        tri(vertexCount + index, vertexCount + index + 1, vertexCount + nextIndex + 1);
-        tri(vertexCount + index, vertexCount + nextIndex + 1, vertexCount + nextIndex);
-      }
+  for (let i = 0; i < horizontalDivisions + 1; i++) {
+    for (let c = 0; c < counts[i]; c++) {
+      for (let j = jStart; j < jEnd; j++) raiseBase(i * (verticalDivisions + 1) + j, j);
     }
   }
 
-  // add side faces
-  for (let i = 0; i < verticalDivisions; i++) {
-    const bottomIndex = i;
-    const topIndex = i + vertexCount;
-
-    if (i % 2 === 0) {
-      tri(bottomIndex, bottomIndex + 1, topIndex);
-      tri(bottomIndex + 1, topIndex + 1, topIndex);
-    } else {
-      tri(bottomIndex, bottomIndex + 1, topIndex + 1);
-      tri(bottomIndex, topIndex + 1, topIndex);
-    }
-
-    const endBottomIndex = topIndex - verticalDivisions - 1;
-    const endTopIndex = endBottomIndex + vertexCount;
-
-    if ((i + horizontalDivisions) % 2 === 0) {
-      tri(endBottomIndex, endTopIndex, endBottomIndex + 1);
-      tri(endBottomIndex + 1, endTopIndex, endTopIndex + 1);
-    } else {
-      tri(endBottomIndex, endTopIndex + 1, endBottomIndex + 1);
-      tri(endBottomIndex, endTopIndex, endTopIndex + 1);
-    }
-  }
-
-  for (let i = 0; i < horizontalDivisions; i++) {
-    const bottomIndex = i * (verticalDivisions + 1);
-    const topIndex = bottomIndex + vertexCount;
-
-    if (i % 2 === 0) {
-      tri(bottomIndex, topIndex, bottomIndex + verticalDivisions + 1);
-      tri(bottomIndex + verticalDivisions + 1, topIndex, topIndex + verticalDivisions + 1);
-    } else {
-      tri(bottomIndex, topIndex + verticalDivisions + 1, bottomIndex + verticalDivisions + 1);
-      tri(bottomIndex, topIndex, topIndex + verticalDivisions + 1);
-    }
-
-    const endBottomIndex = bottomIndex + verticalDivisions;
-    const endTopIndex = endBottomIndex + vertexCount;
-
-    if ((i + verticalDivisions) % 2 === 0) {
-      tri(endBottomIndex, endBottomIndex + verticalDivisions + 1, endTopIndex);
-      tri(endBottomIndex + verticalDivisions + 1, endTopIndex + verticalDivisions + 1, endTopIndex);
-    } else {
-      tri(endBottomIndex, endBottomIndex + verticalDivisions + 1, endTopIndex + verticalDivisions + 1);
-      tri(endBottomIndex, endTopIndex + verticalDivisions + 1, endTopIndex);
-    }
-  }
+  const faces = createBarFaces(horizontalDivisions, verticalDivisions, weldedWallVertex(horizontalDivisions, verticalDivisions));
 
   // top vertices first, then the bottom ones
   const vertices = new Float32Array(vertexCount * 6);
