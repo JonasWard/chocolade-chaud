@@ -4,6 +4,17 @@ An online configurator for chocolate bars with a 3D printable pattern. Pick the 
 
 Live at [jonasward.github.io/chocolade-chaud](https://JonasWard.github.io/chocolade-chaud).
 
+## Features
+
+- **Single bar or grid**: one bar of any size, or a grid of bars cycling through a list of colours.
+- **Patterns**: chain distance methods (gyroid, Schwarz P/D, Neovius, sphere, box, torus, cylinder) on logarithmic sliders, where each method's output sets the scale of the one above it, and move the pattern's centre.
+- **Live preview**: meshes are generated in a web worker, so the UI stays responsive at up to 8 divisions per mm.
+- **Export**: binary STL or OBJ, tilted on its side for printing and with an internal support structure. A single bar downloads as one file, a grid as one zip.
+
+## How it works
+
+Each bar is a grid of vertices on the top surface. The pattern's distance function moves every vertex along a direction that fans out with the inset, the bottom surface is offset from it and, where it helps the print, raised into ribs that support the top. Top, bottom and the side walls are stitched into one closed, outward-facing triangle mesh.
+
 ## Development
 
 This is a [bun](https://bun.sh) project built with [Vite](https://vite.dev).
@@ -15,12 +26,19 @@ bun run test       # unit tests (vitest)
 bun run typecheck  # tsc
 bun run lint       # eslint
 bun run build      # production build into build/
-bun run deploy     # build and publish build/ to the gh-pages branch
+bun run preview    # serve the production build locally
 ```
 
-CI runs typecheck, lint, tests and build on every push and pull request.
+## CI and deployment
 
-Pinned dependencies:
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push and pull request:
+
+1. **check**: install with the frozen lockfile, typecheck, lint, test and build.
+2. **deploy**: only for pushes to `main`, and only when check passed. It publishes the build check produced to the `gh-pages` branch, which GitHub Pages serves at the URL above.
+
+So merging into `main` is all it takes to release. To redeploy `main` without a new commit, run the workflow from the Actions tab (_Run workflow_). As a manual fallback, `bun run deploy` builds locally and pushes `build/` to `gh-pages` with your own git credentials.
+
+## Pinned dependencies
 
 - `three` stays on `~0.182`: react-three-fiber 9 still uses `THREE.Clock`, which logs a deprecation warning from three r183 on.
 - `react` / `react-dom` stay on `~19.3`: react-three-fiber 9.8 supports `react >=19 <19.4`.
