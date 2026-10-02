@@ -13,6 +13,13 @@ export const smoothMin = (a: number, b: number, k: number): number => {
 };
 export const smoothMax = (a: number, b: number, k: number): number => -smoothMin(-a, -b, k);
 
+/** the first order distance to z = amplitude * sin(2 pi x / period), see sdSine in three/shaders/sdfCodegen.ts */
+export const sdSine = (x: number, z: number, amplitude: number, period: number): number => {
+  const k = (2 * Math.PI) / period;
+  const slope = amplitude * k * Math.cos(k * x);
+  return Math.abs(z - amplitude * Math.sin(k * x)) / Math.sqrt(1 + slope * slope);
+};
+
 /** centred tiling, positive for negative coordinates too (unlike %) */
 export const repeat = (v: number, period: number): number => (period > 0 ? v - period * Math.floor(v / period + 0.5) : v);
 
@@ -32,6 +39,15 @@ const compileNode = (node: SdfNode, fields: SvgFields): ScaledDistanceMethod => 
       if (!field || !(width > 0)) return () => 0;
       return (x, _y, z, s) =>
         gain * width * sampleCentredField(field, repeat(x * s * scale - offsetX, period) / width, repeat(z * s * scale - offsetZ, period) / width);
+    }
+    case 'sine': {
+      const { amplitude, period } = node;
+      if (!(period > 0)) return () => 0;
+      const angle = (node.angle * Math.PI) / 180;
+      const c = Math.cos(angle);
+      const sn = Math.sin(angle);
+      // turned back by the angle, so the curve runs along u
+      return (x, _y, z, s) => gain * sdSine((c * x + sn * z) * s * scale, (c * z - sn * x) * s * scale, amplitude, period);
     }
     case 'chain': {
       const children = node.children.map((c) => compileNode(c, fields));

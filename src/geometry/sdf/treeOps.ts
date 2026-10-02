@@ -1,4 +1,4 @@
-import { GroupKind, GroupNode, NodeKind, SdfNode, constantNode, groupNode, isGroup, methodNode, newId, svgNode } from './tree';
+import { GroupKind, GroupNode, NodeKind, SdfNode, constantNode, groupNode, isGroup, methodNode, newId, sineNode, svgNode } from './tree';
 import { DistanceMethodType } from '../sdMethods';
 
 // immutable edits of the tree, the subtrees that don't change are shared
@@ -82,6 +82,8 @@ export const changeKind = (node: SdfNode, kind: NodeKind, defaultAsset = ''): Sd
       return { ...methodNode(DistanceMethodType.SDGyroid), ...keep };
     case 'svg':
       return { ...svgNode(defaultAsset), ...keep };
+    case 'sine':
+      return { ...sineNode(), ...keep };
     case 'constant':
       return { ...constantNode(), ...keep };
     default:

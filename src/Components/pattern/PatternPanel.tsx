@@ -1,5 +1,5 @@
 import React from 'react';
-import { IPattern, SdfNode, newId } from '../../geometry/sdf/tree';
+import { IPattern, SdfNode, svgKey } from '../../geometry/sdf/tree';
 import { updateNode } from '../../geometry/sdf/treeOps';
 import { MAX_SVG_BYTES } from '../../geometry/svg/rasterizeSvg';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
@@ -20,7 +20,10 @@ const SvgAssets: React.FC<{ pattern: IPattern; setPattern: (p: IPattern) => void
     const added: IPattern['svgs'] = {};
     for (const file of files ?? []) {
       if (file.size > MAX_SVG_BYTES) setUploadError(`${file.name} is too large`);
-      else added[newId()] = { name: file.name.replace(/\.svg$/i, ''), source: await file.text() };
+      else {
+        const source = await file.text();
+        added[svgKey(source)] = { name: file.name.replace(/\.svg$/i, ''), source };
+      }
     }
     setSvgs({ ...pattern.svgs, ...added });
   };

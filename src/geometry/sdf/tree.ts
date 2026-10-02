@@ -7,7 +7,7 @@ import { DistanceMethodType } from '../sdMethods';
 export type BooleanKind = 'union' | 'difference' | 'intersection';
 export type ArithmeticKind = 'add' | 'subtract';
 export type GroupKind = BooleanKind | ArithmeticKind | 'chain';
-export type LeafKind = 'method' | 'svg' | 'constant';
+export type LeafKind = 'method' | 'svg' | 'sine' | 'constant';
 export type NodeKind = GroupKind | LeafKind;
 
 interface INodeBase {
@@ -36,6 +36,15 @@ export interface ISvgNode extends INodeBase {
   repeat: number;
 }
 
+/** unsigned distance to the curve z = amplitude * sin(2 pi x / period) in the xz plane, turned by angle, in mm */
+export interface ISineNode extends INodeBase {
+  kind: 'sine';
+  amplitude: number;
+  period: number;
+  /** in degrees */
+  angle: number;
+}
+
 /** a number, regardless of the scale */
 export interface IConstantNode extends INodeBase {
   kind: 'constant';
@@ -60,7 +69,7 @@ export interface IChainNode extends INodeBase {
   children: SdfNode[];
 }
 
-export type LeafNode = IMethodNode | ISvgNode | IConstantNode;
+export type LeafNode = IMethodNode | ISvgNode | ISineNode | IConstantNode;
 export type GroupNode = IBooleanNode | IArithmeticNode | IChainNode;
 export type SdfNode = LeafNode | GroupNode;
 
@@ -91,6 +100,7 @@ const base = (scale = 1) => ({ id: newId(), scale, gain: 1 });
 
 export const methodNode = (method: DistanceMethodType, scale = 1): IMethodNode => ({ ...base(scale), kind: 'method', method });
 export const svgNode = (asset: string, width = 30): ISvgNode => ({ ...base(), kind: 'svg', asset, width, offsetX: 0, offsetZ: 0, repeat: 0 });
+export const sineNode = (amplitude = 5, period = 20): ISineNode => ({ ...base(), kind: 'sine', amplitude, period, angle: 0 });
 export const constantNode = (value = 0): IConstantNode => ({ ...base(), kind: 'constant', value });
 
 export const groupNode = (kind: GroupKind, children: SdfNode[] = []): GroupNode => {
@@ -106,12 +116,22 @@ export const groupNode = (kind: GroupKind, children: SdfNode[] = []): GroupNode 
   }
 };
 
-const STAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 4l13.5 30.5 33 3.5-24.8 22.2 7 32.6L50 76.2 21.3 92.8l7-32.6L3.5 38l33-3.5z"/></svg>`;
+/** 32 bit fnv-1a hash of the source of an svg */
+export const svgHash = (source: string): number => {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < source.length; i++) h = Math.imul(h ^ source.charCodeAt(i), 0x01000193);
+  return h >>> 0;
+};
+
+/** an svg asset is keyed by its source, so the same svg is the same asset everywhere (and in a link) */
+export const svgKey = (source: string): string => `h${svgHash(source).toString(16).padStart(8, '0')}`;
+
+export const STAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 4l13.5 30.5 33 3.5-24.8 22.2 7 32.6L50 76.2 21.3 92.8l7-32.6L3.5 38l33-3.5z"/></svg>`;
 
 export const defaultPattern = (): IPattern => ({
   // the same as the old method chain of neovius 0.004 and schwarz d 8.5
   root: groupNode('chain', [methodNode(DistanceMethodType.SDNeovius), methodNode(DistanceMethodType.SDSchwarzD, 0.004 * 8.5)]),
   center: { x: 0, y: 0, z: 0 },
   rotation: 0,
-  svgs: { star: { name: 'star', source: STAR_SVG } },
+  svgs: { [svgKey(STAR_SVG)]: { name: 'star', source: STAR_SVG } },
 });

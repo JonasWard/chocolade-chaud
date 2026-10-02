@@ -1,7 +1,7 @@
 import { DistanceMethodType, distanceMethods, sdGyroid, sdSchwarzD, sdSphere } from '../sdMethods';
 import { IDistanceField, sampleCentredField, sampleField } from '../field';
-import { compilePattern, repeat, smoothMin } from './evaluate';
-import { IPattern, SdfNode, constantNode, defaultPattern, groupNode, isGroup, methodNode, svgNode } from './tree';
+import { compilePattern, repeat, sdSine, smoothMin } from './evaluate';
+import { IPattern, SdfNode, constantNode, defaultPattern, groupNode, isGroup, methodNode, sineNode, svgKey, svgNode } from './tree';
 import { changeKind, duplicateNode, findPath, insertChild, moveNode, removeNode, updateNode, wrapNode } from './treeOps';
 import { formula } from './formula';
 import { MAX_SVG_SLOTS, sdfShaderPlan } from '../../three/shaders/sdfCodegen';
@@ -72,6 +72,25 @@ test('the rotation turns the pattern around its centre', () => {
   const plain = compilePattern(pattern(box));
   // (3, 7) is (2, 5) from the centre, turned by 90 degrees that is (-5, 2)
   expect(rotated(3, 0, 7)).toBeCloseTo(plain(-5, 0, 2), 12);
+});
+
+test('the sine is zero on its curve and turns with its angle', () => {
+  const sine = sineNode(5, 20);
+  const sdf = compilePattern(pattern(sine));
+  [-13, 0, 4.2, 31].forEach((x) => expect(sdf(x, 0, 5 * Math.sin((2 * Math.PI * x) / 20))).toBeCloseTo(0, 12));
+  // at a crest the curve is flat, the distance is vertical
+  expect(sdf(5, 0, 8)).toBeCloseTo(3, 12);
+  expect(sdf(5, 0, -2)).toBeCloseTo(7, 12);
+  expect(sdSine(0, 1, 0, 10)).toBe(1);
+  // turned by 90 degrees the curve runs along z
+  const turned = compilePattern(pattern({ ...sine, angle: 90 }));
+  expect(turned(-8, 0, 5)).toBeCloseTo(sdf(5, 0, 8), 12);
+});
+
+test('svg keys depend on the source only', () => {
+  expect(svgKey('<svg/>')).toBe(svgKey('<svg/>'));
+  expect(svgKey('<svg/>')).not.toBe(svgKey('<svg />'));
+  expect(svgKey('')).toMatch(/^h[0-9a-f]{8}$/);
 });
 
 // a 4 x 2 field with a pixel size of 0.5, the distance grows along x
@@ -167,6 +186,12 @@ describe('shader plan', () => {
     const params = sdfShaderPlan(defaultPattern()).params(new Map());
     // chain, schwarz d (the inner child is generated first), neovius
     expect([...params]).toEqual([1, Math.fround(0.004 * 8.5), 1, 1, 1, 1, 0, 0]);
+  });
+
+  test('a sine has its numbers as params', () => {
+    // scale, cos, sin, amplitude, period, gain, padded to 2 vectors
+    expect(sdfShaderPlan(pattern(sineNode())).params(new Map()).length).toBe(8);
+    expect([...sdfShaderPlan(pattern({ ...sineNode(2, 7), angle: 90 })).params(new Map())].slice(1, 5)).toEqual([Math.fround(Math.cos(Math.PI / 2)), 1, 2, 7]);
   });
 
   test('too many svg shapes do not fit', () => {
