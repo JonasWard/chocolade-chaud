@@ -15,7 +15,7 @@ Live at [jonasward.github.io/chocolade-chaud](https://JonasWard.github.io/chocol
 - **Editing curves in the scene**: _Edit curve_ (or _Edit in 3D_ in the inspector) moves the camera smoothly to an orthographic view from above, where you can pan and zoom but not orbit. Drag a point to move it, drag the small dot between two points to add one, select a point and press Delete to remove it. _View_ (or Esc) moves the camera back to where it was. A text inside a chain (but its last child) is warped by the chain, its points are then placed as if the input of the chain were 1.
 - **Saved in the link**: the whole state is packed with [densing](https://www.npmjs.com/package/densing) into the `?s=` parameter of the url and into local storage, so a link reproduces the bar. SVG sources don't fit in a link: an SVG is referred to by the hash of its source, and the sources are kept in local storage, so a link with an uploaded SVG shows it as missing elsewhere until it is uploaded there too.
 - **Undo and redo**: buttons over the bar, or Ctrl/⌘+Z and Ctrl/⌘+Shift+Z. Quick successive edits, like dragging a slider, are one step.
-- **Live preview**: meshes are generated in a web worker, so the UI stays responsive at up to 8 divisions per mm.
+- **Live preview**: meshes are generated in a web worker, so the UI stays responsive at up to 32 divisions per mm. A side of a bar has at most 2048 divisions and all bars together at most 4.2 million vertices, beyond that the density is lowered to fit.
 - **Export**: binary STL or OBJ, tilted on its side for printing and with an internal support structure. A single bar downloads as one file, a grid as one zip.
 
 ## How it works

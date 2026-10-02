@@ -6,7 +6,7 @@ import { GROUP_KINDS, IPattern, ISvgAsset, NodeKind, SdfNode, isGroup, newId, sv
 // the state of the app packed into a short url safe string with densing. Numbers are rounded to the precision of their field,
 // svg sources don't fit: an svg is stored as the hash of its source (see svgKey), its source comes from the svg library
 
-export const STATE_VERSION = 3;
+export const STATE_VERSION = 4;
 
 const MAX_CHILDREN = 16;
 const MAX_SVGS = 32;
