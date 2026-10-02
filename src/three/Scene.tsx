@@ -1,15 +1,17 @@
 import React from 'react';
 import * as THREE from 'three';
 import { Canvas, useThree } from '@react-three/fiber';
-import { Bounds, OrbitControls, useBounds } from '@react-three/drei';
+import { Bounds, useBounds } from '@react-three/drei';
 import { GridMeshes } from '../hooks/useGridMeshes';
 import { IGridSettings, gridCells } from '../geometry/grid';
 import { ChocolateMesh } from './ChocolateMesh';
 import { BarMesh, barGeometryKey, createBarGeometry } from './BarMesh';
 import { canBakeTopSurface, createFieldTexture } from './shaders/bake';
-import { ITextRelief } from '../geometry/text/textField';
 import { sdfShaderPlan } from './shaders/sdfCodegen';
 import { SvgFields } from '../geometry/sdf/tree';
+import { CurveEditor, ICurveEditing } from './CurveEditor';
+import { IViewFocus, ViewController } from './ViewController';
+import { toWorld } from '../geometry/sdf/evaluate';
 
 // the part of the settings that changes the outline of the grid, the camera is only refitted when it changes
 const footprint = (grid: IGridSettings): string => {
@@ -18,10 +20,13 @@ const footprint = (grid: IGridSettings): string => {
   return JSON.stringify([type, uCount, vCount, spacing, inset, size]);
 };
 
+// only fits again for another outline, so coming back from editing a curve keeps the view
 const FitCamera: React.FC<{ fitKey?: string }> = ({ fitKey }) => {
   const bounds = useBounds();
+  const fitted = React.useRef<string>(undefined);
   React.useEffect(() => {
-    if (!fitKey) return;
+    if (!fitKey || fitKey === fitted.current) return;
+    fitted.current = fitKey;
     // look straight down on the centre of the grid (fit() would keep the current viewing angle)
     const { center, distance } = bounds.refresh().getSize();
     bounds
@@ -32,20 +37,18 @@ const FitCamera: React.FC<{ fitKey?: string }> = ({ fitKey }) => {
   return null;
 };
 
-// text is the relief of the text of the grid, fields the distance fields of the svg shapes, meshes what the worker made for the export
-type SceneProps = { grid: IGridSettings; text?: ITextRelief; fields: SvgFields; meshes?: GridMeshes };
+// fields are the distance fields of the svg and text nodes, meshes what the worker made for the export
+type SceneProps = { grid: IGridSettings; fields: SvgFields; meshes?: GridMeshes };
+// the camera is not fitted while a curve is edited
+type MeshesProps = SceneProps & { fit: boolean };
 
 // the bars of the current settings, drawn from their top surface baked on the gpu
-const Bars: React.FC<SceneProps> = ({ grid, text, fields, meshes }) => {
+const Bars: React.FC<SceneProps> = ({ grid, fields, meshes }) => {
   // the same bars the worker generates for the export
-  const cells = React.useMemo(() => gridCells(grid, true, text, fields), [grid, text, fields]);
+  const cells = React.useMemo(() => gridCells(grid, true, fields), [grid, fields]);
 
-  const field = text?.field;
-  const textTexture = React.useMemo(() => field && createFieldTexture(field), [field]);
-  React.useEffect(() => () => textTexture?.dispose(), [textTexture]);
-
-  const svgTextures = React.useMemo(() => new Map([...fields].map(([asset, f]) => [asset, createFieldTexture(f)])), [fields]);
-  React.useEffect(() => () => svgTextures.forEach((t) => t.dispose()), [svgTextures]);
+  const fieldTextures = React.useMemo(() => new Map([...fields].map(([key, f]) => [key, createFieldTexture(f)])), [fields]);
+  React.useEffect(() => () => fieldTextures.forEach((t) => t.dispose()), [fieldTextures]);
 
   const geometryKeys = cells.map(barGeometryKey);
   const geometryKey = JSON.stringify([...new Set(geometryKeys)]);
@@ -57,30 +60,29 @@ const Bars: React.FC<SceneProps> = ({ grid, text, fields, meshes }) => {
   React.useEffect(() => () => geometries.forEach((g) => g.dispose()), [geometries]);
 
   // the worker result lags behind while editing, only compare with it when it belongs to these settings
-  const references = meshes?.grid === grid && meshes.text === text && meshes.fields === fields ? meshes.meshes : undefined;
+  const references = meshes?.grid === grid && meshes.fields === fields ? meshes.meshes : undefined;
 
   return cells.map((cell, i) => (
     <BarMesh
       key={i}
       cell={cell}
       geometry={geometries.get(geometryKeys[i]) as THREE.BufferGeometry}
-      textTexture={cell.text && textTexture}
-      svgTextures={svgTextures}
+      fieldTextures={fieldTextures}
       reference={references?.[i]}
     />
   ));
 };
 
 // without float render targets (or with a pattern the shader can't hold) the meshes of the worker are shown instead
-const Meshes: React.FC<SceneProps> = ({ grid, text, fields, meshes }) => {
+const Meshes: React.FC<MeshesProps> = ({ grid, fields, meshes, fit }) => {
   const gl = useThree((state) => state.gl);
   const baked = React.useMemo(() => canBakeTopSurface(gl), [gl]) && gridCells(grid).every((c) => sdfShaderPlan(c.sdfSettings).fits);
 
   if (baked)
     return (
       <>
-        <Bars grid={grid} text={text} fields={fields} meshes={meshes} />
-        <FitCamera fitKey={footprint(grid)} />
+        <Bars grid={grid} fields={fields} meshes={meshes} />
+        <FitCamera fitKey={fit ? footprint(grid) : undefined} />
       </>
     );
   return (
@@ -88,23 +90,38 @@ const Meshes: React.FC<SceneProps> = ({ grid, text, fields, meshes }) => {
       {meshes?.meshes.map((mesh, i) => (
         <ChocolateMesh key={`${meshes.id}-${i}`} mesh={mesh} wireframe={!!meshes.cellData[i].geometrySettings.displayWireframe} />
       ))}
-      <FitCamera fitKey={meshes && footprint(meshes.grid)} />
+      <FitCamera fitKey={fit && meshes ? footprint(meshes.grid) : undefined} />
     </>
   );
 };
 
-export const Scene: React.FC<SceneProps> = ({ grid, text, fields, meshes }) => (
-  <div className='scene'>
-    {/* looking down on the bar, slightly off the pole so the orbit controls keep a stable up direction */}
-    <Canvas camera={{ position: [0, 250, 0.01], fov: 45, near: 0.1, far: 10000 }} dpr={[1, 2]}>
-      <color attach='background' args={['#ffffff']} />
-      <hemisphereLight args={['#ffffff', '#8a7060', 1.4]} />
-      <directionalLight position={[60, 200, -80]} intensity={1.6} />
-      <directionalLight position={[-80, -60, 100]} intensity={0.4} />
-      <Bounds margin={1.2}>
-        <Meshes grid={grid} text={text} fields={fields} meshes={meshes} />
-      </Bounds>
-      <OrbitControls makeDefault />
-    </Canvas>
-  </div>
-);
+// the box around a curve on the bars, what the camera looks at while it is edited
+const curveFocus = (grid: IGridSettings, { curve, scale }: ICurveEditing): IViewFocus => {
+  const pattern = 'sdfSetting' in grid ? grid.sdfSetting : grid.sdfSettings[0];
+  const points = curve.points.map((p) => toWorld(pattern, scale, p));
+  const [xs, zs] = [points.map((p) => p.x), points.map((p) => p.z)];
+  const [x0, x1, z0, z1] = [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)];
+  return { x: (x0 + x1) / 2, y: grid.height, z: (z0 + z1) / 2, width: Math.max(x1 - x0, 20), depth: Math.max(z1 - z0, 20) };
+};
+
+/** curve is the base curve of the selected text node, when it has one: shown, and edited from above in edit mode */
+export const Scene: React.FC<SceneProps & { curve?: ICurveEditing }> = ({ grid, fields, meshes, curve }) => {
+  const editing = !!curve?.editing;
+  const pattern = 'sdfSetting' in grid ? grid.sdfSetting : grid.sdfSettings[0];
+  return (
+    <div className='scene'>
+      {/* looking down on the bar, slightly off the pole so the orbit controls keep a stable up direction */}
+      <Canvas camera={{ position: [0, 250, 0.01], fov: 45, near: 0.1, far: 10000 }} dpr={[1, 2]}>
+        <color attach='background' args={['#ffffff']} />
+        <hemisphereLight args={['#ffffff', '#8a7060', 1.4]} />
+        <directionalLight position={[60, 200, -80]} intensity={1.6} />
+        <directionalLight position={[-80, -60, 100]} intensity={0.4} />
+        <Bounds margin={1.2}>
+          <Meshes grid={grid} fields={fields} meshes={meshes} fit={!editing} />
+        </Bounds>
+        {curve && <CurveEditor {...curve} pattern={pattern} y={grid.height} />}
+        <ViewController editing={editing} focus={curve && curveFocus(grid, curve)} />
+      </Canvas>
+    </div>
+  );
+};

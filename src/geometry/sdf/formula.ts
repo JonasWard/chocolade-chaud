@@ -10,6 +10,7 @@ export const KIND_GLYPH: Record<NodeKind, string> = {
   chain: '∘',
   method: '◇',
   svg: '✎',
+  text: 'T',
   sine: '∿',
   constant: '#',
 };
@@ -23,6 +24,7 @@ export const KIND_LABEL: Record<NodeKind, string> = {
   chain: 'Chain',
   method: 'Method',
   svg: 'SVG',
+  text: 'Text',
   sine: 'Sine',
   constant: 'Constant',
 };
@@ -38,6 +40,8 @@ export const nodeLabel = (node: SdfNode, svgs: IPattern['svgs']): string => {
       return methodLabel(node.method);
     case 'svg':
       return svgs[node.asset]?.name ?? 'missing svg';
+    case 'text':
+      return `"${node.text.length > 14 ? `${node.text.slice(0, 13)}…` : node.text}"`;
     case 'sine':
       return `Sine(${formatNumber(node.amplitude)}, ${formatNumber(node.period)})`;
     case 'constant':

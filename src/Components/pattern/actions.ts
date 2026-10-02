@@ -1,5 +1,5 @@
 import { DistanceMethodType } from '../../geometry/sdMethods';
-import { GROUP_KINDS, GroupKind, IPattern, NodeKind, SdfNode, constantNode, groupNode, methodNode, sineNode, svgNode } from '../../geometry/sdf/tree';
+import { GROUP_KINDS, GroupKind, IPattern, NodeKind, SdfNode, constantNode, groupNode, methodNode, sineNode, svgNode, textNode } from '../../geometry/sdf/tree';
 import { duplicateNode, findParent, insertChild, moveNode, removeNode, wrapNode } from '../../geometry/sdf/treeOps';
 import { formatNumber } from '../../geometry/sdf/formula';
 
@@ -14,6 +14,8 @@ export const newNode = (kind: NodeKind, pattern: IPattern): SdfNode => {
       return methodNode(DistanceMethodType.SDGyroid);
     case 'svg':
       return svgNode(firstAsset(pattern));
+    case 'text':
+      return textNode();
     case 'sine':
       return sineNode();
     case 'constant':
@@ -50,7 +52,7 @@ export const applyAction = (pattern: IPattern, id: string, action: NodeAction): 
   return { root };
 };
 
-export const ADDABLE: NodeKind[] = ['method', 'svg', 'sine', 'constant', ...GROUP_KINDS];
+export const ADDABLE: NodeKind[] = ['method', 'svg', 'text', 'sine', 'constant', ...GROUP_KINDS];
 
 /** the scale and smooth radius of a node, next to its name in the tree */
 export const nodeSummary = (node: SdfNode): string =>

@@ -1,7 +1,6 @@
 import * as THREE from 'three';
 import { CellData } from '../../geometry/grid';
-import { MAX_SVG_SLOTS, fieldGLSL, sdfShaderPlan, sdfUniformValues } from './sdfCodegen';
-import { MIN_BEVEL_WIDTH } from '../../geometry/text/textField';
+import { MAX_FIELD_SLOTS, fieldGLSL, sdfShaderPlan, sdfUniformValues } from './sdfCodegen';
 import { IDistanceField } from '../../geometry/field';
 
 // Bakes the top surface of a bar into two float textures of one texel per grid vertex:
@@ -33,26 +32,11 @@ uniform float uHeight;
 uniform float uInset;
 uniform float uAmplitude;
 
-// the relief of the text, see geometry/text/textField.ts
-uniform sampler2D uText;
-uniform bool uHasText;
-uniform float uTextPixelSize;
-uniform float uTextDepth;
-uniform float uTextBevelWidth;
-uniform float uTextPatternFade;
-
-float reliefHeight(float pattern, vec2 local) {
-  if (!uHasText) return pattern * uAmplitude;
-  float t = clamp(0.5 - fieldDistance(uText, local, uTextPixelSize) / max(uTextBevelWidth, ${MIN_BEVEL_WIDTH.toFixed(6)}), 0.0, 1.0);
-  float mask = t * t * (3.0 - 2.0 * t);
-  return pattern * uAmplitude * (1.0 - uTextPatternFade * mask) + uTextDepth * mask;
-}
-
 void main() {
   vec2 ij = floor(gl_FragCoord.xy);
   vec2 local = ij * uStep;
   vec2 d = fanOffset(ij, uDivisions, uInset);
-  float s = reliefHeight(sdf(vec3(uOrigin.x + local.x, uHeight, uOrigin.y + local.y)), local) / uHeight;
+  float s = sdf(vec3(uOrigin.x + local.x, uHeight, uOrigin.y + local.y)) * uAmplitude / uHeight;
   gl_FragColor = vec4(local.x + d.x * s, uHeight + uHeight * s, local.y + d.y * s, 1.0);
 }
 `;
@@ -104,19 +88,13 @@ const createPositionMaterial = (sdfGLSL: string) =>
       uParams: { value: new Float32Array(4) },
       uCenter: { value: [0, 0, 0] },
       uRotation: { value: [1, 0] },
-      ...Object.fromEntries([...Array(MAX_SVG_SLOTS).keys()].map((j) => [`uSvg${j}`, { value: null }])),
+      ...Object.fromEntries([...Array(MAX_FIELD_SLOTS).keys()].map((j) => [`uField${j}`, { value: null }])),
       uOrigin: { value: new THREE.Vector2() },
       uStep: { value: new THREE.Vector2() },
       uDivisions: { value: new THREE.Vector2() },
       uHeight: { value: 1 },
       uInset: { value: 0 },
       uAmplitude: { value: 0 },
-      uText: { value: null },
-      uHasText: { value: false },
-      uTextPixelSize: { value: 1 },
-      uTextDepth: { value: 0 },
-      uTextBevelWidth: { value: 0 },
-      uTextPatternFade: { value: 0 },
     },
   });
 
@@ -165,13 +143,12 @@ export const createFieldTexture = ({ width, height, distances }: IDistanceField)
   return texture;
 };
 
-/** textTexture holds the distance field of the text of the cell, when it has one, svgTextures those of the svg shapes of the pattern */
+/** fieldTextures holds the distance fields of the svg and text nodes of the pattern, by field key */
 export const bakeTopSurface = (
   gl: THREE.WebGLRenderer,
   { positions, normals }: ITopSurface,
-  { geometrySettings, sdfSettings, text, fields = new Map() }: CellData,
-  textTexture?: THREE.Texture,
-  svgTextures: ReadonlyMap<string, THREE.Texture> = new Map()
+  { geometrySettings, sdfSettings, fields = new Map() }: CellData,
+  fieldTextures: ReadonlyMap<string, THREE.Texture> = new Map()
 ) => {
   baker ??= createBaker();
   const { scene, mesh, camera, normalMaterial } = baker;
@@ -181,21 +158,13 @@ export const bakeTopSurface = (
   const material = positionMaterial(plan.glsl);
   const uniforms = material.uniforms;
   Object.entries(sdfUniformValues(sdfSettings, fields)).forEach(([name, value]) => (uniforms[name].value = value));
-  plan.svgAssets.slice(0, MAX_SVG_SLOTS).forEach((asset, j) => (uniforms[`uSvg${j}`].value = svgTextures.get(asset) ?? null));
+  plan.fieldKeys.slice(0, MAX_FIELD_SLOTS).forEach((key, j) => (uniforms[`uField${j}`].value = fieldTextures.get(key) ?? null));
   uniforms.uOrigin.value.set(basePosition.x, basePosition.z);
   uniforms.uStep.value.set(innerWidth / horizontalDivisions, innerLength / verticalDivisions);
   uniforms.uDivisions.value.set(horizontalDivisions, verticalDivisions);
   uniforms.uHeight.value = height;
   uniforms.uInset.value = inset;
   uniforms.uAmplitude.value = amplitude;
-  uniforms.uHasText.value = !!text && !!textTexture;
-  uniforms.uText.value = textTexture ?? null;
-  if (text) {
-    uniforms.uTextPixelSize.value = text.field.pixelSize;
-    uniforms.uTextDepth.value = text.depth;
-    uniforms.uTextBevelWidth.value = text.bevelWidth;
-    uniforms.uTextPatternFade.value = text.patternFade;
-  }
 
   const previousTarget = gl.getRenderTarget();
 

@@ -7,6 +7,8 @@ export interface IDistanceField {
   pixelSize: number;
   /** row by row, in the unit of pixelSize */
   distances: Float32Array;
+  /** where the centre of the field is, for one that is not centred on the origin (text) */
+  center?: { x: number; z: number };
 }
 
 /** bilinear sample of the field at a location relative to its corner, see fieldDistance in three/shaders/bake.ts */

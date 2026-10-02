@@ -8,10 +8,12 @@ import { NodeAction, applyAction } from './actions';
 import { DrillDownEditor } from './DrillDownEditor';
 import { FormulaPreview } from './FormulaPreview';
 import { OutlineEditor } from './OutlineEditor';
+import { EditorContext } from './editorContext';
 
 export const MOBILE = '(max-width: 720px)';
 
-const SvgAssets: React.FC<{ pattern: IPattern; setPattern: (p: IPattern) => void; errors: Record<string, string> }> = ({ pattern, setPattern, errors }) => {
+const SvgAssets: React.FC<{ pattern: IPattern; setPattern: (p: IPattern) => void }> = ({ pattern, setPattern }) => {
+  const { errors } = React.useContext(EditorContext);
   const [uploadError, setUploadError] = React.useState<string>();
   const setSvgs = (svgs: IPattern['svgs']) => setPattern({ ...pattern, svgs });
 
@@ -52,14 +54,14 @@ const SvgAssets: React.FC<{ pattern: IPattern; setPattern: (p: IPattern) => void
   );
 };
 
-/** the pattern of the bars: its tree of distance functions, its placement and the svg shapes it can use */
-export const PatternPanel: React.FC<{ pattern: IPattern; setPattern: (p: IPattern) => void; svgErrors: Record<string, string> }> = ({
+/** the pattern of the bars: its tree of distance functions, its placement and the svg shapes it can use. selected is the selected node */
+export const PatternPanel: React.FC<{ pattern: IPattern; setPattern: (p: IPattern) => void; selected?: string; setSelected: (id?: string) => void }> = ({
   pattern,
   setPattern,
-  svgErrors,
+  selected,
+  setSelected,
 }) => {
   const mobile = useMediaQuery(MOBILE);
-  const [selected, setSelected] = React.useState<string>();
   // the group the mobile editor shows
   const [focus, setFocus] = React.useState(pattern.root.id);
 
@@ -92,7 +94,7 @@ export const PatternPanel: React.FC<{ pattern: IPattern; setPattern: (p: IPatter
         </Field>
       </Section>
       <Section title='SVG shapes' className='subsection'>
-        <SvgAssets pattern={pattern} setPattern={setPattern} errors={svgErrors} />
+        <SvgAssets pattern={pattern} setPattern={setPattern} />
       </Section>
     </>
   );

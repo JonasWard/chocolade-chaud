@@ -1,4 +1,4 @@
-import { GroupKind, GroupNode, NodeKind, SdfNode, constantNode, groupNode, isGroup, methodNode, newId, sineNode, svgNode } from './tree';
+import { GroupKind, GroupNode, NodeKind, SdfNode, constantNode, groupNode, isGroup, methodNode, newId, sineNode, svgNode, textNode } from './tree';
 import { DistanceMethodType } from '../sdMethods';
 
 // immutable edits of the tree, the subtrees that don't change are shared
@@ -82,6 +82,8 @@ export const changeKind = (node: SdfNode, kind: NodeKind, defaultAsset = ''): Sd
       return { ...methodNode(DistanceMethodType.SDGyroid), ...keep };
     case 'svg':
       return { ...svgNode(defaultAsset), ...keep };
+    case 'text':
+      return { ...textNode(), ...keep };
     case 'sine':
       return { ...sineNode(), ...keep };
     case 'constant':
@@ -92,3 +94,17 @@ export const changeKind = (node: SdfNode, kind: NodeKind, defaultAsset = ''): Sd
 };
 
 export const countNodes = (node: SdfNode): number => 1 + (isGroup(node) ? node.children.reduce((n, c) => n + countNodes(c), 0) : 0);
+
+/**
+ * The scale a node is evaluated at, the product of the scales down to it. Undefined when it varies over space: a child of a chain,
+ * other than its last, is evaluated at the output of the child after it
+ */
+export const staticScale = (root: SdfNode, id: string): number | undefined => {
+  const path = findPath(root, id);
+  if (!path) return undefined;
+  for (let i = 0; i < path.length - 1; i++) {
+    const parent = path[i];
+    if (parent.kind === 'chain' && parent.children[parent.children.length - 1] !== path[i + 1]) return undefined;
+  }
+  return path.reduce((s, n) => s * n.scale, 1);
+};

@@ -1,8 +1,8 @@
 import { signedDistanceTransform } from './edt';
-import { ITextField, ITextRelief, reliefHeight, textMask } from './textField';
-import { sampleField } from '../field';
-import { GridParser } from '../grid';
-import { singleGrid } from '../testUtils';
+import { IDistanceField, sampleField } from '../field';
+import { layoutGlyphs } from './layout';
+import { compilePattern } from '../sdf/evaluate';
+import { textFieldKey, textNode } from '../sdf/tree';
 
 // the distance to the nearest pixel on the other side of the outline, the slow way
 const bruteForce = (mask: number[], width: number): number[] =>
@@ -41,7 +41,7 @@ test('a mask without an outline has no finite distance', () => {
 });
 
 // 4 x 2 pixels of 0.5 mm, the distance equals the pixel column
-const field: ITextField = { width: 4, height: 2, pixelSize: 0.5, distances: new Float32Array([0, 1, 2, 3, 0, 1, 2, 3]) };
+const field: IDistanceField = { width: 4, height: 2, pixelSize: 0.5, distances: new Float32Array([0, 1, 2, 3, 0, 1, 2, 3]) };
 
 test('the field is sampled at the pixel centres, bilinear in between and clamped outside', () => {
   expect(sampleField(field, 0.25, 0.25)).toBeCloseTo(0);
@@ -51,44 +51,41 @@ test('the field is sampled at the pixel centres, bilinear in between and clamped
   expect(sampleField(field, 50, 50)).toBeCloseTo(3);
 });
 
-test('the mask blends over the bevel width around the outline', () => {
-  expect(textMask(-1, 1)).toBe(1);
-  expect(textMask(-0.5, 1)).toBe(1);
-  expect(textMask(0, 1)).toBeCloseTo(0.5);
-  expect(textMask(0.5, 1)).toBe(0);
-  expect(textMask(0.25, 1)).toBeGreaterThan(0);
-  expect(textMask(0.25, 1)).toBeLessThan(0.5);
-  // no bevel is a step
-  expect(textMask(-0.01, 0)).toBe(1);
-  expect(textMask(0.01, 0)).toBe(0);
+test('a straight line of text is centred on its offset and turned by its angle', () => {
+  const glyphs = layoutGlyphs([2, 4, 2], { x: 10, z: -5, angle: 0 });
+  expect(glyphs.map((g) => g.x)).toEqual([7, 10, 13]);
+  expect(glyphs.every((g) => g.z === -5 && g.angle === 0)).toBe(true);
+  const turned = layoutGlyphs([2, 2], { x: 0, z: 0, angle: 90 });
+  expect(turned[1].x).toBeCloseTo(0);
+  expect(turned[1].z).toBeCloseTo(1);
 });
 
-test('the relief is the pattern, faded on the text, plus the text', () => {
-  const inside: ITextField = { ...field, distances: new Float32Array(8).fill(-10) };
-  const outside: ITextField = { ...field, distances: new Float32Array(8).fill(10) };
-  const relief = (f: ITextField, patternFade: number): ITextRelief => ({ field: f, depth: 0.6, bevelWidth: 0.5, patternFade });
-
-  expect(reliefHeight(2, 0.2, 1, 0.5)).toBeCloseTo(0.4);
-  expect(reliefHeight(2, 0.2, 1, 0.5, relief(outside, 1))).toBeCloseTo(0.4);
-  expect(reliefHeight(2, 0.2, 1, 0.5, relief(inside, 1))).toBeCloseTo(0.6);
-  expect(reliefHeight(2, 0.2, 1, 0.5, relief(inside, 0))).toBeCloseTo(1);
-  expect(reliefHeight(2, 0.2, 1, 0.5, relief(inside, 0.5))).toBeCloseTo(0.8);
+test('text along a curve is centred on it and follows its tangent', () => {
+  // an L of 20 mm along x, then 20 mm along z
+  const curve = { mode: 'polyline' as const, points: [{ x: 0, z: 0 }, { x: 20, z: 0 }, { x: 20, z: 20 }] };
+  const glyphs = layoutGlyphs([4, 4, 4, 4], curve);
+  expect(glyphs.map((g) => [g.x, g.z])).toEqual([
+    [14, 0],
+    [18, 0],
+    [20, 2],
+    [20, 6],
+  ]);
+  expect(glyphs.map((g) => g.angle)).toEqual([0, 0, Math.PI / 2, Math.PI / 2]);
 });
 
-test('text raises the top of the mesh where it is, and leaves the rest of the bar as it was', () => {
-  const [hd, vd] = [20, 10];
-  // a 6 x 4 mm block in the middle of the bar
-  const mask = [...Array(hd * vd).keys()].map((p) => (Math.abs((p % hd) + 0.5 - hd / 2) < 3 && Math.abs(Math.floor(p / hd) + 0.5 - vd / 2) < 2 ? 1 : 0));
-  const text: ITextRelief = { field: { width: hd, height: vd, pixelSize: 1, distances: signedDistanceTransform(mask, hd, vd) }, depth: 1.5, bevelWidth: 0.5, patternFade: 1 };
+test('a text node samples its field around the centre of it', () => {
+  const node = textNode('a');
+  const centred: IDistanceField = { ...field, center: { x: 30, z: -10 } };
+  const sdf = compilePattern({ root: node, center: { x: 0, y: 0, z: 0 }, rotation: 0, svgs: {} }, new Map([[textFieldKey(node), centred]]));
+  // the middle of the field, 1 by 0.5 mm, is at its centre
+  expect(sdf(30, 0, -10)).toBeCloseTo(sampleField(field, 1, 0.5));
+  // without its field it is flat
+  expect(compilePattern({ root: node, center: { x: 0, y: 0, z: 0 }, rotation: 0, svgs: {} })(30, 0, -10)).toBe(0);
+});
 
-  const grid = { ...singleGrid(hd, vd, 1), inset: 0 };
-  const [plain] = GridParser(grid, [], true);
-  const [embossed] = GridParser(grid, [], true, text);
-
-  expect(embossed.faces).toEqual(plain.faces);
-  const top = (mesh: typeof plain, i: number, j: number) => mesh.vertices[(i * (vd + 1) + j) * 3 + 1];
-  // in the middle of the block: flat, at the height of the text
-  expect(top(embossed, hd / 2, vd / 2)).toBeCloseTo(grid.height + 1.5);
-  // away from it nothing changed
-  for (const [i, j] of [[0, 0], [2, 5], [hd, vd], [hd / 2, 0]]) expect(top(embossed, i, j)).toBe(top(plain, i, j));
+test('the field key changes with what is drawn only', () => {
+  const node = textNode('a');
+  expect(textFieldKey({ ...node, gain: 3, scale: 2 })).toBe(textFieldKey(node));
+  expect(textFieldKey({ ...node, font: 'serif' })).not.toBe(textFieldKey(node));
+  expect(textFieldKey({ ...node, curve: { mode: 'polyline', points: [{ x: 0, z: 0 }, { x: 1, z: 0 }] } })).not.toBe(textFieldKey(node));
 });

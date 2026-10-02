@@ -48,6 +48,7 @@ const METHOD_ICONS: Record<DistanceMethodType, React.ReactNode> = {
 };
 
 const KIND_ICONS: Record<Exclude<NodeKind, 'method' | 'svg'>, React.ReactNode> = {
+  text: <path d='M5 6V4.5h14V6M12 4.5v15M9 19.5h6' />,
   sine: <path d='M2 12c2.5-8 5.5-8 8 0s5.5 8 8 0c1.2-4 2.7-6 4-6' />,
   constant: <path d='M10 4L8 20M16 4l-2 16M4.5 9h15M4 15h15' />,
   union: <path d='M6 4.5v7.5a6 6 0 0 0 12 0V4.5' />,

@@ -1,10 +1,10 @@
 import { DistanceMethodType, distanceMethods, sdGyroid, sdSchwarzD, sdSphere } from '../sdMethods';
 import { IDistanceField, sampleCentredField, sampleField } from '../field';
-import { compilePattern, repeat, sdSine, smoothMin } from './evaluate';
+import { compilePattern, repeat, sdSine, smoothMin, toPattern, toWorld } from './evaluate';
 import { IPattern, SdfNode, constantNode, defaultPattern, groupNode, isGroup, methodNode, sineNode, svgKey, svgNode } from './tree';
-import { changeKind, duplicateNode, findPath, insertChild, moveNode, removeNode, updateNode, wrapNode } from './treeOps';
+import { changeKind, duplicateNode, findPath, insertChild, moveNode, removeNode, staticScale, updateNode, wrapNode } from './treeOps';
 import { formula } from './formula';
-import { MAX_SVG_SLOTS, sdfShaderPlan } from '../../three/shaders/sdfCodegen';
+import { MAX_FIELD_SLOTS, sdfShaderPlan } from '../../three/shaders/sdfCodegen';
 
 // the method chain the tree replaced: every method's scale is the output of the one after it, the last gets the product of all the numbers
 const oldChain = (methods: [DistanceMethodType, number][]) => (x: number, y: number, z: number) => {
@@ -196,9 +196,31 @@ describe('shader plan', () => {
 
   test('too many svg shapes do not fit', () => {
     const svgs = (n: number) => groupNode('union', [...Array(n).keys()].map((i) => svgNode(`a${i}`)));
-    expect(sdfShaderPlan(pattern(svgs(MAX_SVG_SLOTS))).fits).toBe(true);
-    expect(sdfShaderPlan(pattern(svgs(MAX_SVG_SLOTS + 1))).fits).toBe(false);
+    expect(sdfShaderPlan(pattern(svgs(MAX_FIELD_SLOTS))).fits).toBe(true);
+    expect(sdfShaderPlan(pattern(svgs(MAX_FIELD_SLOTS + 1))).fits).toBe(false);
     // the same asset twice takes one slot
-    expect(sdfShaderPlan(pattern(groupNode('union', [svgNode('a'), svgNode('a')]))).svgAssets).toEqual(['a']);
+    expect(sdfShaderPlan(pattern(groupNode('union', [svgNode('a'), svgNode('a')]))).fieldKeys).toEqual(['a']);
   });
+});
+
+test('the static scale of a node is the product of the scales down to it, unless a chain makes it vary', () => {
+  const inner = methodNode(DistanceMethodType.SDGyroid, 4);
+  const outer = methodNode(DistanceMethodType.SDSchwarzD, 3);
+  const chain = { ...groupNode('chain', [outer, inner]), scale: 0.5 };
+  const root = { ...groupNode('union', [chain]), scale: 2 };
+  expect(staticScale(root, inner.id)).toBe(4);
+  expect(staticScale(root, chain.id)).toBe(1);
+  expect(staticScale(root, outer.id)).toBeUndefined();
+  expect(staticScale(root, 'nothing')).toBeUndefined();
+});
+
+test('a point of a node is placed on the bars the way the pattern samples it', () => {
+  const p = pattern(methodNode(DistanceMethodType.SDBox), { center: { x: 3, y: 0, z: -4 }, rotation: 30 });
+  const world = toWorld(p, 2.5, { x: 7, z: -1 });
+  expect(toPattern(p, 2.5, world).x).toBeCloseTo(7, 12);
+  expect(toPattern(p, 2.5, world).z).toBeCloseTo(-1, 12);
+  // a box of half size 1 at scale 2.5 * 0.4 = 1 around the point is sampled 0 at its edge
+  const box = compilePattern({ ...p, root: methodNode(DistanceMethodType.SDBox, 2.5) });
+  const centre = toWorld(p, 2.5, { x: 0, z: 0 });
+  expect(box(centre.x, 0, centre.z)).toBeCloseTo(-1, 12);
 });

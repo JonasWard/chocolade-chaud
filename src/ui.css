@@ -62,6 +62,40 @@ body {
   line-height: 1;
 }
 
+.toolbar .mode {
+  width: auto;
+  font-size: inherit;
+}
+
+/* the points of a base curve, its controls indented */
+
+.points {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.points li {
+  display: flex;
+  gap: 4px;
+}
+
+.points input {
+  flex: 1;
+  width: 0;
+}
+
+.points .control {
+  padding-left: 1.5em;
+  opacity: 0.7;
+}
+
+.points .selected input {
+  border-color: var(--accent);
+}
+
 .panels {
   overflow-y: auto;
   background: var(--panel);

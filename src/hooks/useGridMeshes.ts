@@ -2,12 +2,11 @@ import React from 'react';
 import { CellData, IGridSettings } from '../geometry/grid';
 import { ITriangularMesh } from '../geometry/createMesh';
 import type { FieldMessage, MeshRequest, MeshResponse } from '../geometry/meshWorker';
-import { ITextRelief } from '../geometry/text/textField';
 import { IDistanceField } from '../geometry/field';
 import { SvgFields } from '../geometry/sdf/tree';
 
 // id is unique per generated result
-export type GridMeshes = { id: number; grid: IGridSettings; text?: ITextRelief; fields: SvgFields; meshes: ITriangularMesh[]; cellData: CellData[] };
+export type GridMeshes = { id: number; grid: IGridSettings; fields: SvgFields; meshes: ITriangularMesh[]; cellData: CellData[] };
 
 type Request = MeshRequest & { fields: SvgFields };
 
@@ -17,7 +16,6 @@ type Request = MeshRequest & { fields: SvgFields };
  */
 export const useGridMeshes = (
   grid: IGridSettings,
-  text: ITextRelief | undefined,
   fields: SvgFields,
   withSupports = true
 ): { result?: GridMeshes; pending: boolean; error?: string } => {
@@ -65,7 +63,7 @@ export const useGridMeshes = (
       if ('error' in data) setError(data.error);
       else if (request) {
         setError(undefined);
-        setResult({ id: data.id, grid: request.grid, text: request.text, fields: request.fields, meshes: data.meshes, cellData: data.cellData });
+        setResult({ id: data.id, grid: request.grid, fields: request.fields, meshes: data.meshes, cellData: data.cellData });
       }
     };
 
@@ -79,7 +77,7 @@ export const useGridMeshes = (
   }, [post]);
 
   React.useEffect(() => {
-    const request: Request = { type: 'mesh', id: ++lastId.current, grid, withSupports, text, fields, assets: [...fields.keys()] };
+    const request: Request = { type: 'mesh', id: ++lastId.current, grid, withSupports, fields, assets: [...fields.keys()] };
     requests.current.set(request.id, request);
     setPending(true);
 
@@ -88,7 +86,7 @@ export const useGridMeshes = (
       if (queued.current) requests.current.delete(queued.current.id);
       queued.current = request;
     } else post(request);
-  }, [grid, text, fields, withSupports, post]);
+  }, [grid, fields, withSupports, post]);
 
   return { result, pending, error };
 };

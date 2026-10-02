@@ -3,7 +3,6 @@ import { compilePattern } from './sdf/evaluate';
 
 import { INSET, fanOffset, supportColumns, supportMaxHeight } from './barMath';
 import { createBarFaces, weldedWallVertex } from './barLayout';
-import { ITextRelief, reliefHeight } from './text/textField';
 
 export const DEFAULT_COLOR = '#A73A08';
 
@@ -97,7 +96,6 @@ export const createIMesh = (
   geometrySettings: IGeometrySettings = defaultGeometrySettings,
   sdfSettings: IPattern = defaultPattern(),
   withSupports: boolean = false,
-  text?: ITextRelief,
   fields?: SvgFields
 ): ITriangularMesh => {
   // set the geometry settings
@@ -129,7 +127,7 @@ export const createIMesh = (
       const dy = height;
       const dz = fanOffset(j, verticalDivisions, inset);
 
-      const s = reliefHeight(sdf(x, y, z), amplitude, i * gridWidth, j * gridLength, text) / height;
+      const s = (sdf(x, y, z) * amplitude) / height;
       movedGrid[k] = x + dx * s;
       movedGrid[k + 1] = y + dy * s;
       movedGrid[k + 2] = z + dz * s;
