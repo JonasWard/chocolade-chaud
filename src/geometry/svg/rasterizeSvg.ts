@@ -70,18 +70,17 @@ export const rasterizeSvg = async (source: string): Promise<IDistanceField> => {
     throw new Error('the svg can not be read, remove its foreignObject');
   }
 
-  const mask = new Uint8Array(w * h);
+  // the antialiased coverage of every pixel, its edges make the distances sub-pixel accurate
+  const coverage = new Float32Array(w * h);
   let filled = 0;
-  for (let p = 0; p < mask.length; p++) {
-    if (data[p * 4 + 3] >= 128) {
-      mask[p] = 1;
-      filled++;
-    }
+  for (let p = 0; p < coverage.length; p++) {
+    coverage[p] = data[p * 4 + 3] / 255;
+    if (data[p * 4 + 3] > 127) filled++;
   }
   if (filled === 0) throw new Error('the svg is empty');
 
   const pixelSize = 1 / Math.max(width, height);
-  const distances = signedDistanceTransform(mask, w, h);
+  const distances = signedDistanceTransform(coverage, w, h);
   for (let p = 0; p < distances.length; p++) distances[p] *= pixelSize;
   return { width: w, height: h, pixelSize, distances };
 };

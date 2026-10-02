@@ -6,7 +6,7 @@ import { layoutGlyphs } from './layout';
 
 export const MAX_FIELD_SIZE = 2048;
 // pixels per font size, so the outline is sharper than the mesh can show
-const PIXELS_PER_SIZE = 48;
+const PIXELS_PER_SIZE = 64;
 // the size the advances are measured at
 const MEASURE_PX = 100;
 
@@ -56,17 +56,16 @@ export const rasterizeTextNode = (node: ITextNode): IDistanceField | undefined =
   });
 
   const { data } = context.getImageData(0, 0, w, h);
-  const mask = new Uint8Array(w * h);
+  // the antialiased coverage of every pixel, its edges make the distances sub-pixel accurate
+  const coverage = new Float32Array(w * h);
   let filled = 0;
-  for (let p = 0; p < mask.length; p++) {
-    if (data[p * 4 + 3] >= 128) {
-      mask[p] = 1;
-      filled++;
-    }
+  for (let p = 0; p < coverage.length; p++) {
+    coverage[p] = data[p * 4 + 3] / 255;
+    if (data[p * 4 + 3] > 127) filled++;
   }
   if (filled === 0) return undefined;
 
-  const distances = signedDistanceTransform(mask, w, h);
+  const distances = signedDistanceTransform(coverage, w, h);
   for (let p = 0; p < distances.length; p++) distances[p] *= pixelSize;
   return { width: w, height: h, pixelSize, distances, center: { x: minX + (w * pixelSize) / 2, z: minZ + (h * pixelSize) / 2 } };
 };

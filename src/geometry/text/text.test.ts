@@ -4,7 +4,7 @@ import { layoutGlyphs } from './layout';
 import { compilePattern } from '../sdf/evaluate';
 import { textFieldKey, textNode } from '../sdf/tree';
 
-// the distance to the nearest pixel on the other side of the outline, the slow way
+// the distance from a pixel centre to the nearest pixel on the other side of the outline, the slow way
 const bruteForce = (mask: number[], width: number): number[] =>
   mask.map((m, p) => {
     let nearest = Infinity;
@@ -20,7 +20,7 @@ test.each([
   [16, 16],
   [3, 31],
   [40, 9],
-])('the distance transform is exact (%i x %i)', (width, height) => {
+])('the distance transform of a hard mask is exact (%i x %i)', (width, height) => {
   // a few deterministic blobs
   const mask = [...Array(width * height).keys()].map((p) => {
     const [x, y] = [p % width, Math.floor(p / width)];
@@ -33,6 +33,38 @@ test.each([
 test('the distance is negative inside, and half a pixel from the outline next to it', () => {
   const distances = signedDistanceTransform([0, 0, 1, 1, 1, 0], 6, 1);
   expect([...distances]).toEqual([1.5, 0.5, -0.5, -1.5, -0.5, 0.5]);
+});
+
+test('an antialiased edge puts the outline where it crosses its pixel', () => {
+  // a half plane from x = 10.3 on: the pixel with its centre at 10 is covered for 0.2
+  const width = 24;
+  const coverage = [...Array(width).keys()].map((x) => Math.min(Math.max(x + 0.5 - 10.3, 0), 1));
+  const distances = [...signedDistanceTransform(coverage, width, 1)];
+  distances.forEach((d, x) => expect(d).toBeCloseTo(10.3 - x, 1));
+});
+
+test('an antialiased disc is within a sixth of a pixel, a thresholded one is not', () => {
+  const [size, r, c] = [64, 20, { x: 31.7, y: 30.2 }];
+  // the coverage of every pixel by supersampling
+  const n = 8;
+  const coverage = [...Array(size * size).keys()].map((p) => {
+    const [px, py] = [p % size, Math.floor(p / size)];
+    let inside = 0;
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) if (Math.hypot(px + (i + 0.5) / n - c.x, py + (j + 0.5) / n - c.y) < r) inside++;
+    return inside / (n * n);
+  });
+  const error = (distances: Float32Array) => {
+    let max = 0;
+    distances.forEach((d, p) => {
+      const exact = Math.hypot((p % size) + 0.5 - c.x, Math.floor(p / size) + 0.5 - c.y) - r;
+      if (Math.abs(exact) < 4) max = Math.max(max, Math.abs(d - exact));
+    });
+    return max;
+  };
+  const antialiased = error(signedDistanceTransform(coverage, size, size));
+  const thresholded = error(signedDistanceTransform(coverage.map((a) => (a >= 0.5 ? 1 : 0)), size, size));
+  expect(antialiased).toBeLessThan(0.15);
+  expect(thresholded).toBeGreaterThan(2 * antialiased);
 });
 
 test('a mask without an outline has no finite distance', () => {
