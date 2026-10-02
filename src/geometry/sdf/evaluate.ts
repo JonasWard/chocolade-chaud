@@ -1,9 +1,11 @@
 import { sampleCentredField } from '../field';
 import { DistanceMethod, ScaledDistanceMethod, distanceMethods } from '../sdMethods';
-import { IPattern, SdfNode, SvgFields, textFieldKey } from './tree';
+import { IPattern, IProfile, SdfNode, SvgFields, textFieldKey } from './tree';
 
 // the pattern compiled into closures, evaluated per vertex. three/shaders/sdfCodegen.ts generates the same in glsl.
-// every node is evaluated at a scale s: s' = s * node.scale is what the node works with, its output is multiplied by node.gain
+// every node is evaluated at a scale s: s' = s * node.scale is what the node works with, its output is multiplied by node.gain.
+// A text or an svg shape divides its distance by its frame, the static part of that scale (see nodeFrame in treeOps.ts), so a scale
+// only changes its size: its distances, depth, bevel and cutoff stay in mm on the bars
 
 /** polynomial smooth minimum, k is the radius of the blend, 0 is the plain minimum */
 export const smoothMin = (a: number, b: number, k: number): number => {
@@ -20,11 +22,19 @@ export const sdSine = (x: number, z: number, amplitude: number, period: number):
   return Math.abs(z - amplitude * Math.sin(k * x)) / Math.sqrt(1 + slope * slope);
 };
 
+/** the distance d (in mm, negative inside) to an svg shape or a text, shaped by its profile, see profile in three/shaders/sdfCodegen.ts */
+export const profile = (d: number, { inside, depth, bevel, cutoff }: IProfile): number => {
+  if (d >= 0) return cutoff > 0 ? Math.min(d, cutoff) : d;
+  if (inside === 'distance') return d;
+  return bevel > 0 ? -depth * Math.min(-d / bevel, 1) : -depth;
+};
+
 /** centred tiling, positive for negative coordinates too (unlike %) */
 export const repeat = (v: number, period: number): number => (period > 0 ? v - period * Math.floor(v / period + 0.5) : v);
 
-const compileNode = (node: SdfNode, fields: SvgFields): ScaledDistanceMethod => {
+const compileNode = (node: SdfNode, fields: SvgFields, parentFrame = 1): ScaledDistanceMethod => {
   const { scale, gain } = node;
+  const frame = parentFrame * scale;
 
   switch (node.kind) {
     case 'method': {
@@ -38,13 +48,14 @@ const compileNode = (node: SdfNode, fields: SvgFields): ScaledDistanceMethod => 
       const { width, offsetX, offsetZ, repeat: period } = node;
       if (!field || !(width > 0)) return () => 0;
       return (x, _y, z, s) =>
-        gain * width * sampleCentredField(field, repeat(x * s * scale - offsetX, period) / width, repeat(z * s * scale - offsetZ, period) / width);
+        gain *
+        profile((width * sampleCentredField(field, repeat(x * s * scale - offsetX, period) / width, repeat(z * s * scale - offsetZ, period) / width)) / frame, node);
     }
     case 'text': {
       const field = fields.get(textFieldKey(node));
       if (!field) return () => 0;
       const { x: cx, z: cz } = field.center ?? { x: 0, z: 0 };
-      return (x, _y, z, s) => gain * sampleCentredField(field, x * s * scale - cx, z * s * scale - cz);
+      return (x, _y, z, s) => gain * profile(sampleCentredField(field, x * s * scale - cx, z * s * scale - cz) / frame, node);
     }
     case 'sine': {
       const { amplitude, period } = node;
@@ -56,7 +67,8 @@ const compileNode = (node: SdfNode, fields: SvgFields): ScaledDistanceMethod => 
       return (x, _y, z, s) => gain * sdSine((c * x + sn * z) * s * scale, (c * z - sn * x) * s * scale, amplitude, period);
     }
     case 'chain': {
-      const children = node.children.map((c) => compileNode(c, fields));
+      // the last child works at the scale of the chain, the others at the output of the child after them
+      const children = node.children.map((c, i) => compileNode(c, fields, i === node.children.length - 1 ? frame : 1));
       if (children.length === 0) return () => 0;
       return (x, y, z, s) => {
         let d = children[children.length - 1](x, y, z, s * scale);
@@ -66,7 +78,7 @@ const compileNode = (node: SdfNode, fields: SvgFields): ScaledDistanceMethod => 
     }
   }
 
-  const children = node.children.map((c) => compileNode(c, fields));
+  const children = node.children.map((c) => compileNode(c, fields, frame));
   if (children.length === 0) return () => 0;
   const fold = (combine: (a: number, b: number) => number): ScaledDistanceMethod => (x, y, z, s) => {
     const sc = s * scale;

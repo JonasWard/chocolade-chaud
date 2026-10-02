@@ -11,19 +11,40 @@ export interface IDistanceField {
   center?: { x: number; z: number };
 }
 
-/** bilinear sample of the field at a location relative to its corner, see fieldDistance in three/shaders/bake.ts */
+/** the weights of the four samples around t (0 to 1 between the middle two) of a catmull-rom spline */
+const catmullRom = (t: number): [number, number, number, number] => {
+  const [t2, t3] = [t * t, t * t * t];
+  return [-0.5 * t3 + t2 - 0.5 * t, 1.5 * t3 - 2.5 * t2 + 1, -1.5 * t3 + 2 * t2 + 0.5 * t, 0.5 * t3 - 0.5 * t2];
+};
+
+/**
+ * Bicubic (catmull-rom) sample of the field at a location relative to its corner: the distances at the pixel centres, with a
+ * gradient that is continuous across them, so the surface doesn't show the pixels. Beyond its edge pixels the field continues
+ * along its slope there. See fieldDistance in three/shaders/sdfCodegen.ts
+ */
 export const sampleField = ({ width, height, pixelSize, distances }: IDistanceField, x: number, z: number): number => {
   const fx = x / pixelSize - 0.5;
   const fz = z / pixelSize - 0.5;
   const x0 = Math.floor(fx);
   const z0 = Math.floor(fz);
-  const tx = fx - x0;
-  const tz = fz - z0;
+  const wx = catmullRom(fx - x0);
+  const wz = catmullRom(fz - z0);
 
-  const at = (px: number, pz: number) => distances[Math.min(Math.max(pz, 0), height - 1) * width + Math.min(Math.max(px, 0), width - 1)];
-  const near = at(x0, z0) * (1 - tx) + at(x0 + 1, z0) * tx;
-  const far = at(x0, z0 + 1) * (1 - tx) + at(x0 + 1, z0 + 1) * tx;
-  return near * (1 - tz) + far * tz;
+  const texel = (px: number, pz: number) => distances[Math.min(Math.max(pz, 0), height - 1) * width + Math.min(Math.max(px, 0), width - 1)];
+  const at = (px: number, pz: number) => {
+    const cx = Math.min(Math.max(px, 0), width - 1);
+    const cz = Math.min(Math.max(pz, 0), height - 1);
+    const [ex, ez] = [px - cx, pz - cz];
+    const d = texel(cx, cz);
+    if (!ex && !ez) return d;
+    return d + Math.abs(ex) * (d - texel(cx - Math.sign(ex), cz)) + Math.abs(ez) * (d - texel(cx, cz - Math.sign(ez)));
+  };
+  let sum = 0;
+  for (let j = 0; j < 4; j++) {
+    const row = at(x0 - 1, z0 + j - 1) * wx[0] + at(x0, z0 + j - 1) * wx[1] + at(x0 + 1, z0 + j - 1) * wx[2] + at(x0 + 2, z0 + j - 1) * wx[3];
+    sum += row * wz[j];
+  }
+  return sum;
 };
 
 /**
@@ -39,3 +60,9 @@ export const sampleCentredField = (field: IDistanceField, x: number, z: number):
   const cz = Math.min(Math.max(lz, 0), h);
   return sampleField(field, cx, cz) + Math.hypot(lx - cx, lz - cz);
 };
+
+/**
+ * How many times finer than usual to draw the field of a node with the given frame (the static part of its scale, see nodeFrame in
+ * sdf/treeOps.ts): a frame below 1 makes it larger on the bars, and so its pixels. A power of two, so scaling only draws it again now and then
+ */
+export const fieldDetail = (frame: number): number => (frame > 0 ? 2 ** Math.min(Math.max(Math.ceil(Math.log2(1 / frame) - 0.25), 0), 3) : 1);

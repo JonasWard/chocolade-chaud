@@ -7,6 +7,8 @@ import { IDistanceField } from '../field';
 export const SVG_FIELD_SIZE = 512;
 /** around the shape, as part of its long side, so the distances outside of it are exact for a while */
 const PADDING = 0.1;
+// the field with its padding fits in the smallest texture webgl2 has to support, 2048
+const MAX_SVG_FIELD_SIZE = Math.floor(2048 / (1 + 2 * PADDING));
 export const MAX_SVG_BYTES = 1_000_000;
 
 const viewBoxOf = (svg: Element): [number, number, number, number] | undefined => {
@@ -48,14 +50,15 @@ const loadImage = async (markup: string): Promise<HTMLImageElement> => {
 };
 
 /**
- * The distance field of an svg, centred on the origin, in units of its long side (which is 1).
- * x to the right and z down, so it reads from above like the text. Needs a browser
+ * The distance field of an svg, centred on the origin, in units of its long side (which is 1), detail times finer than usual
+ * (see fieldDetail). x to the right and z down, so it reads from above like the text. Needs a browser
  */
-export const rasterizeSvg = async (source: string): Promise<IDistanceField> => {
-  const { markup, width, height } = prepare(source, SVG_FIELD_SIZE);
+export const rasterizeSvg = async (source: string, detail = 1): Promise<IDistanceField> => {
+  const longSide = Math.min(SVG_FIELD_SIZE * detail, MAX_SVG_FIELD_SIZE);
+  const { markup, width, height } = prepare(source, longSide);
   const image = await loadImage(markup);
 
-  const pad = Math.round(SVG_FIELD_SIZE * PADDING);
+  const pad = Math.round(longSide * PADDING);
   const [w, h] = [width + 2 * pad, height + 2 * pad];
   const canvas = Object.assign(document.createElement('canvas'), { width: w, height: h });
   const context = canvas.getContext('2d', { willReadFrequently: true });
@@ -70,18 +73,17 @@ export const rasterizeSvg = async (source: string): Promise<IDistanceField> => {
     throw new Error('the svg can not be read, remove its foreignObject');
   }
 
-  const mask = new Uint8Array(w * h);
+  // the antialiased coverage of every pixel, its edges make the distances sub-pixel accurate
+  const coverage = new Float32Array(w * h);
   let filled = 0;
-  for (let p = 0; p < mask.length; p++) {
-    if (data[p * 4 + 3] >= 128) {
-      mask[p] = 1;
-      filled++;
-    }
+  for (let p = 0; p < coverage.length; p++) {
+    coverage[p] = data[p * 4 + 3] / 255;
+    if (data[p * 4 + 3] > 127) filled++;
   }
   if (filled === 0) throw new Error('the svg is empty');
 
   const pixelSize = 1 / Math.max(width, height);
-  const distances = signedDistanceTransform(mask, w, h);
+  const distances = signedDistanceTransform(coverage, w, h);
   for (let p = 0; p < distances.length; p++) distances[p] *= pixelSize;
   return { width: w, height: h, pixelSize, distances };
 };

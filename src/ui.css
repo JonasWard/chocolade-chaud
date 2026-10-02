@@ -481,3 +481,149 @@ input[type='range'] {
   font-size: 12px;
   text-align: center;
 }
+
+/* the picker: a popover under its button, on a phone a sheet from the bottom */
+
+.picker-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  text-align: left;
+}
+
+.picker-trigger .picker-label {
+  flex: 1;
+}
+
+.picker-caret {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.picker {
+  position: fixed;
+  z-index: 20;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  width: max-content;
+  min-width: 220px;
+  max-width: min(320px, calc(100vw - 16px));
+  overflow: hidden;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgb(43 33 28 / 0.18);
+}
+
+.picker [role='listbox'] {
+  overflow-y: auto;
+  padding: 4px 0;
+  outline: none;
+}
+
+.picker > input {
+  margin: 6px 6px 0;
+}
+
+.picker.sheet {
+  inset: auto 0 0 0;
+  width: auto;
+  max-width: none;
+  max-height: 70dvh;
+  padding-bottom: env(safe-area-inset-bottom);
+  border-radius: 12px 12px 0 0;
+}
+
+.picker-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 19;
+  background: rgb(43 33 28 / 0.3);
+}
+
+.picker-section + .picker-section {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--line);
+}
+
+.picker-title {
+  padding: 2px 12px;
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.picker-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: var(--control);
+  padding: 2px 12px;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 0;
+}
+
+.picker-item.active {
+  background: var(--bg);
+}
+
+.picker-item.current {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.picker-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.picker-check {
+  margin-left: auto;
+}
+
+/* two or more options of which one is on */
+
+.segmented {
+  display: flex;
+}
+
+.segmented button {
+  flex: 1;
+  border-radius: 0;
+}
+
+.segmented button:first-child {
+  border-radius: var(--radius) 0 0 var(--radius);
+}
+
+.segmented button:last-child {
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.segmented button + button {
+  margin-left: -1px;
+}
+
+.segmented .on {
+  position: relative;
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.toolbar-note {
+  align-self: center;
+  max-width: 14em;
+  padding: 2px 6px;
+  color: var(--muted);
+  font-size: 11px;
+  background: var(--panel);
+  border-radius: var(--radius);
+}

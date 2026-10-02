@@ -6,7 +6,7 @@ import { GROUP_KINDS, IPattern, ISvgAsset, NodeKind, SdfNode, isGroup, newId, sv
 // the state of the app packed into a short url safe string with densing. Numbers are rounded to the precision of their field,
 // svg sources don't fit: an svg is stored as the hash of its source (see svgKey), its source comes from the svg library
 
-export const STATE_VERSION = 2;
+export const STATE_VERSION = 4;
 
 const MAX_CHILDREN = 16;
 const MAX_SVGS = 32;
@@ -26,9 +26,18 @@ const coordinate = (name: string) => fixed(name, -1000, 1000, 0.01);
 const variant = (...fields: DenseField[]) => [fixed('scale', -5, 5, 0.001), fixed('gain', -100, 100, 0.001), ...fields];
 const children = array('children', 0, MAX_CHILDREN, pointer('child', 'node'));
 const smooth = fixed('smooth', 0, 100, 0.01);
+// how an svg or a text distance is shaped, see IProfile
+const profile = [enumeration('inside', ['distance', 'constant']), fixed('depth', -100, 100, 0.01), fixed('bevel', 0, 100, 0.01), fixed('cutoff', 0, 1000, 0.01)];
 const node = union('node', enumeration('kind', NODE_KINDS), {
   method: variant(enumeration('method', Object.values(DistanceMethodType))),
-  svg: variant(int('asset', 0, MAX_SVGS - 1), fixed('width', 0, 1000, 0.1), fixed('offsetX', -1000, 1000, 0.1), fixed('offsetZ', -1000, 1000, 0.1), fixed('repeat', 0, 1000, 0.1)),
+  svg: variant(
+    int('asset', 0, MAX_SVGS - 1),
+    fixed('width', 0, 1000, 0.1),
+    fixed('offsetX', -1000, 1000, 0.1),
+    fixed('offsetZ', -1000, 1000, 0.1),
+    fixed('repeat', 0, 1000, 0.1),
+    ...profile
+  ),
   text: variant(
     chars('text', MAX_TEXT),
     chars('font', MAX_FONT),
@@ -40,7 +49,8 @@ const node = union('node', enumeration('kind', NODE_KINDS), {
     array('points', 0, MAX_POINTS, object('point', coordinate('x'), coordinate('z'))),
     coordinate('offsetX'),
     coordinate('offsetZ'),
-    fixed('angle', -360, 360, 0.1)
+    fixed('angle', -360, 360, 0.1),
+    ...profile
   ),
   sine: variant(fixed('amplitude', -100, 100, 0.01), fixed('period', 0, 1000, 0.01), fixed('angle', -360, 360, 0.1)),
   constant: variant(fixed('value', -1000, 1000, 0.001)),
@@ -81,7 +91,10 @@ const fit = (field: DenseField, value: unknown): unknown => {
     case 'int': {
       const v = Number(value);
       const step = field.type === 'fixed' ? field.precision : 1;
-      return Number.isFinite(v) ? Math.min(Math.max(Math.round((v - field.min) / step) * step + field.min, field.min), field.max) : field.min;
+      if (!Number.isFinite(v)) return field.min;
+      const stepped = Math.min(Math.max(Math.round((v - field.min) / step) * step + field.min, field.min), field.max);
+      // without the noise of the steps, 0.2 rather than 0.19999999999999993
+      return +stepped.toFixed(Math.max(0, Math.ceil(-Math.log10(step))));
     }
     case 'enum':
       return field.options.includes(value as string) ? value : field.options[0];
@@ -106,6 +119,8 @@ const fit = (field: DenseField, value: unknown): unknown => {
       return value;
   }
 };
+
+const stateField: DenseField = { type: 'object', name: 'state', fields: StateSchema.fields };
 
 const hashOf = (key: string): number => (/^h[0-9a-f]{8}$/.test(key) ? parseInt(key.slice(1), 16) : svgHash(key));
 const keyOf = (hash: number): string => `h${hash.toString(16).padStart(8, '0')}`;
@@ -158,13 +173,13 @@ export const encodeState = (grid: IEditableGrid): string => {
     svgs: assets.map(hashOf),
     root: nodeData(pattern.root, assets),
   };
-  return densing(StateSchema, fit({ type: 'object', name: 'state', fields: StateSchema.fields }, data));
+  return densing(StateSchema, fit(stateField, data));
 };
 
 /** the state of the string, undefined when it isn't one. The svgs come from the library, the ones it doesn't have are missing */
 export const decodeState = (encoded: string, library: Record<string, ISvgAsset>): IEditableGrid | undefined => {
   try {
-    const data = undensing(StateSchema, encoded);
+    const data = fit(stateField, undensing(StateSchema, encoded)) as ReturnType<typeof undensing>;
     if (data.version !== STATE_VERSION) return undefined;
     const assets = (data.svgs as number[]).map(keyOf);
     const svgs: IPattern['svgs'] = Object.fromEntries(assets.flatMap((key) => (library[key] ? [[key, library[key]]] : [])));
