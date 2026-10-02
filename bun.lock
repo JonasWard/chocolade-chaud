@@ -7,6 +7,7 @@
       "dependencies": {
         "@react-three/drei": "^10",
         "@react-three/fiber": "^9",
+        "densing": "^0.3.0",
         "fflate": "^0.8.3",
         "react": "~19.3",
         "react-dom": "~19.3",
@@ -272,6 +273,8 @@
     "debug": ["debug@4.4.3", "", { "dependencies": { "ms": "^2.1.3" } }, "sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA=="],
 
     "deep-is": ["deep-is@0.1.4", "", {}, "sha512-oIPzksmTg4/MriiaYGO+okXDT7ztn/w3Eptv/+gSIdMdKsJo0u4CfYNFJPy+4SKMuCqGw2wxnA+URMg3t8a/bQ=="],
+
+    "densing": ["densing@0.3.0", "", {}, "sha512-T608r42i4EHii/QxGlcStnfP/pbP7KONYkYlf/Zc3Cr1NyFnnTJ7vNryL1fCYbVd61/P162m2gkx4gkLHoUxPg=="],
 
     "detect-gpu": ["detect-gpu@5.0.70", "", { "dependencies": { "webgl-constants": "^1.1.1" } }, "sha512-bqerEP1Ese6nt3rFkwPnGbsUF9a4q+gMmpTVVOEzoCyeCc+y7/RvJnQZJx1JwhgQI5Ntg0Kgat8Uu7XpBqnz1w=="],
 

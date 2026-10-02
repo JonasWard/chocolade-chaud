@@ -7,9 +7,11 @@ Live at [jonasward.github.io/chocolade-chaud](https://JonasWard.github.io/chocol
 ## Features
 
 - **Single bar or grid**: one bar of any size, or a grid of bars cycling through a list of colours.
-- **Patterns**: a tree of distance functions. The leaves are methods (gyroid, Schwarz P/D, Neovius, sphere, box, torus, cylinder), SVG shapes and constants. The groups combine them: union, difference and intersection (optionally smooth), add and subtract, and chains, where every child's output sets the scale of the child above it. Every node has a scale (on a logarithmic slider) and a gain, and the pattern can be moved and rotated.
+- **Patterns**: a tree of distance functions. The leaves are methods (gyroid, Schwarz P/D, Neovius, sphere, box, torus, cylinder), SVG shapes, sine curves (distance in mm to a sine with an amplitude, period and angle) and constants. The groups combine them: union, difference and intersection (optionally smooth), add and subtract, and chains, where every child's output sets the scale of the child above it. Every node has a scale (on a logarithmic slider) and a gain, and the pattern can be moved and rotated.
 - **SVG shapes**: upload any SVG, its filled and stroked parts become a distance field in mm that can be placed, scaled, tiled and combined like any other node.
-- **Phone and desktop**: the bar next to collapsible panels, on a phone above them. The tree is an outline on desktop and a drill-down of cards with a breadcrumb on a phone, both with the pattern as a formula on top.
+- **Phone and desktop**: the bar next to collapsible panels, on a phone above them. The tree is an outline on desktop and a drill-down of cards with a breadcrumb on a phone (a summary per node, its settings fold open), both with the pattern as a formula on top.
+- **Saved in the link**: the whole state is packed with [densing](https://www.npmjs.com/package/densing) into the `?s=` parameter of the url and into local storage, so a link reproduces the bar. SVG sources don't fit in a link: an SVG is referred to by the hash of its source, and the sources are kept in local storage, so a link with an uploaded SVG shows it as missing elsewhere until it is uploaded there too.
+- **Undo and redo**: buttons over the bar, or Ctrl/⌘+Z and Ctrl/⌘+Shift+Z. Quick successive edits, like dragging a slider, are one step.
 - **Live preview**: meshes are generated in a web worker, so the UI stays responsive at up to 8 divisions per mm.
 - **Export**: binary STL or OBJ, tilted on its side for printing and with an internal support structure. A single bar downloads as one file, a grid as one zip.
 
@@ -55,4 +57,5 @@ So merging into `main` is all it takes to release. To redeploy `main` without a 
 - `src/geometry/meshWorker.ts` and `src/hooks/useGridMeshes.ts` generate the meshes in a web worker, so editing settings never blocks the UI. The scene and the exports share the generated meshes.
 - `src/three` renders the meshes with three.js via react-three-fiber (drei for camera fitting and orbit controls). `shaders/sdfCodegen.ts` generates the GLSL of the pattern tree: its structure is compiled into the shader and its numbers are uniforms, so only structural edits compile a new shader.
 - `src/export` downloads the exported files, several bars are zipped into one download.
+- `src/state` packs the state for the url and local storage (`schema.ts`, `persist.ts`) and holds the undo / redo stack (`history.ts`).
 - `src/Components` holds the panels in plain HTML (`ui.tsx`, styled by `src/ui.css`), with the pattern tree editors in `pattern/`.

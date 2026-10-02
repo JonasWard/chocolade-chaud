@@ -61,6 +61,14 @@ float centredFieldDistance(sampler2D field, vec2 v, float pixelSize) {
   return fieldDistance(field, clamped, pixelSize) + length(local - clamped);
 }
 
+// see sdSine in geometry/sdf/evaluate.ts
+float sdSine(vec2 q, float amplitude, float period) {
+  if (period <= 0.0) return 0.0;
+  float k = 6.283185307179586 / period;
+  float slope = amplitude * k * cos(k * q.x);
+  return abs(q.y - amplitude * sin(k * q.x)) / sqrt(1.0 + slope * slope);
+}
+
 float svgDistance(sampler2D field, vec2 v, float width, vec2 offset, float period, float pixelSize) {
   if (pixelSize <= 0.0 || width <= 0.0) return 0.0;
   return width * centredFieldDistance(field, opRepeat(v - offset, period) / width, pixelSize);
@@ -111,6 +119,13 @@ const buildPlan = (root: SdfNode): ISdfShaderPlan => {
         const offset = `vec2(${param(() => node.offsetX)}, ${param(() => node.offsetZ)})`;
         const pixelSize = param((fields) => fields.get(node.asset)?.pixelSize ?? 0);
         d = `svgDistance(${field}, p.xz * ${sk}, ${param(() => node.width)}, ${offset}, ${param(() => node.repeat)}, ${pixelSize})`;
+        break;
+      }
+      case 'sine': {
+        const turn = (f: (a: number) => number) => param(() => f((node.angle * Math.PI) / 180));
+        const [c, sn] = [turn(Math.cos), turn(Math.sin)];
+        const q = `vec2(${c} * p.x + ${sn} * p.z, ${c} * p.z - ${sn} * p.x) * ${sk}`;
+        d = `sdSine(${q}, ${param(() => node.amplitude)}, ${param(() => node.period)})`;
         break;
       }
       case 'chain': {

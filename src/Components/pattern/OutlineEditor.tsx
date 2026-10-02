@@ -1,9 +1,10 @@
 import React from 'react';
 import { SdfNode, isGroup } from '../../geometry/sdf/tree';
-import { KIND_GLYPH, nodeLabel } from '../../geometry/sdf/formula';
+import { nodeLabel } from '../../geometry/sdf/formula';
 import { findNode } from '../../geometry/sdf/treeOps';
 import { NodeInspector } from './NodeInspector';
 import { NodeMenu } from './NodeMenu';
+import { NodeIcon } from './icons';
 import { TreeEditorProps, nodeSummary } from './actions';
 
 /** desktop: the whole tree as an indented outline, the selected node is edited below it */
@@ -30,7 +31,7 @@ export const OutlineEditor: React.FC<TreeEditorProps> = ({ pattern, selected, on
           ) : (
             <span className='caret' />
           )}
-          <span className='glyph'>{KIND_GLYPH[node.kind]}</span>
+          <NodeIcon node={node} svgs={pattern.svgs} />
           <span className='name'>{nodeLabel(node, pattern.svgs)}</span>
           <span className='meta'>{nodeSummary(node)}</span>
           <NodeMenu node={node} isRoot={isRoot} onAction={(a) => onAction(node.id, a)} />

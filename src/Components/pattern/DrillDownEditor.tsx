@@ -1,15 +1,16 @@
 import React from 'react';
-import { isGroup } from '../../geometry/sdf/tree';
-import { KIND_GLYPH, formula, nodeLabel } from '../../geometry/sdf/formula';
+import { SdfNode, isGroup } from '../../geometry/sdf/tree';
+import { formatNumber, formula, nodeLabel } from '../../geometry/sdf/formula';
 import { findPath } from '../../geometry/sdf/treeOps';
-import { LogSlider } from '../ui';
+import { LogSlider, NumberField } from '../ui';
 import { NodeInspector } from './NodeInspector';
 import { ActionSelect, NodeMenu, addOptions, wrapOptions } from './NodeMenu';
+import { NodeIcon } from './icons';
 import { TreeEditorProps } from './actions';
 
 /**
  * mobile: one level of the tree at a time, as cards. A group opens with ›, the breadcrumb goes back up.
- * Tapping a card edits it in place, otherwise it only shows its scale
+ * A card shows a summary of its node, its settings fold open below it
  */
 export const DrillDownEditor: React.FC<TreeEditorProps & { focus: string; setFocus: (id: string) => void }> = ({
   pattern,
@@ -23,6 +24,36 @@ export const DrillDownEditor: React.FC<TreeEditorProps & { focus: string; setFoc
   const path = findPath(pattern.root, focus) ?? [pattern.root];
   const current = path[path.length - 1];
   const { svgs } = pattern;
+
+  const card = (child: SdfNode) => (
+    <div className={child.id === selected ? 'card selected' : 'card'}>
+      <header>
+        <NodeIcon node={child} svgs={svgs} />
+        <span className='name'>
+          {nodeLabel(child, svgs)}
+          {isGroup(child) && <small>{formula(child, svgs)}</small>}
+        </span>
+        {isGroup(child) && (
+          <button aria-label='open' onClick={() => setFocus(child.id)}>
+            ›
+          </button>
+        )}
+        <NodeMenu node={child} isRoot={false} onAction={(a) => onAction(child.id, a)} />
+      </header>
+      {child.kind === 'constant' ? (
+        <NumberField label='value' value={child.value} step={0.1} onChange={(value) => onChange({ ...child, value })} />
+      ) : (
+        <LogSlider label='scale' value={child.scale} onChange={(scale) => onChange({ ...child, scale })} />
+      )}
+      <details className='more' onToggle={(e) => e.currentTarget.open && onSelect(child.id)}>
+        <summary>
+          Settings{child.gain !== 1 && ` · gain ${formatNumber(child.gain)}`}
+          {'smooth' in child && child.smooth > 0 && ` · smooth ${formatNumber(child.smooth)}`}
+        </summary>
+        <NodeInspector node={child} pattern={pattern} onChange={onChange} hideScale />
+      </details>
+    </div>
+  );
 
   return (
     <>
@@ -42,7 +73,7 @@ export const DrillDownEditor: React.FC<TreeEditorProps & { focus: string; setFoc
 
       <details className='card'>
         <summary>
-          <span className='glyph'>{KIND_GLYPH[current.kind]}</span> {nodeLabel(current, svgs)} settings
+          <NodeIcon node={current} svgs={svgs} /> {nodeLabel(current, svgs)} settings
         </summary>
         <NodeInspector node={current} pattern={pattern} onChange={onChange} />
       </details>
@@ -51,32 +82,7 @@ export const DrillDownEditor: React.FC<TreeEditorProps & { focus: string; setFoc
         current.children.map((child, i) => (
           <React.Fragment key={child.id}>
             {current.kind === 'chain' && i > 0 && <div className='link'>↑ sets the scale of</div>}
-            <div className={child.id === selected ? 'card selected' : 'card'}>
-              <header onClick={() => onSelect(child.id === selected ? '' : child.id)}>
-                <span className='glyph'>{KIND_GLYPH[child.kind]}</span>
-                <span className='name'>
-                  {nodeLabel(child, svgs)}
-                  {isGroup(child) && <small>{formula(child, svgs)}</small>}
-                </span>
-                {isGroup(child) && (
-                  <button
-                    aria-label='open'
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setFocus(child.id);
-                    }}
-                  >
-                    ›
-                  </button>
-                )}
-                <NodeMenu node={child} isRoot={false} onAction={(a) => onAction(child.id, a)} />
-              </header>
-              {child.id === selected ? (
-                <NodeInspector node={child} pattern={pattern} onChange={onChange} />
-              ) : (
-                child.kind !== 'constant' && <LogSlider label='scale' value={child.scale} onChange={(scale) => onChange({ ...child, scale })} />
-              )}
-            </div>
+            {card(child)}
           </React.Fragment>
         ))}
 

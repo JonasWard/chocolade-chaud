@@ -18,6 +18,7 @@
   "dependencies": {
     "@react-three/drei": "^10",
     "@react-three/fiber": "^9",
+    "densing": "^0.3.0",
     "fflate": "^0.8.3",
     "react": "~19.3",
     "react-dom": "~19.3",
