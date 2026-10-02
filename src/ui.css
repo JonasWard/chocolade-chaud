@@ -118,7 +118,8 @@ body {
 /* sections */
 
 summary,
-.node {
+.node,
+.line .summary {
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
@@ -298,7 +299,7 @@ input[type='range'] {
 }
 
 .node,
-.card > header {
+.line {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -384,22 +385,47 @@ input[type='range'] {
 .card {
   display: grid;
   gap: var(--gap);
-  padding: var(--gap);
+  padding: 2px 2px 2px 6px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
 }
 
+.card:has(> .stack) {
+  padding-bottom: var(--gap);
+}
+
+/* the line of a card, its summary takes the room the buttons leave */
+.line .summary {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+  background: none;
+  border: 0;
+}
+
+.line .summary .name {
+  flex: 0 1 auto;
+}
+
+.line .summary .meta {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.line > button:not(.summary) {
+  width: var(--control);
+  background: none;
+  border-color: transparent;
+}
+
 .card.selected {
   border-color: var(--accent);
-}
-
-.more > summary {
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.more[open] > summary {
-  margin-bottom: var(--gap);
 }
 
 .card .menu {

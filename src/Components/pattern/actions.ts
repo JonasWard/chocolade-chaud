@@ -60,6 +60,28 @@ export const nodeSummary = (node: SdfNode): string =>
     .filter(Boolean)
     .join(' ');
 
+/** the key attributes of a node in a few words, for a closed card */
+export const nodeDetails = (node: SdfNode): string => {
+  const f = formatNumber;
+  const own = (() => {
+    switch (node.kind) {
+      case 'svg':
+        return [`${f(node.width)} mm`, node.repeat > 0 && `↻ ${f(node.repeat)}`];
+      case 'text':
+        return [node.font, `${f(node.size)} mm`, node.curve?.mode];
+      case 'sine':
+        // amplitude and period are in its name
+        return [node.angle !== 0 && `${f(node.angle)}°`];
+      case 'method':
+      case 'constant':
+        return [];
+      default:
+        return [`${node.children.length} ${node.children.length === 1 ? 'item' : 'items'}`, 'smooth' in node && node.smooth > 0 && `~${f(node.smooth)}`];
+    }
+  })();
+  return [...own, node.kind !== 'constant' && node.scale !== 1 && `@${f(node.scale)}`, node.gain !== 1 && `×${f(node.gain)}`].filter(Boolean).join(' · ');
+};
+
 export interface TreeEditorProps {
   pattern: IPattern;
   selected?: string;

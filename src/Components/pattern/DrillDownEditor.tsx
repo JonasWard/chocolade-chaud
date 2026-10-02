@@ -1,16 +1,15 @@
 import React from 'react';
 import { SdfNode, isGroup } from '../../geometry/sdf/tree';
-import { formatNumber, formula, nodeLabel } from '../../geometry/sdf/formula';
+import { nodeLabel } from '../../geometry/sdf/formula';
 import { findPath } from '../../geometry/sdf/treeOps';
-import { LogSlider, NumberField } from '../ui';
 import { NodeInspector } from './NodeInspector';
 import { ActionSelect, NodeMenu, addOptions, wrapOptions } from './NodeMenu';
 import { NodeIcon } from './icons';
-import { TreeEditorProps } from './actions';
+import { TreeEditorProps, nodeDetails } from './actions';
 
 /**
  * mobile: one level of the tree at a time, as cards. A group opens with ›, the breadcrumb goes back up.
- * A card shows a summary of its node, its settings fold open below it
+ * A card is a line with the key attributes of its node, its settings fold open below it
  */
 export const DrillDownEditor: React.FC<TreeEditorProps & { focus: string; setFocus: (id: string) => void }> = ({
   pattern,
@@ -25,35 +24,38 @@ export const DrillDownEditor: React.FC<TreeEditorProps & { focus: string; setFoc
   const current = path[path.length - 1];
   const { svgs } = pattern;
 
-  const card = (child: SdfNode) => (
-    <div className={child.id === selected ? 'card selected' : 'card'}>
-      <header>
-        <NodeIcon node={child} svgs={svgs} />
-        <span className='name'>
-          {nodeLabel(child, svgs)}
-          {isGroup(child) && <small>{formula(child, svgs)}</small>}
-        </span>
-        {isGroup(child) && (
-          <button aria-label='open' onClick={() => setFocus(child.id)}>
-            ›
+  // a card is one line until it is opened, then it holds the settings of its node
+  const [open, setOpen] = React.useState<ReadonlySet<string>>(new Set());
+  const toggle = (id: string) => {
+    const next = new Set(open);
+    if (next.delete(id)) setOpen(next);
+    else {
+      setOpen(next.add(id));
+      onSelect(id);
+    }
+  };
+
+  const card = (child: SdfNode) => {
+    const isOpen = open.has(child.id);
+    return (
+      <div className={child.id === selected ? 'card selected' : 'card'}>
+        <div className='line'>
+          <button className='summary' aria-expanded={isOpen} onClick={() => toggle(child.id)}>
+            <NodeIcon node={child} svgs={svgs} />
+            <span className='name'>{nodeLabel(child, svgs)}</span>
+            <span className='meta'>{nodeDetails(child)}</span>
           </button>
-        )}
-        <NodeMenu node={child} isRoot={false} onAction={(a) => onAction(child.id, a)} />
-      </header>
-      {child.kind === 'constant' ? (
-        <NumberField label='value' value={child.value} step={0.1} onChange={(value) => onChange({ ...child, value })} />
-      ) : (
-        <LogSlider label='scale' value={child.scale} onChange={(scale) => onChange({ ...child, scale })} />
-      )}
-      <details className='more' onToggle={(e) => e.currentTarget.open && onSelect(child.id)}>
-        <summary>
-          Settings{child.gain !== 1 && ` · gain ${formatNumber(child.gain)}`}
-          {'smooth' in child && child.smooth > 0 && ` · smooth ${formatNumber(child.smooth)}`}
-        </summary>
-        <NodeInspector node={child} pattern={pattern} onChange={onChange} hideScale />
-      </details>
-    </div>
-  );
+          {isGroup(child) && (
+            <button aria-label='open' onClick={() => setFocus(child.id)}>
+              ›
+            </button>
+          )}
+          <NodeMenu node={child} isRoot={false} onAction={(a) => onAction(child.id, a)} />
+        </div>
+        {isOpen && <NodeInspector node={child} pattern={pattern} onChange={onChange} />}
+      </div>
+    );
+  };
 
   return (
     <>
