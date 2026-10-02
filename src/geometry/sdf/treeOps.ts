@@ -96,15 +96,27 @@ export const changeKind = (node: SdfNode, kind: NodeKind, defaultAsset = ''): Sd
 export const countNodes = (node: SdfNode): number => 1 + (isGroup(node) ? node.children.reduce((n, c) => n + countNodes(c), 0) : 0);
 
 /**
- * The scale a node is evaluated at, the product of the scales down to it. Undefined when it varies over space: a child of a chain,
- * other than its last, is evaluated at the output of the child after it
+ * The scale a node is evaluated at, the product of the scales down to it. A child of a chain, other than its last, is evaluated
+ * at the output of the child after it, which varies over space: the frame is then not exact, as if that output were 1
  */
-export const staticScale = (root: SdfNode, id: string): number | undefined => {
+export const nodeFrame = (root: SdfNode, id: string): { scale: number; exact: boolean } | undefined => {
   const path = findPath(root, id);
   if (!path) return undefined;
-  for (let i = 0; i < path.length - 1; i++) {
-    const parent = path[i];
-    if (parent.kind === 'chain' && parent.children[parent.children.length - 1] !== path[i + 1]) return undefined;
-  }
-  return path.reduce((s, n) => s * n.scale, 1);
+  let scale = 1;
+  let exact = true;
+  path.forEach((node, i) => {
+    scale *= node.scale;
+    const next = path[i + 1];
+    if (node.kind === 'chain' && next && node.children[node.children.length - 1] !== next) {
+      scale = 1;
+      exact = false;
+    }
+  });
+  return { scale, exact };
+};
+
+/** the scale a node is evaluated at, undefined when it varies over space (see nodeFrame) */
+export const staticScale = (root: SdfNode, id: string): number | undefined => {
+  const frame = nodeFrame(root, id);
+  return frame?.exact ? frame.scale : undefined;
 };

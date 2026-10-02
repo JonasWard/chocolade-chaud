@@ -3,7 +3,7 @@ import { GroupNode, SdfNode, isGroup } from '../../geometry/sdf/tree';
 import { nodeLabel } from '../../geometry/sdf/formula';
 import { findPath } from '../../geometry/sdf/treeOps';
 import { NodeInspector } from './NodeInspector';
-import { ActionSelect, NodeMenu, addOptions, wrapOptions } from './NodeMenu';
+import { ADD_SECTIONS, ActionPicker, NodeMenu, WRAP_SECTIONS } from './NodeMenu';
 import { NodeIcon } from './icons';
 import { TreeEditorProps, nodeDetails } from './actions';
 
@@ -105,8 +105,8 @@ export const ColumnEditor: React.FC<TreeEditorProps & { focus: string; setFocus:
         </React.Fragment>
       ))}
       <div className='row'>
-        <ActionSelect label='+ Add' options={addOptions} onAction={(a) => onAction(group.id, a)} />
-        <ActionSelect label='⧉ Wrap in' options={wrapOptions} onAction={(a) => onAction(group.id, a)} />
+        <ActionPicker label='+ Add' sections={ADD_SECTIONS} onAction={(a) => onAction(group.id, a)} />
+        <ActionPicker label='⧉ Wrap in' sections={WRAP_SECTIONS} onAction={(a) => onAction(group.id, a)} />
       </div>
     </section>
   );

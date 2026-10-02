@@ -1,8 +1,8 @@
 import { DistanceMethodType, distanceMethods, sdGyroid, sdSchwarzD, sdSphere } from '../sdMethods';
 import { IDistanceField, sampleCentredField, sampleField } from '../field';
-import { compilePattern, repeat, sdSine, smoothMin, toPattern, toWorld } from './evaluate';
-import { IPattern, SdfNode, constantNode, defaultPattern, groupNode, isGroup, methodNode, sineNode, svgKey, svgNode } from './tree';
-import { changeKind, duplicateNode, findPath, insertChild, moveNode, removeNode, staticScale, updateNode, wrapNode } from './treeOps';
+import { compilePattern, profile, repeat, sdSine, smoothMin, toPattern, toWorld } from './evaluate';
+import { DEFAULT_PROFILE, IPattern, SdfNode, constantNode, defaultPattern, groupNode, isGroup, methodNode, sineNode, svgKey, svgNode, textNode } from './tree';
+import { changeKind, duplicateNode, findPath, insertChild, moveNode, nodeFrame, removeNode, staticScale, updateNode, wrapNode } from './treeOps';
 import { formula } from './formula';
 import { MAX_FIELD_SLOTS, sdfShaderPlan } from '../../three/shaders/sdfCodegen';
 
@@ -194,6 +194,13 @@ describe('shader plan', () => {
     expect([...sdfShaderPlan(pattern({ ...sineNode(2, 7), angle: 90 })).params(new Map())].slice(1, 5)).toEqual([Math.fround(Math.cos(Math.PI / 2)), 1, 2, 7]);
   });
 
+  test('an svg and a text node have their profile as params', () => {
+    // svg: scale, offset x z, pixel size, width, repeat, 4 of the profile, gain
+    expect(sdfShaderPlan(pattern(svgNode('a'))).params(new Map()).length).toBe(12);
+    // text: scale, centre x z, pixel size, 4 of the profile, gain
+    expect(sdfShaderPlan(pattern(textNode('a'))).params(new Map()).length).toBe(12);
+  });
+
   test('too many svg shapes do not fit', () => {
     const svgs = (n: number) => groupNode('union', [...Array(n).keys()].map((i) => svgNode(`a${i}`)));
     expect(sdfShaderPlan(pattern(svgs(MAX_FIELD_SLOTS))).fits).toBe(true);
@@ -212,6 +219,21 @@ test('the static scale of a node is the product of the scales down to it, unless
   expect(staticScale(root, chain.id)).toBe(1);
   expect(staticScale(root, outer.id)).toBeUndefined();
   expect(staticScale(root, 'nothing')).toBeUndefined();
+  // the outer child of a chain has a frame as if the inner one gave 1
+  expect(nodeFrame(root, outer.id)).toEqual({ scale: 3, exact: false });
+  expect(nodeFrame(root, inner.id)).toEqual({ scale: 4, exact: true });
+  expect(nodeFrame(root, root.id)).toEqual({ scale: 2, exact: true });
+});
+
+test('the profile of a distance: plateau, bevel, cutoff', () => {
+  const ds = [-5, -1, -0.25, 0, 0.5, 4];
+  // the default is the distance itself
+  expect(ds.map((d) => profile(d, DEFAULT_PROFILE))).toEqual(ds);
+  const flat = { inside: 'constant' as const, depth: 2, bevel: 1, cutoff: 3 };
+  expect(ds.map((d) => profile(d, flat))).toEqual([-2, -2, -0.5, 0, 0.5, 3]);
+  // no bevel is a step
+  expect(profile(-0.01, { ...flat, bevel: 0 })).toBe(-2);
+  expect(profile(-7, { ...DEFAULT_PROFILE, cutoff: 2 })).toBe(-7);
 });
 
 test('a point of a node is placed on the bars the way the pattern samples it', () => {

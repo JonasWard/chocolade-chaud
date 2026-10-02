@@ -1,6 +1,6 @@
 import { sampleCentredField } from '../field';
 import { DistanceMethod, ScaledDistanceMethod, distanceMethods } from '../sdMethods';
-import { IPattern, SdfNode, SvgFields, textFieldKey } from './tree';
+import { IPattern, IProfile, SdfNode, SvgFields, textFieldKey } from './tree';
 
 // the pattern compiled into closures, evaluated per vertex. three/shaders/sdfCodegen.ts generates the same in glsl.
 // every node is evaluated at a scale s: s' = s * node.scale is what the node works with, its output is multiplied by node.gain
@@ -18,6 +18,13 @@ export const sdSine = (x: number, z: number, amplitude: number, period: number):
   const k = (2 * Math.PI) / period;
   const slope = amplitude * k * Math.cos(k * x);
   return Math.abs(z - amplitude * Math.sin(k * x)) / Math.sqrt(1 + slope * slope);
+};
+
+/** the distance d (in mm, negative inside) to an svg shape or a text, shaped by its profile, see profile in three/shaders/sdfCodegen.ts */
+export const profile = (d: number, { inside, depth, bevel, cutoff }: IProfile): number => {
+  if (d >= 0) return cutoff > 0 ? Math.min(d, cutoff) : d;
+  if (inside === 'distance') return d;
+  return bevel > 0 ? -depth * Math.min(-d / bevel, 1) : -depth;
 };
 
 /** centred tiling, positive for negative coordinates too (unlike %) */
@@ -38,13 +45,13 @@ const compileNode = (node: SdfNode, fields: SvgFields): ScaledDistanceMethod => 
       const { width, offsetX, offsetZ, repeat: period } = node;
       if (!field || !(width > 0)) return () => 0;
       return (x, _y, z, s) =>
-        gain * width * sampleCentredField(field, repeat(x * s * scale - offsetX, period) / width, repeat(z * s * scale - offsetZ, period) / width);
+        gain * profile(width * sampleCentredField(field, repeat(x * s * scale - offsetX, period) / width, repeat(z * s * scale - offsetZ, period) / width), node);
     }
     case 'text': {
       const field = fields.get(textFieldKey(node));
       if (!field) return () => 0;
       const { x: cx, z: cz } = field.center ?? { x: 0, z: 0 };
-      return (x, _y, z, s) => gain * sampleCentredField(field, x * s * scale - cx, z * s * scale - cz);
+      return (x, _y, z, s) => gain * profile(sampleCentredField(field, x * s * scale - cx, z * s * scale - cz), node);
     }
     case 'sine': {
       const { amplitude, period } = node;

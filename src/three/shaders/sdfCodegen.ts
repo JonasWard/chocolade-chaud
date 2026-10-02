@@ -1,5 +1,5 @@
 import { DistanceMethodType } from '../../geometry/sdMethods';
-import { IPattern, SdfNode, SvgFields, textFieldKey } from '../../geometry/sdf/tree';
+import { IPattern, IProfile, SdfNode, SvgFields, textFieldKey } from '../../geometry/sdf/tree';
 
 // glsl port of geometry/sdf/evaluate.ts. The structure of the tree is generated into the shader, its numbers are uniforms,
 // so only adding, removing or changing the kind of a node compiles a new shader, editing a number does not.
@@ -70,6 +70,13 @@ float sdSine(vec2 q, float amplitude, float period) {
   return abs(q.y - amplitude * sin(k * q.x)) / sqrt(1.0 + slope * slope);
 }
 
+// see profile in geometry/sdf/evaluate.ts
+float profile(float d, float constant, float depth, float bevel, float cutoff) {
+  if (d >= 0.0) return cutoff > 0.0 ? min(d, cutoff) : d;
+  if (constant < 0.5) return d;
+  return bevel > 0.0 ? -depth * min(-d / bevel, 1.0) : -depth;
+}
+
 float svgDistance(sampler2D field, vec2 v, float width, vec2 offset, float period, float pixelSize) {
   if (pixelSize <= 0.0 || width <= 0.0) return 0.0;
   return width * centredFieldDistance(field, opRepeat(v - offset, period) / width, pixelSize);
@@ -104,6 +111,8 @@ const buildPlan = (root: SdfNode): ISdfShaderPlan => {
     const i = params.push(value) - 1;
     return `uParams[${i >> 2}].${'xyzw'[i & 3]}`;
   };
+  const shaped = (d: string, node: IProfile) =>
+    `profile(${d}, ${param(() => (node.inside === 'constant' ? 1 : 0))}, ${param(() => node.depth)}, ${param(() => node.bevel)}, ${param(() => node.cutoff)})`;
 
   // returns the name of the variable holding the distance of the node, s is the scale it is evaluated at
   const generate = (node: SdfNode, s: string): string => {
@@ -122,7 +131,7 @@ const buildPlan = (root: SdfNode): ISdfShaderPlan => {
         const field = slot(node.asset);
         const offset = `vec2(${param(() => node.offsetX)}, ${param(() => node.offsetZ)})`;
         const pixelSize = param((fields) => fields.get(node.asset)?.pixelSize ?? 0);
-        d = `svgDistance(${field}, p.xz * ${sk}, ${param(() => node.width)}, ${offset}, ${param(() => node.repeat)}, ${pixelSize})`;
+        d = shaped(`svgDistance(${field}, p.xz * ${sk}, ${param(() => node.width)}, ${offset}, ${param(() => node.repeat)}, ${pixelSize})`, node);
         break;
       }
       case 'text': {
@@ -131,7 +140,7 @@ const buildPlan = (root: SdfNode): ISdfShaderPlan => {
         const field = slot(key);
         const center = `vec2(${param((fields) => fields.get(key)?.center?.x ?? 0)}, ${param((fields) => fields.get(key)?.center?.z ?? 0)})`;
         const pixelSize = param((fields) => fields.get(key)?.pixelSize ?? 0);
-        d = `svgDistance(${field}, p.xz * ${sk}, 1.0, ${center}, 0.0, ${pixelSize})`;
+        d = shaped(`svgDistance(${field}, p.xz * ${sk}, 1.0, ${center}, 0.0, ${pixelSize})`, node);
         break;
       }
       case 'sine': {

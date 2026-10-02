@@ -1,21 +1,15 @@
 import React from 'react';
 import { DistanceMethodType } from '../../geometry/sdMethods';
-import { GROUP_KINDS, IPattern, NodeKind, SdfNode, isGroup, textFieldKey } from '../../geometry/sdf/tree';
-import { KIND_GLYPH, KIND_LABEL, methodLabel } from '../../geometry/sdf/formula';
-import { changeKind, staticScale } from '../../geometry/sdf/treeOps';
+import { GROUP_KINDS, IPattern, IProfile, NodeKind, SdfNode, isGroup, textFieldKey } from '../../geometry/sdf/tree';
+import { changeKind, nodeFrame } from '../../geometry/sdf/treeOps';
 import { Field, LogSlider, NumberField, Select } from '../ui';
 import { firstAsset } from './actions';
 import { NodeIcon } from './icons';
+import { Picker } from '../Picker';
+import { KIND_SECTIONS, KindChoice, kindLabel } from './NodeMenu';
 import { FontField } from './FontField';
 import { CurveFields } from './CurveFields';
 import { EditorContext } from './editorContext';
-
-// one select for the kind of a node, the methods are kinds of their own in it
-type KindOption = DistanceMethodType | Exclude<NodeKind, 'method'>;
-const KIND_OPTIONS: [KindOption, string][] = [
-  ...Object.values(DistanceMethodType).map((m): [KindOption, string] => [m, `${KIND_GLYPH.method} ${methodLabel(m)}`]),
-  ...(['svg', 'text', 'sine', 'constant', ...GROUP_KINDS] as const).map((k): [KindOption, string] => [k, `${KIND_GLYPH[k]} ${KIND_LABEL[k]}`]),
-];
 
 const HINTS: Partial<Record<NodeKind, string>> = {
   chain: 'The last child is evaluated first, its output is the scale of the child above it.',
@@ -41,7 +35,7 @@ export const NodeInspector: React.FC<{ node: SdfNode; pattern: IPattern; onChang
     </Field>
   );
 
-  const setKind = (kind: KindOption) => {
+  const setKind = (kind: KindChoice) => {
     if (kind in DistanceMethodType) {
       const method = kind as DistanceMethodType;
       onChange({ ...(changeKind(node, 'method') as Extract<SdfNode, { kind: 'method' }>), method });
@@ -51,13 +45,44 @@ export const NodeInspector: React.FC<{ node: SdfNode; pattern: IPattern; onChang
     onChange(changeKind(node, kind as NodeKind, firstAsset(pattern)));
   };
 
+  const kind: KindChoice = node.kind === 'method' ? node.method : node.kind;
+  const frame = nodeFrame(pattern.root, node.id);
+
+  // how the distance to an svg or a text is shaped
+  const profileFields = (p: IProfile) => (
+    <>
+      <Field label='Inside'>
+        <div className='segmented' role='radiogroup' aria-label='inside'>
+          {(['distance', 'constant'] as const).map((inside) => (
+            <button key={inside} role='radio' aria-checked={p.inside === inside} className={p.inside === inside ? 'on' : ''} onClick={() => set({ inside })}>
+              {inside === 'distance' ? 'Distance' : 'Constant'}
+            </button>
+          ))}
+        </div>
+      </Field>
+      {p.inside === 'constant' && number('Depth mm', p.depth, 'depth', 0.1)}
+      {p.inside === 'constant' && number('Bevel mm', p.bevel, 'bevel', 0.1, 0)}
+      {number('Cutoff mm', p.cutoff, 'cutoff', 0.5, 0)}
+      <p className='hint'>Constant: a flat plateau at −depth inside, with a slanted rim as wide as the bevel. Outside, the distance stays flat beyond the cutoff (0 is none).</p>
+    </>
+  );
+
   return (
     <div className='stack'>
       <Field label='Kind'>
-        <div className='row'>
-          <NodeIcon node={node} svgs={pattern.svgs} large />
-          <Select label='kind' value={node.kind === 'method' ? node.method : node.kind} options={KIND_OPTIONS} onChange={setKind} />
-        </div>
+        <Picker<KindChoice>
+          label='kind'
+          trigger={
+            <>
+              <NodeIcon node={node} svgs={pattern.svgs} />
+              {kindLabel(kind)}
+              <span className='picker-caret'>▾</span>
+            </>
+          }
+          sections={KIND_SECTIONS}
+          value={kind}
+          onPick={setKind}
+        />
       </Field>
       {HINTS[node.kind] && <p className='hint'>{HINTS[node.kind]}</p>}
       {node.kind !== 'constant' && !hideScale && (
@@ -85,6 +110,7 @@ export const NodeInspector: React.FC<{ node: SdfNode; pattern: IPattern; onChang
           {number('Offset X', node.offsetX, 'offsetX', 1)}
           {number('Offset Z', node.offsetZ, 'offsetZ', 1)}
           {number('Repeat mm', node.repeat, 'repeat', 1, 0)}
+          {profileFields(node)}
         </>
       )}
       {node.kind === 'text' && (
@@ -106,7 +132,8 @@ export const NodeInspector: React.FC<{ node: SdfNode; pattern: IPattern; onChang
               {number('Angle °', node.angle, 'angle', 5)}
             </>
           )}
-          <CurveFields node={node} onChange={onChange} editable={staticScale(pattern.root, node.id) !== undefined} />
+          <CurveFields node={node} onChange={onChange} exact={frame?.exact ?? true} />
+          {profileFields(node)}
         </>
       )}
       {node.kind === 'sine' && (
