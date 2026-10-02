@@ -1,5 +1,6 @@
 import { signedDistanceTransform } from './edt';
-import { ITextField, ITextRelief, reliefHeight, sampleTextField, textMask } from './textField';
+import { ITextField, ITextRelief, reliefHeight, textMask } from './textField';
+import { sampleField } from '../field';
 import { GridParser } from '../grid';
 import { singleGrid } from '../testUtils';
 
@@ -43,11 +44,11 @@ test('a mask without an outline has no finite distance', () => {
 const field: ITextField = { width: 4, height: 2, pixelSize: 0.5, distances: new Float32Array([0, 1, 2, 3, 0, 1, 2, 3]) };
 
 test('the field is sampled at the pixel centres, bilinear in between and clamped outside', () => {
-  expect(sampleTextField(field, 0.25, 0.25)).toBeCloseTo(0);
-  expect(sampleTextField(field, 0.75, 0.75)).toBeCloseTo(1);
-  expect(sampleTextField(field, 1, 0.5)).toBeCloseTo(1.5);
-  expect(sampleTextField(field, -5, -5)).toBeCloseTo(0);
-  expect(sampleTextField(field, 50, 50)).toBeCloseTo(3);
+  expect(sampleField(field, 0.25, 0.25)).toBeCloseTo(0);
+  expect(sampleField(field, 0.75, 0.75)).toBeCloseTo(1);
+  expect(sampleField(field, 1, 0.5)).toBeCloseTo(1.5);
+  expect(sampleField(field, -5, -5)).toBeCloseTo(0);
+  expect(sampleField(field, 50, 50)).toBeCloseTo(3);
 });
 
 test('the mask blends over the bevel width around the outline', () => {

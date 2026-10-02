@@ -1,3 +1,5 @@
+import { IDistanceField, sampleField } from '../field';
+
 // text as a relief in the top surface: a signed distance field that is merged into the height of the pattern
 
 export interface ITextSettings {
@@ -29,15 +31,8 @@ export const defaultTextSettings: ITextSettings = {
   patternFade: 1,
 };
 
-/** signed distances to the outline of the text, negative inside, on a pixel grid that starts at the base position of the bar */
-export interface ITextField {
-  width: number;
-  height: number;
-  /** size of a pixel in mm, pixel (px, pz) has its centre at ((px + 0.5) * pixelSize, (pz + 0.5) * pixelSize) */
-  pixelSize: number;
-  /** in mm, row by row along the length of the bar */
-  distances: Float32Array;
-}
+/** signed distances (in mm) to the outline of the text, negative inside, on a pixel grid that starts at the base position of the bar */
+export type ITextField = IDistanceField;
 
 export interface ITextRelief {
   field: ITextField;
@@ -49,21 +44,6 @@ export interface ITextRelief {
 export const MAX_FIELD_SIZE = 2048;
 export const MIN_BEVEL_WIDTH = 1e-3;
 
-/** bilinear sample of the field at a location in mm relative to the base position of the bar, see textDistance in three/shaders/bake.ts */
-export const sampleTextField = ({ width, height, pixelSize, distances }: ITextField, x: number, z: number): number => {
-  const fx = x / pixelSize - 0.5;
-  const fz = z / pixelSize - 0.5;
-  const x0 = Math.floor(fx);
-  const z0 = Math.floor(fz);
-  const tx = fx - x0;
-  const tz = fz - z0;
-
-  const at = (px: number, pz: number) => distances[Math.min(Math.max(pz, 0), height - 1) * width + Math.min(Math.max(px, 0), width - 1)];
-  const near = at(x0, z0) * (1 - tx) + at(x0 + 1, z0) * tx;
-  const far = at(x0, z0 + 1) * (1 - tx) + at(x0 + 1, z0 + 1) * tx;
-  return near * (1 - tz) + far * tz;
-};
-
 /** 1 on the text, 0 away from it, blending over the bevel width around its outline */
 export const textMask = (distance: number, bevelWidth: number): number => {
   const bevel = Math.max(bevelWidth, MIN_BEVEL_WIDTH);
@@ -74,6 +54,6 @@ export const textMask = (distance: number, bevelWidth: number): number => {
 /** the height (in mm) the top surface is moved by: the pattern, faded out on the text, plus the text itself */
 export const reliefHeight = (pattern: number, amplitude: number, x: number, z: number, text?: ITextRelief): number => {
   if (!text) return pattern * amplitude;
-  const mask = textMask(sampleTextField(text.field, x, z), text.bevelWidth);
+  const mask = textMask(sampleField(text.field, x, z), text.bevelWidth);
   return pattern * amplitude * (1 - text.patternFade * mask) + text.depth * mask;
 };

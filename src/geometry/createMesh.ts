@@ -1,4 +1,5 @@
-import { DistanceMethodParser, IDistanceData, defaultDistanceData } from './sdMethods';
+import { IPattern, SvgFields, defaultPattern } from './sdf/tree';
+import { compilePattern } from './sdf/evaluate';
 
 import { INSET, fanOffset, supportColumns, supportMaxHeight } from './barMath';
 import { createBarFaces, weldedWallVertex } from './barLayout';
@@ -94,9 +95,10 @@ export const computeNormals = (vertices: ArrayLike<number>, faces: ArrayLike<num
 
 export const createIMesh = (
   geometrySettings: IGeometrySettings = defaultGeometrySettings,
-  sdfSettings: IDistanceData = defaultDistanceData,
+  sdfSettings: IPattern = defaultPattern(),
   withSupports: boolean = false,
-  text?: ITextRelief
+  text?: ITextRelief,
+  fields?: SvgFields
 ): ITriangularMesh => {
   // set the geometry settings
   const { innerWidth, innerLength, height, inset, amplitude, horizontalDivisions, verticalDivisions } = geometrySettings;
@@ -112,7 +114,7 @@ export const createIMesh = (
   const movedGrid = new Float64Array(vertexCount * 3);
   const baseGrid = new Float64Array(vertexCount * 3);
 
-  const sdf = DistanceMethodParser(sdfSettings);
+  const sdf = compilePattern(sdfSettings, fields);
 
   for (let i = 0; i < horizontalDivisions + 1; i++) {
     for (let j = 0; j < verticalDivisions + 1; j++) {

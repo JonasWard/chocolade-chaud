@@ -140,12 +140,13 @@ const logParity = (gl: THREE.WebGLRenderer, surface: Parameters<typeof readTopSu
  * A bar drawn from its baked top surface: the top takes location and normal from it, the bottom and the sides refer to it.
  * reference is the exported mesh of the same bar, only used to check the bake against in development
  */
-export const BarMesh: React.FC<{ cell: CellData; geometry: THREE.BufferGeometry; textTexture?: THREE.Texture; reference?: ITriangularMesh }> = ({
-  cell,
-  geometry,
-  textTexture,
-  reference,
-}) => {
+export const BarMesh: React.FC<{
+  cell: CellData;
+  geometry: THREE.BufferGeometry;
+  textTexture?: THREE.Texture;
+  svgTextures: ReadonlyMap<string, THREE.Texture>;
+  reference?: ITriangularMesh;
+}> = ({ cell, geometry, textTexture, svgTextures, reference }) => {
   const gl = useThree((state) => state.gl);
   const invalidate = useThree((state) => state.invalidate);
   const { geometrySettings } = cell;
@@ -158,12 +159,12 @@ export const BarMesh: React.FC<{ cell: CellData; geometry: THREE.BufferGeometry;
   React.useEffect(() => () => material.dispose(), [material]);
 
   React.useLayoutEffect(() => {
-    bakeTopSurface(gl, surface, cell, textTexture);
+    bakeTopSurface(gl, surface, cell, textTexture, svgTextures);
     uniforms.uPositions.value = surface.positions.texture;
     uniforms.uNormals.value = surface.normals.texture;
     setBarUniforms(uniforms, cell.geometrySettings);
     invalidate();
-  }, [gl, surface, cell, textTexture, uniforms, invalidate]);
+  }, [gl, surface, cell, textTexture, svgTextures, uniforms, invalidate]);
 
   React.useLayoutEffect(() => {
     material.color.set(geometrySettings.color ?? DEFAULT_COLOR);

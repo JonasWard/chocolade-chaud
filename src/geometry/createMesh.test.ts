@@ -42,7 +42,9 @@ test('the mesh is closed: every edge is shared by exactly two faces', () => {
 });
 
 test('normals match the ones babylon computed', () => {
-  const [mesh] = GridParser(singleGrid(3, 2, 1), [], true);
+  const grid = singleGrid(3, 2, 1);
+  // the bar used to start at the origin, now it is centred on it: move the pattern along so it is sampled at the same places
+  const [mesh] = GridParser({ ...grid, sdfSetting: { ...grid.sdfSetting, center: { x: -1.5, y: 0, z: -1 } } }, [], true);
   const normals = computeNormals(mesh.vertices, mesh.faces);
   expect(normals.length).toBe(babylonNormals.length);
   normals.forEach((n, i) => expect(n).toBeCloseTo(babylonNormals[i], 5));
