@@ -30,7 +30,7 @@ const drawText = async (node: ITextNode, detail: number): Promise<Drawn> => {
     () => undefined,
     (e: Error) => e.message
   );
-  return { field: rasterizeTextNode(node, detail), error };
+  return { field: await rasterizeTextNode(node, detail), error };
 };
 
 type FieldNode = { node: ITextNode | ISvgNode; frame: number };

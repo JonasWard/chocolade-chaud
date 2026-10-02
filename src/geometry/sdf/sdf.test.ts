@@ -217,10 +217,10 @@ describe('shader plan', () => {
   });
 
   test('an svg and a text node have their profile as params', () => {
-    // svg: scale, offset x z, pixel size, width, repeat, 4 of the profile, gain
-    expect(sdfShaderPlan(pattern(svgNode('a'))).params(new Map()).length).toBe(12);
-    // text: scale, centre x z, pixel size, 4 of the profile, gain
-    expect(sdfShaderPlan(pattern(textNode('a'))).params(new Map()).length).toBe(12);
+    // svg: scale, offset x z, width, repeat, the sizes of its levels (7), its frame, 4 of the profile, gain: 18 in 5 vec4s
+    expect(sdfShaderPlan(pattern(svgNode('a'))).params(new Map()).length).toBe(20);
+    // text: scale, centre x z, the sizes of its levels (7), its frame, 4 of the profile, gain
+    expect(sdfShaderPlan(pattern(textNode('a'))).params(new Map()).length).toBe(16);
   });
 
   test('too many svg shapes do not fit', () => {

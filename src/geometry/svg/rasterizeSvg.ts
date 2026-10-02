@@ -1,14 +1,15 @@
-import { signedDistanceTransform } from '../text/edt';
 import { IDistanceField } from '../field';
+import { buildField } from '../outline/buildField';
+import { MAX_FIELD_SIZE } from '../text/rasterizeText';
 
 // an svg shape as a distance field: drawn on a canvas, the filled (or stroked) part is inside
 
-/** pixels along the long side of the shape */
+/** pixels of the field along the long side of the shape, it holds exact distances so it only needs to be fine enough to interpolate */
 export const SVG_FIELD_SIZE = 512;
-/** around the shape, as part of its long side, so the distances outside of it are exact for a while */
+/** pixels of the drawing along its long side, that the outline is traced from */
+const TRACE_SIZE = 3072;
+/** around the shape, as part of its long side, the field is finest; coarser levels reach further */
 const PADDING = 0.1;
-// the field with its padding fits in the smallest texture webgl2 has to support, 2048
-const MAX_SVG_FIELD_SIZE = Math.floor(2048 / (1 + 2 * PADDING));
 export const MAX_SVG_BYTES = 1_000_000;
 
 const viewBoxOf = (svg: Element): [number, number, number, number] | undefined => {
@@ -51,30 +52,28 @@ const loadImage = async (markup: string): Promise<HTMLImageElement> => {
 
 /**
  * The distance field of an svg, centred on the origin, in units of its long side (which is 1), detail times finer than usual
- * (see fieldDetail). x to the right and z down, so it reads from above like the text. Needs a browser
+ * (see fieldDetail). x to the right and z down, so it reads from above like the text. Its outline is traced from a large drawing
+ * of it. Needs a browser
  */
 export const rasterizeSvg = async (source: string, detail = 1): Promise<IDistanceField> => {
-  const longSide = Math.min(SVG_FIELD_SIZE * detail, MAX_SVG_FIELD_SIZE);
-  const { markup, width, height } = prepare(source, longSide);
+  const { markup, width, height } = prepare(source, TRACE_SIZE);
   const image = await loadImage(markup);
 
-  const pad = Math.round(longSide * PADDING);
-  const [w, h] = [width + 2 * pad, height + 2 * pad];
-  const canvas = Object.assign(document.createElement('canvas'), { width: w, height: h });
+  const canvas = Object.assign(document.createElement('canvas'), { width, height });
   const context = canvas.getContext('2d', { willReadFrequently: true });
   if (!context) throw new Error('no canvas to draw the svg on');
-  context.drawImage(image, pad, pad, width, height);
+  context.drawImage(image, 0, 0, width, height);
 
   let data: Uint8ClampedArray;
   try {
-    data = context.getImageData(0, 0, w, h).data;
+    data = context.getImageData(0, 0, width, height).data;
   } catch {
     // some browsers don't let the canvas be read after drawing an svg with a foreignObject
     throw new Error('the svg can not be read, remove its foreignObject');
   }
 
-  // the antialiased coverage of every pixel, its edges make the distances sub-pixel accurate
-  const coverage = new Float32Array(w * h);
+  // the antialiased coverage of every pixel, the outline is traced through it with sub-pixel accuracy
+  const coverage = new Float32Array(width * height);
   let filled = 0;
   for (let p = 0; p < coverage.length; p++) {
     coverage[p] = data[p * 4 + 3] / 255;
@@ -82,8 +81,15 @@ export const rasterizeSvg = async (source: string, detail = 1): Promise<IDistanc
   }
   if (filled === 0) throw new Error('the svg is empty');
 
-  const pixelSize = 1 / Math.max(width, height);
-  const distances = signedDistanceTransform(coverage, w, h);
-  for (let p = 0; p < distances.length; p++) distances[p] *= pixelSize;
-  return { width: w, height: h, pixelSize, distances };
+  // its middle on the origin, the long side 1
+  const scale = 1 / Math.max(width, height);
+  const [halfX, halfZ] = [(width * scale) / 2 + PADDING, (height * scale) / 2 + PADDING];
+  const field = await buildField({
+    pieces: [{ coverage, width, height, anchorX: width / 2, anchorY: height / 2, scale, angle: 0, x: 0, z: 0 }],
+    box: { minX: -halfX, minZ: -halfZ, maxX: halfX, maxZ: halfZ },
+    pixelSize: 1 / (SVG_FIELD_SIZE * detail),
+    maxSize: MAX_FIELD_SIZE,
+  });
+  if (!field) throw new Error('the svg is empty');
+  return field;
 };

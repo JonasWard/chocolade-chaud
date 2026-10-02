@@ -1,12 +1,27 @@
 // a signed distance field on a pixel grid, shared by the text and the svg shapes
 
-export interface IDistanceField {
+export interface IFieldLevel {
   width: number;
   height: number;
   /** size of a pixel, pixel (px, pz) has its centre at ((px + 0.5) * pixelSize, (pz + 0.5) * pixelSize) */
   pixelSize: number;
   /** row by row, in the unit of pixelSize */
   distances: Float32Array;
+}
+
+/** how much further every coarser level of a field reaches than the one before it */
+export const LEVEL_REACH = 4;
+/** how close (in its pixels) to its edge a level is used, the bicubic sample needs two pixels around it */
+export const LEVEL_MARGIN = 2;
+/** over how many of its pixels a level blends into the next one, before that margin */
+export const LEVEL_BLEND = 8;
+
+export interface IDistanceField extends IFieldLevel {
+  /**
+   * Coarser fields around this one with the same centre, each LEVEL_REACH times as far and all of the same size in pixels,
+   * so the distance stays exact far from the shape
+   */
+  levels?: IFieldLevel[];
   /** where the centre of the field is, for one that is not centred on the origin (text) */
   center?: { x: number; z: number };
 }
@@ -20,9 +35,9 @@ const catmullRom = (t: number): [number, number, number, number] => {
 /**
  * Bicubic (catmull-rom) sample of the field at a location relative to its corner: the distances at the pixel centres, with a
  * gradient that is continuous across them, so the surface doesn't show the pixels. Beyond its edge pixels the field continues
- * along its slope there. See fieldDistance in three/shaders/sdfCodegen.ts
+ * along its slope there. See levelDistance in three/shaders/sdfCodegen.ts
  */
-export const sampleField = ({ width, height, pixelSize, distances }: IDistanceField, x: number, z: number): number => {
+export const sampleField = ({ width, height, pixelSize, distances }: IFieldLevel, x: number, z: number): number => {
   const fx = x / pixelSize - 0.5;
   const fz = z / pixelSize - 0.5;
   const x0 = Math.floor(fx);
@@ -47,18 +62,34 @@ export const sampleField = ({ width, height, pixelSize, distances }: IDistanceFi
   return sum;
 };
 
+const smoothstep = (t: number) => t * t * (3 - 2 * t);
+
 /**
- * Sample of a field centred on the origin. Outside of the field it continues as the distance at its edge plus the distance to the edge,
- * see centredFieldDistance in three/shaders/sdfCodegen.ts
+ * Sample of a field centred on the origin, from its finest level the location is well inside of, blending into the next one towards
+ * its edge. Beyond the last level it continues as the distance at its edge plus the distance to the edge.
+ * See centredFieldDistance in three/shaders/sdfCodegen.ts
  */
 export const sampleCentredField = (field: IDistanceField, x: number, z: number): number => {
-  const w = field.width * field.pixelSize;
-  const h = field.height * field.pixelSize;
+  const levels: IFieldLevel[] = [field, ...(field.levels ?? [])];
+  const at = (level: IFieldLevel) => sampleField(level, x + (level.width * level.pixelSize) / 2, z + (level.height * level.pixelSize) / 2);
+  for (let k = 0; k < levels.length - 1; k++) {
+    const { width, height, pixelSize } = levels[k];
+    // how far inside of the part of the level that is used, in its pixels
+    const inside = Math.min(width / 2 - LEVEL_MARGIN - Math.abs(x) / pixelSize, height / 2 - LEVEL_MARGIN - Math.abs(z) / pixelSize);
+    if (inside < 0) continue;
+    const d = at(levels[k]);
+    if (inside >= LEVEL_BLEND) return d;
+    const t = smoothstep(1 - inside / LEVEL_BLEND);
+    return d + (at(levels[k + 1]) - d) * t;
+  }
+  const last = levels[levels.length - 1];
+  const w = last.width * last.pixelSize;
+  const h = last.height * last.pixelSize;
   const lx = x + w / 2;
   const lz = z + h / 2;
   const cx = Math.min(Math.max(lx, 0), w);
   const cz = Math.min(Math.max(lz, 0), h);
-  return sampleField(field, cx, cz) + Math.hypot(lx - cx, lz - cz);
+  return sampleField(last, cx, cz) + Math.hypot(lx - cx, lz - cz);
 };
 
 /**

@@ -1,12 +1,17 @@
-import { signedDistanceTransform } from './edt';
 import { IDistanceField } from '../field';
 import type { ITextNode } from '../sdf/tree';
 import { cssFont } from './fonts';
 import { layoutGlyphs } from './layout';
+import { buildField } from '../outline/buildField';
+import { IOutlinePiece } from '../outline/pieces';
 
 export const MAX_FIELD_SIZE = 2048;
-// pixels per font size, so the outline is sharper than the mesh can show
+// pixels of the field per font size, it holds exact distances so it only needs to be fine enough to interpolate between them
 const PIXELS_PER_SIZE = 64;
+// pixels of the drawing per font size that the outline is traced from, the letters are drawn one by one
+const TRACE_PX_PER_SIZE = 256;
+// around the letters, in font sizes, the field is finest; coarser levels reach further
+const PADDING = 1.5;
 // the size the advances are measured at
 const MEASURE_PX = 100;
 
@@ -16,12 +21,38 @@ const createCanvas = (width: number, height: number) =>
 const context2d = (canvas: ReturnType<typeof createCanvas>) =>
   canvas.getContext('2d', { willReadFrequently: true }) as OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D | null;
 
+/** one character drawn on its own canvas, with the point it is placed by: its middle, on the base line */
+const drawCharacter = (char: string, font: string, baseline: CanvasTextBaseline): Omit<IOutlinePiece, 'scale' | 'angle' | 'x' | 'z'> | undefined => {
+  const measure = context2d(createCanvas(1, 1));
+  if (!measure) return undefined;
+  measure.font = font;
+  measure.textAlign = 'center';
+  measure.textBaseline = baseline;
+  const box = measure.measureText(char);
+  const pad = 2;
+  const [left, top] = [Math.ceil(box.actualBoundingBoxLeft) + pad, Math.ceil(box.actualBoundingBoxAscent) + pad];
+  const [width, height] = [left + Math.ceil(box.actualBoundingBoxRight) + pad, top + Math.ceil(box.actualBoundingBoxDescent) + pad];
+  if (width <= 2 * pad || height <= 2 * pad) return undefined;
+
+  const context = context2d(createCanvas(width, height));
+  if (!context) return undefined;
+  context.font = font;
+  context.textAlign = 'center';
+  context.textBaseline = baseline;
+  context.fillStyle = '#000';
+  context.fillText(char, left, top);
+  const { data } = context.getImageData(0, 0, width, height);
+  const coverage = new Float32Array(width * height);
+  for (let p = 0; p < coverage.length; p++) coverage[p] = data[p * 4 + 3] / 255;
+  return { coverage, width, height, anchorX: left, anchorY: top };
+};
+
 /**
- * The distance field (in mm) of a text node, centred on the box around its glyphs: along its base curve one character
- * at a time, else in one go so it keeps its kerning, detail times finer than usual (see fieldDetail). Needs a browser and the font loaded
- * (see loadFont)
+ * The distance field (in mm) of a text node, centred on the box around its glyphs: every character along its base curve, or its
+ * straight line, where it goes with the kerning of the text. The field is detail times finer than usual (see fieldDetail).
+ * Needs a browser and the font loaded (see loadFont), undefined when nothing is drawn
  */
-export const rasterizeTextNode = (node: ITextNode, detail = 1): IDistanceField | undefined => {
+export const rasterizeTextNode = async (node: ITextNode, detail = 1): Promise<IDistanceField | undefined> => {
   const { text, font, bold, size, curve } = node;
   const chars = Array.from(text);
   if (!chars.length || !(size > 0)) return undefined;
@@ -30,43 +61,27 @@ export const rasterizeTextNode = (node: ITextNode, detail = 1): IDistanceField |
   if (!measure) return undefined;
   measure.font = cssFont(font, bold, MEASURE_PX);
   const mm = size / MEASURE_PX;
-  const advances = chars.map((c) => measure.measureText(c).width * mm);
-  const placements = curve
-    ? layoutGlyphs(advances, curve)
-    : layoutGlyphs([measure.measureText(text).width * mm], { x: node.offsetX, z: node.offsetZ, angle: node.angle });
+  // what every character adds to the width of the text up to it, so it keeps its kerning
+  const widths = chars.map((_, i) => measure.measureText(chars.slice(0, i + 1).join('')).width);
+  const advances = widths.map((w, i) => (w - (i ? widths[i - 1] : 0)) * mm);
+  const placements = layoutGlyphs(advances, curve ?? { x: node.offsetX, z: node.offsetZ, angle: node.angle });
 
-  // the box around the glyphs, a font size around every one of them is plenty
-  const xs = placements.flatMap((p) => [p.x - size * 2, p.x + size * 2]);
-  const zs = placements.flatMap((p) => [p.z - size * 2, p.z + size * 2]);
-  const [minX, minZ] = [Math.min(...xs), Math.min(...zs)];
-  const [extentX, extentZ] = [Math.max(...xs) - minX, Math.max(...zs) - minZ];
-  const pixelSize = Math.max(size / (PIXELS_PER_SIZE * detail), Math.max(extentX, extentZ) / MAX_FIELD_SIZE);
-  const [w, h] = [Math.ceil(extentX / pixelSize), Math.ceil(extentZ / pixelSize)];
-
-  const context = context2d(createCanvas(w, h));
-  if (!context) return undefined;
-  context.font = cssFont(font, bold, size / pixelSize);
-  context.textAlign = 'center';
-  context.textBaseline = curve ? 'alphabetic' : 'middle';
-  context.fillStyle = '#000';
-  const drawn = curve ? chars : [text];
-  placements.forEach(({ x, z, angle }, i) => {
-    context.setTransform(1, 0, 0, 1, (x - minX) / pixelSize, (z - minZ) / pixelSize);
-    context.rotate(angle);
-    context.fillText(drawn[i], 0, 0);
+  const tracePx = TRACE_PX_PER_SIZE * Math.min(detail, 4);
+  const traceFont = cssFont(font, bold, tracePx);
+  const baseline = curve ? 'alphabetic' : 'middle';
+  const pieces: IOutlinePiece[] = [];
+  const drawn = new Map<string, ReturnType<typeof drawCharacter>>();
+  chars.forEach((char, i) => {
+    if (!drawn.has(char)) drawn.set(char, drawCharacter(char, traceFont, baseline));
+    const piece = drawn.get(char);
+    // the same character twice shares its drawing, the worker gets a copy of it for every place
+    if (piece) pieces.push({ ...piece, coverage: piece.coverage.slice(), scale: size / tracePx, ...placements[i] });
   });
+  if (!pieces.length) return undefined;
 
-  const { data } = context.getImageData(0, 0, w, h);
-  // the antialiased coverage of every pixel, its edges make the distances sub-pixel accurate
-  const coverage = new Float32Array(w * h);
-  let filled = 0;
-  for (let p = 0; p < coverage.length; p++) {
-    coverage[p] = data[p * 4 + 3] / 255;
-    if (data[p * 4 + 3] > 127) filled++;
-  }
-  if (filled === 0) return undefined;
-
-  const distances = signedDistanceTransform(coverage, w, h);
-  for (let p = 0; p < distances.length; p++) distances[p] *= pixelSize;
-  return { width: w, height: h, pixelSize, distances, center: { x: minX + (w * pixelSize) / 2, z: minZ + (h * pixelSize) / 2 } };
+  const xs = placements.flatMap((p) => [p.x - size * PADDING, p.x + size * PADDING]);
+  const zs = placements.flatMap((p) => [p.z - size * PADDING, p.z + size * PADDING]);
+  const box = { minX: Math.min(...xs), minZ: Math.min(...zs), maxX: Math.max(...xs), maxZ: Math.max(...zs) };
+  const field = await buildField({ pieces, box, pixelSize: size / (PIXELS_PER_SIZE * detail), maxSize: MAX_FIELD_SIZE });
+  return field && { ...field, center: { x: (box.minX + box.maxX) / 2, z: (box.minZ + box.maxZ) / 2 } };
 };

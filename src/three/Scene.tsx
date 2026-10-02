@@ -6,7 +6,7 @@ import { GridMeshes } from '../hooks/useGridMeshes';
 import { IGridSettings, gridCells } from '../geometry/grid';
 import { ChocolateMesh } from './ChocolateMesh';
 import { BarMesh, barGeometryKey, createBarGeometry } from './BarMesh';
-import { canBakeTopSurface, createFieldTexture } from './shaders/bake';
+import { canBakeTopSurface, createFieldTexture, fieldTextureSize } from './shaders/bake';
 import { sdfShaderPlan } from './shaders/sdfCodegen';
 import { SvgFields } from '../geometry/sdf/tree';
 import { CurveEditor, ICurveEditing } from './CurveEditor';
@@ -73,10 +73,16 @@ const Bars: React.FC<SceneProps> = ({ grid, fields, meshes }) => {
   ));
 };
 
-// without float render targets (or with a pattern the shader can't hold) the meshes of the worker are shown instead
+// without float render targets (or with a pattern the shader can't hold, or bars or fields too large for a texture) the meshes
+// of the worker are shown instead
 const Meshes: React.FC<MeshesProps> = ({ grid, fields, meshes, fit }) => {
   const gl = useThree((state) => state.gl);
-  const baked = React.useMemo(() => canBakeTopSurface(gl), [gl]) && gridCells(grid).every((c) => sdfShaderPlan(c.sdfSettings).fits);
+  const maxSize = gl.capabilities.maxTextureSize;
+  const fits = (width: number, height: number) => width <= maxSize && height <= maxSize;
+  const baked =
+    React.useMemo(() => canBakeTopSurface(gl), [gl]) &&
+    gridCells(grid).every((c) => sdfShaderPlan(c.sdfSettings).fits && fits(c.geometrySettings.horizontalDivisions + 1, c.geometrySettings.verticalDivisions + 1)) &&
+    [...fields.values()].every((f) => fits(...fieldTextureSize(f)));
 
   if (baked)
     return (

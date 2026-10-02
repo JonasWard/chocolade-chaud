@@ -71,10 +71,10 @@ const applyGridData = (cellData: CellData): ITriangularMesh => createIMesh(cellD
 
 export const MAX_UV_COUNT = 10;
 export const MAX_DIV_PER_MM = 32;
-// the size of the baked top surface of a bar, see three/shaders/bake.ts
-export const MAX_DIVS_ONE_SIDE = 2048;
-// top vertices of all the bars together, as many as a single bar of the largest size has
-export const MAX_VERTICES = MAX_DIVS_ONE_SIDE * MAX_DIVS_ONE_SIDE;
+// the size of the baked top surface of a bar, see three/shaders/bake.ts: a gpu that can't hold it shows the mesh of the worker
+export const MAX_DIVS_ONE_SIDE = 8192;
+// top vertices of all the bars together, what the memory of a phone or a small laptop holds (the mesh, its baked surface, the stl)
+export const MAX_VERTICES = 2 * 2048 * 2048;
 
 /**
  * The divisions per mm a grid gets, the same along both sides: as asked, unless a side would have more than MAX_DIVS_ONE_SIDE
