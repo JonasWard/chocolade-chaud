@@ -1,6 +1,6 @@
 import React from 'react';
-import { IDistanceField } from '../geometry/field';
-import { IPattern, ITextNode, SdfNode, SvgFields, isGroup, textFieldKey } from '../geometry/sdf/tree';
+import { IDistanceField, fieldDetail } from '../geometry/field';
+import { IPattern, ISvgNode, ITextNode, SdfNode, SvgFields, isGroup, textFieldKey } from '../geometry/sdf/tree';
 import { rasterizeSvg } from '../geometry/svg/rasterizeSvg';
 import { rasterizeTextNode } from '../geometry/text/rasterizeText';
 import { loadFont } from '../geometry/text/fonts';
@@ -25,15 +25,31 @@ const cached = (key: string, draw: () => Promise<Drawn>) => {
 };
 
 // a font that can't be loaded still draws, with the fallback font
-const drawText = async (node: ITextNode): Promise<Drawn> => {
+const drawText = async (node: ITextNode, detail: number): Promise<Drawn> => {
   const error = await loadFont(node).then(
     () => undefined,
     (e: Error) => e.message
   );
-  return { field: rasterizeTextNode(node), error };
+  return { field: rasterizeTextNode(node, detail), error };
 };
 
-const textNodes = (node: SdfNode): ITextNode[] => (node.kind === 'text' ? [node] : isGroup(node) ? node.children.flatMap(textNodes) : []);
+type FieldNode = { node: ITextNode | ISvgNode; frame: number };
+
+/** the text and svg nodes with their frame, the static part of their scale (see nodeFrame in geometry/sdf/treeOps.ts) */
+const fieldNodes = (node: SdfNode, parentFrame = 1): FieldNode[] => {
+  const frame = parentFrame * node.scale;
+  if (node.kind === 'text' || node.kind === 'svg') return [{ node, frame }];
+  if (!isGroup(node)) return [];
+  const last = node.children.length - 1;
+  return node.children.flatMap((c, i) => fieldNodes(c, node.kind !== 'chain' || i === last ? frame : 1));
+};
+
+/** by field key the finest detail any of its nodes needs */
+const detailsOf = (nodes: FieldNode[], key: (node: ITextNode | ISvgNode) => string) => {
+  const details = new Map<string, number>();
+  nodes.forEach(({ node, frame }) => details.set(key(node), Math.max(details.get(key(node)) ?? 1, fieldDetail(frame))));
+  return details;
+};
 
 const sameFields = (a: SvgFields, b: SvgFields) => a.size === b.size && [...a].every(([key, field]) => b.get(key) === field);
 
@@ -47,13 +63,21 @@ export interface IPatternFields {
 export const usePatternFields = (pattern: IPattern): IPatternFields => {
   const [state, setState] = React.useState<IPatternFields>({ fields: new Map(), errors: {} });
   const { svgs, root } = pattern;
-  const texts = React.useMemo(() => new Map(textNodes(root).map((n) => [textFieldKey(n), n])), [root]);
+  const { texts, svgDetails } = React.useMemo(() => {
+    const nodes = fieldNodes(root);
+    const textDetails = detailsOf(nodes, (n) => (n.kind === 'text' ? textFieldKey(n) : ''));
+    const texts = new Map(nodes.flatMap(({ node }) => (node.kind === 'text' ? [[textFieldKey(node), { node, detail: textDetails.get(textFieldKey(node))! }] as const] : [])));
+    return { texts, svgDetails: detailsOf(nodes, (n) => (n.kind === 'svg' ? n.asset : '')) };
+  }, [root]);
 
   React.useEffect(() => {
     let cancelled = false;
     const jobs = [
-      ...Object.entries(svgs).map(([key, { source }]) => [key, () => cached(`svg:${source}`, async () => ({ field: await rasterizeSvg(source) }))] as const),
-      ...[...texts].map(([key, node]) => [key, () => cached(key, () => drawText(node))] as const),
+      ...Object.entries(svgs).map(([key, { source }]) => {
+        const detail = svgDetails.get(key) ?? 1;
+        return [key, () => cached(`svg:${detail}:${source}`, async () => ({ field: await rasterizeSvg(source, detail) }))] as const;
+      }),
+      ...[...texts].map(([key, { node, detail }]) => [key, () => cached(`${detail}:${key}`, () => drawText(node, detail))] as const),
     ];
     const timeout = setTimeout(
       () =>
@@ -69,7 +93,7 @@ export const usePatternFields = (pattern: IPattern): IPatternFields => {
       cancelled = true;
       clearTimeout(timeout);
     };
-  }, [svgs, texts]);
+  }, [svgs, texts, svgDetails]);
 
   return state;
 };

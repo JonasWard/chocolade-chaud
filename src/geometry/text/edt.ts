@@ -134,8 +134,12 @@ export const signedDistanceTransform = (coverage: ArrayLike<number>, width: numb
 
   // where the outline crosses every outline pixel: along the outward normal, against the gradient of the coverage (sobel).
   // Without a gradient (a single pixel) it is somewhere half a pixel from the centre
-  // per outline pixel: the crossing and the unit normal of the outline there, up the gradient
-  const crossings = new Float64Array(width * height * 4).fill(NaN);
+  // per outline pixel: the crossing and the unit normal of the outline there, up the gradient. Only the outline pixels have one,
+  // slot is where theirs is
+  const slot = new Int32Array(width * height).fill(-1);
+  let count = 0;
+  for (let q = 0; q < seeds.length; q++) if (seeds[q]) slot[q] = count++;
+  const crossings = new Float64Array(count * 4).fill(NaN);
   for (let q = 0; q < seeds.length; q++) {
     if (!seeds[q]) continue;
     const [x, y] = [q % width, Math.floor(q / width)];
@@ -148,12 +152,12 @@ export const signedDistanceTransform = (coverage: ArrayLike<number>, width: numb
     // a hard pixel is a step of a staircase, its outline half a pixel away
     const a = at(x, y);
     const offset = a > 0 && a < 1 ? edgeOffset(nx, ny, a) : 0.5 - a;
-    crossings.set([x + nx * offset, y + ny * offset, nx, ny], 4 * q);
+    crossings.set([x + nx * offset, y + ny * offset, nx, ny], 4 * slot[q]);
   }
   // to the crossing of an outline pixel. For an antialiased one, close to the outline the distance to its tangent there, as the
   // nearest point of the outline lies between the crossings; further away the distance to the crossing, which keeps corners right
   const distanceTo = (px: number, py: number, q: number) => {
-    const [cx, cy, nx, ny] = crossings.subarray(4 * q, 4 * q + 4);
+    const [cx, cy, nx, ny] = crossings.subarray(4 * slot[q], 4 * slot[q] + 4);
     if (Number.isNaN(cx)) return Math.abs(Math.hypot(px - (q % width), py - Math.floor(q / width)) - 0.5) || 0.5;
     const point = Math.hypot(px - cx, py - cy);
     // a hard pixel only knows its outline to half a pixel, no better than its crossing

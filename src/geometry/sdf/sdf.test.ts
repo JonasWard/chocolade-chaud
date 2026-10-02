@@ -98,9 +98,9 @@ const field: IDistanceField = { width: 4, height: 2, pixelSize: 0.5, distances: 
 
 test('a centred field continues outside of its rectangle', () => {
   expect(sampleCentredField(field, 0, 0)).toBeCloseTo(sampleField(field, 1, 0.5));
-  // right of the field: the edge value plus the distance to the edge
-  expect(sampleCentredField(field, 2, 0)).toBeCloseTo(3 + 1);
-  expect(sampleCentredField(field, -1, 0.5 + 3)).toBeCloseTo(0 + 3);
+  // right of the field: the value at the edge (half a pixel past the last centre, along the slope) plus the distance to the edge
+  expect(sampleCentredField(field, 2, 0)).toBeCloseTo(3.5 + 1);
+  expect(sampleCentredField(field, -1, 0.5 + 3)).toBeCloseTo(-0.5 + 3);
 });
 
 test('an svg leaf samples its field at its width, offset and repeat', () => {
@@ -112,6 +112,28 @@ test('an svg leaf samples its field at its width, offset and repeat', () => {
   expect(sdf(15, 0, 3)).toBeCloseTo(10 * sampleCentredField(field, 1, 0.3));
   // a missing field is flat
   expect(compilePattern(pattern(leaf))(1, 2, 3)).toBe(0);
+});
+
+test('a scale changes the size of an svg, not its distances in mm', () => {
+  const fields = new Map([['a', field]]);
+  const leaf = svgNode('a', 10);
+  const once = compilePattern(pattern(leaf), fields);
+  const twice = compilePattern(pattern({ ...leaf, scale: 2 }), fields);
+  // twice as small, the same distance in mm
+  for (const x of [-12, -3, 0.5, 4, 9]) expect(twice(x / 2, 0, 1)).toBeCloseTo(once(x, 0, 2) / 2);
+  // the profile is in mm on the bars too
+  const flat = { ...leaf, scale: 2, cutoff: 1 };
+  expect(compilePattern(pattern(flat), fields)(40, 0, 0)).toBeCloseTo(1);
+});
+
+test('in a chain, a child that is not the last divides by its own scale only', () => {
+  const fields = new Map([['a', field]]);
+  const leaf = { ...svgNode('a', 10), scale: 3 };
+  const chain = { ...groupNode('chain', [leaf, constantNode(0.5)]), scale: 2 };
+  const sdf = compilePattern(pattern(chain), fields);
+  // evaluated at the output of the constant times its scale, divided by its scale
+  expect(sdf(4, 0, 0)).toBeCloseTo((10 * sampleCentredField(field, (4 * 0.5 * 3) / 10, 0)) / 3);
+  expect(nodeFrame(chain, leaf.id)).toEqual({ scale: 3, exact: false });
 });
 
 describe('tree edits', () => {

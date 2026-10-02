@@ -18,9 +18,10 @@ const context2d = (canvas: ReturnType<typeof createCanvas>) =>
 
 /**
  * The distance field (in mm) of a text node, centred on the box around its glyphs: along its base curve one character
- * at a time, else in one go so it keeps its kerning. Needs a browser and the font loaded (see loadFont)
+ * at a time, else in one go so it keeps its kerning, detail times finer than usual (see fieldDetail). Needs a browser and the font loaded
+ * (see loadFont)
  */
-export const rasterizeTextNode = (node: ITextNode): IDistanceField | undefined => {
+export const rasterizeTextNode = (node: ITextNode, detail = 1): IDistanceField | undefined => {
   const { text, font, bold, size, curve } = node;
   const chars = Array.from(text);
   if (!chars.length || !(size > 0)) return undefined;
@@ -39,7 +40,7 @@ export const rasterizeTextNode = (node: ITextNode): IDistanceField | undefined =
   const zs = placements.flatMap((p) => [p.z - size * 2, p.z + size * 2]);
   const [minX, minZ] = [Math.min(...xs), Math.min(...zs)];
   const [extentX, extentZ] = [Math.max(...xs) - minX, Math.max(...zs) - minZ];
-  const pixelSize = Math.max(size / PIXELS_PER_SIZE, Math.max(extentX, extentZ) / MAX_FIELD_SIZE);
+  const pixelSize = Math.max(size / (PIXELS_PER_SIZE * detail), Math.max(extentX, extentZ) / MAX_FIELD_SIZE);
   const [w, h] = [Math.ceil(extentX / pixelSize), Math.ceil(extentZ / pixelSize)];
 
   const context = context2d(createCanvas(w, h));
