@@ -5,7 +5,7 @@ import { MAX_SVG_BYTES } from '../../geometry/svg/rasterizeSvg';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { Field, NumberField, Section } from '../ui';
 import { NodeAction, applyAction } from './actions';
-import { DrillDownEditor } from './DrillDownEditor';
+import { ColumnEditor } from './ColumnEditor';
 import { FormulaPreview } from './FormulaPreview';
 import { OutlineEditor } from './OutlineEditor';
 import { EditorContext } from './editorContext';
@@ -80,7 +80,7 @@ export const PatternPanel: React.FC<{ pattern: IPattern; setPattern: (p: IPatter
   return (
     <>
       <FormulaPreview pattern={pattern} selected={selected} />
-      {mobile ? <DrillDownEditor {...editorProps} focus={focus} setFocus={setFocus} /> : <OutlineEditor {...editorProps} />}
+      {mobile ? <ColumnEditor {...editorProps} focus={focus} setFocus={setFocus} /> : <OutlineEditor {...editorProps} />}
       <Section title='Placement' className='subsection'>
         <Field label='Centre'>
           <div className='row'>

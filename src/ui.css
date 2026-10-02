@@ -366,20 +366,63 @@ input[type='range'] {
   border-top: 1px solid var(--line);
 }
 
-/* the mobile tree: a breadcrumb over the cards of one level */
+/* the mobile tree: a column of cards per level, in a strip that snaps to them, the parent peeking at the left */
 
-.crumbs {
+.columns {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 2px;
-  color: var(--muted);
+  gap: var(--gap);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
 }
 
-.crumbs button {
+.column {
+  display: grid;
+  flex: 0 0 85%;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+  scroll-snap-align: end;
+}
+
+.column:only-child {
+  flex-basis: 100%;
+}
+
+.column-head {
+  display: flex;
+  align-items: start;
+  gap: 4px;
+}
+
+.column-head > button {
+  min-height: 0;
+  padding: 0 6px;
   color: var(--accent);
   background: none;
   border: 0;
+}
+
+.column-head > details {
+  flex: 1;
+  min-width: 0;
+}
+
+.column-head summary {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card.on-path {
+  border-left: 3px solid var(--accent);
+}
+
+.line > button.active {
+  color: var(--accent);
+  font-weight: 700;
 }
 
 .card {
