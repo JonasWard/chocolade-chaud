@@ -1,8 +1,6 @@
-import { Button } from 'antd';
 import { makeMeshTiltOnSide } from '../geometry/createMesh';
 import { meshToOBJ, meshToSTL } from '../geometry/exportGeometry';
 import React from 'react';
-import './export.css';
 import { GridMeshes } from '../hooks/useGridMeshes';
 import { downloadFiles, Files } from '../export/download';
 
@@ -34,13 +32,12 @@ export const Export: React.FC<{ meshes?: GridMeshes }> = ({ meshes }) => {
   };
 
   return (
-    <div className='export-buttons'>
-      <Button onClick={() => exportAs('stl')} disabled={!meshes || !!busy} loading={busy === 'stl'}>
-        Export STL
-      </Button>
-      <Button onClick={() => exportAs('obj')} disabled={!meshes || !!busy} loading={busy === 'obj'}>
-        Export OBJ
-      </Button>
+    <div className='row'>
+      {(['stl', 'obj'] as const).map((format) => (
+        <button key={format} className='primary' onClick={() => exportAs(format)} disabled={!meshes || !!busy}>
+          {busy === format ? 'Exporting…' : `Export ${format.toUpperCase()}`}
+        </button>
+      ))}
     </div>
   );
 };

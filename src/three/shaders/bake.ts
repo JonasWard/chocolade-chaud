@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { CellData } from '../../geometry/grid';
-import { sdfGLSL, sdfUniformValues } from './sdf';
-import { ITextField, MIN_BEVEL_WIDTH } from '../../geometry/text/textField';
+import { MAX_SVG_SLOTS, fieldGLSL, sdfShaderPlan, sdfUniformValues } from './sdfCodegen';
+import { MIN_BEVEL_WIDTH } from '../../geometry/text/textField';
+import { IDistanceField } from '../../geometry/field';
 
 // Bakes the top surface of a bar into two float textures of one texel per grid vertex:
 // the location of the vertex (relative to the base position of the bar) and its normal.
@@ -20,7 +21,9 @@ void main() {
 }
 `;
 
-const positionShader = /* glsl */ `
+// the sdf is generated from the tree of the pattern, see sdfCodegen.ts
+const positionShader = (sdfGLSL: string) => /* glsl */ `
+${fieldGLSL}
 ${sdfGLSL}
 ${fanGLSL}
 uniform vec2 uOrigin;
@@ -38,24 +41,9 @@ uniform float uTextDepth;
 uniform float uTextBevelWidth;
 uniform float uTextPatternFade;
 
-float textTexel(ivec2 p) {
-  return texelFetch(uText, clamp(p, ivec2(0), textureSize(uText, 0) - 1), 0).r;
-}
-
-// bilinear by hand: float textures don't filter everywhere, and this way it is the same sample the exported mesh takes
-float textDistance(vec2 local) {
-  vec2 f = local / uTextPixelSize - 0.5;
-  vec2 f0 = floor(f);
-  vec2 t = f - f0;
-  ivec2 p = ivec2(f0);
-  float near = mix(textTexel(p), textTexel(p + ivec2(1, 0)), t.x);
-  float far = mix(textTexel(p + ivec2(0, 1)), textTexel(p + ivec2(1, 1)), t.x);
-  return mix(near, far, t.y);
-}
-
 float reliefHeight(float pattern, vec2 local) {
   if (!uHasText) return pattern * uAmplitude;
-  float t = clamp(0.5 - textDistance(local) / max(uTextBevelWidth, ${MIN_BEVEL_WIDTH.toFixed(6)}), 0.0, 1.0);
+  float t = clamp(0.5 - fieldDistance(uText, local, uTextPixelSize) / max(uTextBevelWidth, ${MIN_BEVEL_WIDTH.toFixed(6)}), 0.0, 1.0);
   float mask = t * t * (3.0 - 2.0 * t);
   return pattern * uAmplitude * (1.0 - uTextPatternFade * mask) + uTextDepth * mask;
 }
@@ -108,19 +96,15 @@ export const disposeTopSurface = ({ positions, normals }: ITopSurface) => {
 /** rendering to float textures is an extension of webgl2 */
 export const canBakeTopSurface = (gl: THREE.WebGLRenderer): boolean => gl.extensions.has('EXT_color_buffer_float');
 
-// one triangle covering the whole target
-const createBaker = () => {
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array([-1, -1, 0, 3, -1, 0, -1, 3, 0]), 3));
-
-  const positionMaterial = new THREE.ShaderMaterial({
+const createPositionMaterial = (sdfGLSL: string) =>
+  new THREE.ShaderMaterial({
     vertexShader,
-    fragmentShader: positionShader,
+    fragmentShader: positionShader(sdfGLSL),
     uniforms: {
-      uMethods: { value: [] },
-      uMethodCount: { value: 0 },
-      uScale: { value: 1 },
+      uParams: { value: new Float32Array(4) },
       uCenter: { value: [0, 0, 0] },
+      uRotation: { value: [1, 0] },
+      ...Object.fromEntries([...Array(MAX_SVG_SLOTS).keys()].map((j) => [`uSvg${j}`, { value: null }])),
       uOrigin: { value: new THREE.Vector2() },
       uStep: { value: new THREE.Vector2() },
       uDivisions: { value: new THREE.Vector2() },
@@ -135,42 +119,69 @@ const createBaker = () => {
       uTextPatternFade: { value: 0 },
     },
   });
+
+// one triangle covering the whole target
+const createBaker = () => {
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array([-1, -1, 0, 3, -1, 0, -1, 3, 0]), 3));
+
   const normalMaterial = new THREE.ShaderMaterial({
     vertexShader,
     fragmentShader: normalShader,
     uniforms: { uPositions: { value: null } },
   });
 
-  const mesh = new THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>(geometry, positionMaterial);
+  const mesh = new THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>(geometry, normalMaterial);
   mesh.frustumCulled = false;
   const scene = new THREE.Scene();
   scene.add(mesh);
 
-  return { scene, mesh, camera: new THREE.Camera(), positionMaterial, normalMaterial };
+  return { scene, mesh, camera: new THREE.Camera(), normalMaterial };
 };
 
 let baker: ReturnType<typeof createBaker> | undefined;
 
-/** the distance field of a text as a texture for the bake, to be disposed by the caller */
-export const createTextTexture = ({ width, height, distances }: ITextField): THREE.DataTexture => {
+// a shader per structure of the pattern tree, the least recently used ones are dropped
+const MAX_MATERIALS = 16;
+const positionMaterials = new Map<string, THREE.ShaderMaterial>();
+
+const positionMaterial = (sdfGLSL: string): THREE.ShaderMaterial => {
+  let material = positionMaterials.get(sdfGLSL);
+  if (material) positionMaterials.delete(sdfGLSL);
+  else material = createPositionMaterial(sdfGLSL);
+  positionMaterials.set(sdfGLSL, material);
+  if (positionMaterials.size > MAX_MATERIALS) {
+    const [oldest, old] = positionMaterials.entries().next().value!;
+    positionMaterials.delete(oldest);
+    old.dispose();
+  }
+  return material;
+};
+
+/** a distance field as a texture for the bake, to be disposed by the caller */
+export const createFieldTexture = ({ width, height, distances }: IDistanceField): THREE.DataTexture => {
   const texture = new THREE.DataTexture(distances, width, height, THREE.RedFormat, THREE.FloatType);
   texture.needsUpdate = true;
   return texture;
 };
 
-/** textTexture holds the distance field of the text of the cell, when it has one */
+/** textTexture holds the distance field of the text of the cell, when it has one, svgTextures those of the svg shapes of the pattern */
 export const bakeTopSurface = (
   gl: THREE.WebGLRenderer,
   { positions, normals }: ITopSurface,
-  { geometrySettings, sdfSettings, text }: CellData,
-  textTexture?: THREE.Texture
+  { geometrySettings, sdfSettings, text, fields = new Map() }: CellData,
+  textTexture?: THREE.Texture,
+  svgTextures: ReadonlyMap<string, THREE.Texture> = new Map()
 ) => {
   baker ??= createBaker();
-  const { scene, mesh, camera, positionMaterial, normalMaterial } = baker;
+  const { scene, mesh, camera, normalMaterial } = baker;
   const { innerWidth, innerLength, height, inset, amplitude, horizontalDivisions, verticalDivisions, basePosition } = geometrySettings;
 
-  const uniforms = positionMaterial.uniforms;
-  Object.entries(sdfUniformValues(sdfSettings)).forEach(([name, value]) => (uniforms[name].value = value));
+  const plan = sdfShaderPlan(sdfSettings);
+  const material = positionMaterial(plan.glsl);
+  const uniforms = material.uniforms;
+  Object.entries(sdfUniformValues(sdfSettings, fields)).forEach(([name, value]) => (uniforms[name].value = value));
+  plan.svgAssets.slice(0, MAX_SVG_SLOTS).forEach((asset, j) => (uniforms[`uSvg${j}`].value = svgTextures.get(asset) ?? null));
   uniforms.uOrigin.value.set(basePosition.x, basePosition.z);
   uniforms.uStep.value.set(innerWidth / horizontalDivisions, innerLength / verticalDivisions);
   uniforms.uDivisions.value.set(horizontalDivisions, verticalDivisions);
@@ -188,7 +199,7 @@ export const bakeTopSurface = (
 
   const previousTarget = gl.getRenderTarget();
 
-  mesh.material = positionMaterial;
+  mesh.material = material;
   gl.setRenderTarget(positions);
   gl.render(scene, camera);
 

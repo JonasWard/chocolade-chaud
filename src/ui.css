@@ -1,0 +1,357 @@
+:root {
+  --bg: #f7f3f0;
+  --panel: #fff;
+  --text: #2b211c;
+  --muted: #8a7a70;
+  --line: #e4dbd4;
+  --accent: #a73a08;
+  --accent-soft: #f6e6dc;
+  --radius: 6px;
+  --gap: 8px;
+  --control: 30px;
+  color: var(--text);
+  font: 14px/1.4 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+}
+
+/* layout: the bar next to the panels, on a phone above them */
+
+.app {
+  display: grid;
+  grid-template-columns: 1fr minmax(320px, 380px);
+  height: 100dvh;
+}
+
+.viewport {
+  position: relative;
+  min-height: 0;
+}
+
+.scene {
+  position: absolute;
+  inset: 0;
+}
+
+.status {
+  position: absolute;
+  top: var(--gap);
+  left: var(--gap);
+  display: flex;
+  gap: var(--gap);
+}
+
+.panels {
+  overflow-y: auto;
+  background: var(--panel);
+  border-left: 1px solid var(--line);
+}
+
+@media (max-width: 720px) {
+  :root {
+    --control: 38px;
+  }
+  .app {
+    grid-template: 45dvh 1fr / 1fr;
+  }
+  .panels {
+    border: 0;
+    border-top: 1px solid var(--line);
+  }
+}
+
+/* sections */
+
+summary,
+.node,
+.card > header {
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.section {
+  border-bottom: 1px solid var(--line);
+}
+
+.section > summary {
+  padding: 10px 12px;
+  font-weight: 600;
+}
+
+.section > .stack {
+  padding: 0 12px 12px;
+}
+
+.subsection > summary {
+  color: var(--muted);
+}
+
+.subsection > .stack {
+  padding-top: var(--gap);
+}
+
+.stack {
+  display: grid;
+  gap: var(--gap);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--gap);
+}
+
+.row > input:not([type]),
+.row > input[type='number'] {
+  flex: 1;
+  width: 0;
+  min-width: 3em;
+}
+
+/* controls */
+
+.field {
+  display: grid;
+  grid-template-columns: 7.5em 1fr;
+  align-items: center;
+  gap: var(--gap);
+}
+
+.field > span,
+.hint {
+  color: var(--muted);
+}
+
+.hint {
+  margin: 0;
+  font-size: 12px;
+}
+
+.error {
+  color: #b00020;
+  font-size: 12px;
+}
+
+input,
+select,
+button,
+.upload {
+  min-width: 0;
+  min-height: var(--control);
+  padding: 2px 6px;
+  font: inherit;
+  color: inherit;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+button,
+select,
+.upload {
+  cursor: pointer;
+}
+
+button:hover:not(:disabled),
+select:hover,
+.upload:hover {
+  border-color: var(--accent);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.primary {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.upload {
+  display: grid;
+  place-items: center;
+  border-style: dashed;
+}
+
+input[type='checkbox'] {
+  justify-self: start;
+  min-height: 0;
+  accent-color: var(--accent);
+}
+
+input[type='color'] {
+  width: 3em;
+  padding: 2px;
+}
+
+input[type='range'] {
+  padding: 0;
+  border: 0;
+  accent-color: var(--accent);
+}
+
+.log-slider {
+  display: grid;
+  grid-template-columns: 1fr 5.5em;
+  gap: var(--gap);
+}
+
+.icon {
+  width: var(--control);
+  height: var(--control);
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid var(--accent-soft);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+/* the pattern tree */
+
+.formula {
+  padding: 6px 8px;
+  font-size: 12px;
+  background: var(--bg);
+  border-radius: var(--radius);
+  overflow-wrap: anywhere;
+}
+
+.formula mark {
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.tree,
+.tree ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tree ul {
+  margin-left: 10px;
+  padding-left: 6px;
+  border-left: 1px solid var(--line);
+}
+
+.node,
+.card > header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.node {
+  padding: 1px 4px;
+  border-radius: var(--radius);
+}
+
+.node:hover {
+  background: var(--bg);
+}
+
+.node.selected {
+  background: var(--accent-soft);
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.name small {
+  margin-left: 6px;
+  color: var(--muted);
+}
+
+.glyph {
+  width: 1.4em;
+  color: var(--accent);
+  font-weight: 700;
+  text-align: center;
+}
+
+.meta {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.caret,
+.menu {
+  width: 1.6em;
+  min-height: 0;
+  padding: 0;
+  text-align: center;
+  background: none;
+  border-color: transparent;
+  appearance: none;
+}
+
+.inspector {
+  padding-top: var(--gap);
+  border-top: 1px solid var(--line);
+}
+
+/* the mobile tree: a breadcrumb over the cards of one level */
+
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  color: var(--muted);
+}
+
+.crumbs button {
+  color: var(--accent);
+  background: none;
+  border: 0;
+}
+
+.card {
+  display: grid;
+  gap: var(--gap);
+  padding: var(--gap);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.card.selected {
+  border-color: var(--accent);
+}
+
+.card .menu {
+  width: var(--control);
+  min-height: var(--control);
+}
+
+.link {
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}

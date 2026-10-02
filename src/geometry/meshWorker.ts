@@ -1,20 +1,35 @@
 import { CellData, GridParser, IGridSettings } from './grid';
 import { ITriangularMesh } from './createMesh';
 import { ITextRelief } from './text/textField';
+import { IDistanceField } from './field';
 
-export type MeshRequest = { id: number; grid: IGridSettings; withSupports: boolean; text?: ITextRelief };
+/**
+ * The distance fields of the svg shapes are sent once and kept here (undefined forgets one), so a request only carries their keys.
+ * Messages arrive in order, so a request always finds the fields that were sent before it
+ */
+export type FieldMessage = { type: 'field'; asset: string; field?: IDistanceField };
+export type MeshRequest = { type: 'mesh'; id: number; grid: IGridSettings; withSupports: boolean; text?: ITextRelief; assets: string[] };
 export type MeshResponse = { id: number; meshes: ITriangularMesh[]; cellData: CellData[] } | { id: number; error: string };
 
 const ctx = self as unknown as Worker;
+const fields = new Map<string, IDistanceField>();
 
-ctx.onmessage = ({ data: { id, grid, withSupports, text } }: MessageEvent<MeshRequest>) => {
+ctx.onmessage = ({ data }: MessageEvent<FieldMessage | MeshRequest>) => {
+  if (data.type === 'field') {
+    if (data.field) fields.set(data.asset, data.field);
+    else fields.delete(data.asset);
+    return;
+  }
+
+  const { id, grid, withSupports, text, assets } = data;
   try {
     const cellData: CellData[] = [];
-    const meshes = GridParser(grid, cellData, withSupports, text);
+    const requestFields = new Map(assets.flatMap((asset) => (fields.has(asset) ? [[asset, fields.get(asset) as IDistanceField]] : [])));
+    const meshes = GridParser(grid, cellData, withSupports, text, requestFields);
     // hand over the buffers instead of copying them
     const transfer = meshes.flatMap((m) => [m.vertices.buffer, m.faces.buffer, m.normals.buffer]);
-    // the distance field of the text came from the main thread, no need to send it back
-    const cells = cellData.map((c) => ({ ...c, text: undefined }));
+    // the distance fields came from the main thread, no need to send them back
+    const cells = cellData.map((c) => ({ ...c, text: undefined, fields: undefined }));
     ctx.postMessage({ id, meshes, cellData: cells } as MeshResponse, transfer);
   } catch (e) {
     ctx.postMessage({ id, error: String(e) } as MeshResponse);

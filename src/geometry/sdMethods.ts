@@ -1,4 +1,3 @@
-import type { IVector } from './createMesh';
 import { Vec2 } from './vec2';
 
 const tolerance = 0.0001;
@@ -120,19 +119,7 @@ export enum DistanceMethodType {
   SDCylinder = 'SDCylinder',
 }
 
-export interface IMethodEntry {
-  method: DistanceMethodType;
-  number: number;
-}
-
-export interface IDistanceData {
-  methods: IMethodEntry[];
-  center: IVector;
-  rotation: number; // not implemented
-  scale: number;
-}
-
-const distanceMap: Record<DistanceMethodType, ScaledDistanceMethod> = {
+export const distanceMethods: Record<DistanceMethodType, ScaledDistanceMethod> = {
   [DistanceMethodType.SDGyroid]: sdGyroid,
   [DistanceMethodType.SDSchwarzP]: sdSchwarzP,
   [DistanceMethodType.SDSchwarzD]: sdSchwarzD,
@@ -143,39 +130,4 @@ const distanceMap: Record<DistanceMethodType, ScaledDistanceMethod> = {
   [DistanceMethodType.SDCylinder]: sdCylinder,
 };
 
-// compiles the method chain once, each method's scale is driven by the rest of the chain
-const localDistanceParser = (methods: IMethodEntry[]): ScaledDistanceMethod => {
-  if (methods.length === 0) return () => 0;
-
-  const [{ method, number }, ...rest] = methods;
-  const distance = distanceMap[method];
-
-  if (rest.length === 0) return (x, y, z, s) => distance(x, y, z, s * number);
-
-  const inner = localDistanceParser(rest);
-  return (x, y, z, s) => distance(x, y, z, inner(x, y, z, s * number));
-};
-
-export const defaultDistanceData: IDistanceData = {
-  methods: [
-    {
-      method: DistanceMethodType.SDNeovius,
-      number: 0.004,
-    },
-    {
-      method: DistanceMethodType.SDSchwarzD,
-      number: 8.5,
-    },
-  ],
-  center: { x: 0, y: 0, z: 0 },
-  rotation: 0,
-  scale: 1,
-};
-
 export type DistanceMethod = (x: number, y: number, z: number) => number;
-
-export const DistanceMethodParser = (iDD: IDistanceData): DistanceMethod => {
-  const localDistance = localDistanceParser(iDD.methods);
-  const { x: cx, y: cy, z: cz } = iDD.center;
-  return (x, y, z) => localDistance(x - cx, y - cy, z - cz, iDD.scale);
-};

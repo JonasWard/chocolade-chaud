@@ -1,6 +1,4 @@
 import {
-  DistanceMethodParser,
-  DistanceMethodType,
   sdCircle,
   sdCurtailedLine,
   sdCurtailedPolyLine,
@@ -8,7 +6,6 @@ import {
   sdGyroid,
   sdLine,
   sdLineParametric,
-  sdSchwarzD,
   sdTorus,
   vectorInPolygon,
 } from './sdMethods';
@@ -101,21 +98,4 @@ test('3d distance methods', () => {
   expect(sdTorus(1, 0, 0, 1)).toBe(-0.25);
   expect(sdTorus(2, 0, 0, 0.5)).toBe(-0.25);
   expect(sdCylinder(0, 1, 0, 1)).toBe(1);
-});
-
-test('distance method chain uses the inner method as the scale of the outer one', () => {
-  const sdf = DistanceMethodParser({
-    methods: [
-      { method: DistanceMethodType.SDGyroid, number: 0.5 },
-      { method: DistanceMethodType.SDSchwarzD, number: 2 },
-    ],
-    center: { x: 1, y: 2, z: 3 },
-    rotation: 0,
-    scale: 1,
-  });
-  expect(sdf(4, 5, 6)).toBe(sdGyroid(3, 3, 3, sdSchwarzD(3, 3, 3, 1 * 0.5 * 2)));
-});
-
-test('empty distance method chain is flat', () => {
-  expect(DistanceMethodParser({ methods: [], center: { x: 0, y: 0, z: 0 }, rotation: 0, scale: 1 })(1, 2, 3)).toBe(0);
 });
