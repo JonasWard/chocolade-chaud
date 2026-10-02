@@ -1,5 +1,6 @@
 import { DistanceMethodType } from '../../geometry/sdMethods';
 import { IPattern, IProfile, SdfNode, SvgFields, textFieldKey } from '../../geometry/sdf/tree';
+import { creaseKinks } from '../../geometry/sdf/evaluate';
 import { IFieldLevel, LEVEL_BLEND, LEVEL_MARGIN, LEVEL_REACH } from '../../geometry/field';
 import { LEVEL_COUNT } from '../../geometry/outline/outlineField';
 
@@ -135,10 +136,15 @@ float sdSine(vec2 q, float amplitude, float period) {
 }
 
 // see profile in geometry/sdf/evaluate.ts
-float profile(float d, float constant, float depth, float bevel, float cutoff) {
-  if (d >= 0.0) return cutoff > 0.0 ? min(d, cutoff) : d;
-  if (constant < 0.5) return d;
-  return bevel > 0.0 ? -depth * min(-d / bevel, 1.0) : -depth;
+float profile(float d, float constant, float depth, float bevel, float cutoff, float rounding) {
+  float f = d;
+  if (constant > 0.5) {
+    if (bevel > 0.0) {
+      float e = opIntersection(d, -bevel, rounding);
+      f = e + (depth / bevel - 1.0) * opUnion(e, 0.0, rounding);
+    } else f = d >= 0.0 ? d : -depth;
+  }
+  return cutoff > 0.0 ? opUnion(f, cutoff, rounding) : f;
 }
 
 float svgDistance(sampler2D field, vec2 v, float width, vec2 offset, float period, vec3 l0, vec4 l1) {
@@ -187,11 +193,20 @@ const buildPlan = (root: SdfNode): ISdfShaderPlan => {
     return `${l0}, vec4(${level(1, (l) => l.width)}, ${level(1, (l) => l.height)}, ${level(1, (l) => l.pixelSize)}, ${count})`;
   };
   const shaped = (d: string, node: IProfile) =>
-    `profile(${d}, ${param(() => (node.inside === 'constant' ? 1 : 0))}, ${param(() => node.depth)}, ${param(() => node.bevel)}, ${param(() => node.cutoff)})`;
+    `profile(${d}, ${param(() => (node.inside === 'constant' ? 1 : 0))}, ${param(() => node.depth)}, ${param(() => node.bevel)}, ${param(() => node.cutoff)}, ${param(() => node.round ?? 0)})`;
+
+  // the svg and text nodes with a static frame, whose creases the vertices are snapped to (see compileCreaseSnap in
+  // geometry/sdf/evaluate.ts): the glsl of their distance at a location q of the pattern, already scaled by the frame
+  const creases: { distance: (q: string) => string; frame: string; kinks: string; round: string }[] = [];
+  const crease = (node: SdfNode & IProfile, distance: (q: string) => string, frame: string, exact: boolean) => {
+    if (!exact) return;
+    const kink = (i: number) => param(() => creaseKinks(node)[i]);
+    creases.push({ distance, frame, kinks: `vec3(${kink(0)}, ${kink(1)}, ${kink(2)})`, round: param(() => node.round ?? 0) });
+  };
 
   // returns the name of the variable holding the distance of the node, s is the scale it is evaluated at,
-  // parentFrame the static part of it (see compileNode in geometry/sdf/evaluate.ts)
-  const generate = (node: SdfNode, s: string, parentFrame: () => number): string => {
+  // parentFrame the static part of it (see compileNode in geometry/sdf/evaluate.ts), exact whether that is all of it
+  const generate = (node: SdfNode, s: string, parentFrame: () => number, exact = true): string => {
     const k = count++;
     const frame = () => parentFrame() * node.scale;
     const sk = `s${k}`;
@@ -207,7 +222,10 @@ const buildPlan = (root: SdfNode): ISdfShaderPlan => {
       case 'svg': {
         const field = slot(node.asset);
         const offset = `vec2(${param(() => node.offsetX)}, ${param(() => node.offsetZ)})`;
-        d = shaped(`svgDistance(${field}, p.xz * ${sk}, ${param(() => node.width)}, ${offset}, ${param(() => node.repeat)}, ${levels(node.asset)}) / ${param(frame)}`, node);
+        const [width, period, f, sizes] = [param(() => node.width), param(() => node.repeat), param(frame), levels(node.asset)];
+        const distance = (q: string) => `svgDistance(${field}, ${q}, ${width}, ${offset}, ${period}, ${sizes}) / ${f}`;
+        d = shaped(distance(`p.xz * ${sk}`), node);
+        crease(node, distance, f, exact);
         break;
       }
       case 'text': {
@@ -215,7 +233,10 @@ const buildPlan = (root: SdfNode): ISdfShaderPlan => {
         const key = textFieldKey(node);
         const field = slot(key);
         const center = `vec2(${param((fields) => fields.get(key)?.center?.x ?? 0)}, ${param((fields) => fields.get(key)?.center?.z ?? 0)})`;
-        d = shaped(`svgDistance(${field}, p.xz * ${sk}, 1.0, ${center}, 0.0, ${levels(key)}) / ${param(frame)}`, node);
+        const [f, sizes] = [param(frame), levels(key)];
+        const distance = (q: string) => `svgDistance(${field}, ${q}, 1.0, ${center}, 0.0, ${sizes}) / ${f}`;
+        d = shaped(distance(`p.xz * ${sk}`), node);
+        crease(node, distance, f, exact);
         break;
       }
       case 'sine': {
@@ -228,7 +249,7 @@ const buildPlan = (root: SdfNode): ISdfShaderPlan => {
       case 'chain': {
         d = '0.0';
         const last = node.children.length - 1;
-        for (let i = last; i >= 0; i--) d = i === last ? generate(node.children[i], sk, frame) : generate(node.children[i], d, () => 1);
+        for (let i = last; i >= 0; i--) d = i === last ? generate(node.children[i], sk, frame, exact) : generate(node.children[i], d, () => 1, false);
         break;
       }
       case 'union':
@@ -236,13 +257,13 @@ const buildPlan = (root: SdfNode): ISdfShaderPlan => {
       case 'difference': {
         const op = `op${node.kind[0].toUpperCase()}${node.kind.slice(1)}`;
         const smooth = param(() => node.smooth);
-        const ds = node.children.map((c) => generate(c, sk, frame));
+        const ds = node.children.map((c) => generate(c, sk, frame, exact));
         d = ds.length ? ds.reduce((a, b) => `${op}(${a}, ${b}, ${smooth})`) : '0.0';
         break;
       }
       case 'add':
       case 'subtract': {
-        const ds = node.children.map((c) => generate(c, sk, frame));
+        const ds = node.children.map((c) => generate(c, sk, frame, exact));
         d = ds.length ? ds.join(node.kind === 'add' ? ' + ' : ' - ') : '0.0';
         break;
       }
@@ -252,6 +273,30 @@ const buildPlan = (root: SdfNode): ISdfShaderPlan => {
   };
 
   const result = generate(root, '1.0', () => 1);
+  const creaseGLSL = creases
+    .map(
+      ({ distance, frame, kinks, round }, i) => `
+float crease${i}(vec2 world) {
+  vec2 q = world - uCenter.xz;
+  q = vec2(uRotation.x * q.x - uRotation.y * q.y, uRotation.y * q.x + uRotation.x * q.y);
+  return ${distance(`q * ${frame}`)};
+}
+void snapTo${i}(vec2 world, float h, inout float best, inout vec2 move) {
+  if (${round} >= h) return;
+  float e = nearestKink(crease${i}(world), ${kinks});
+  if (!(abs(e) < best)) return;
+  float eps = 0.25 * h;
+  vec2 g = vec2(crease${i}(world + vec2(eps, 0.0)) - crease${i}(world - vec2(eps, 0.0)), crease${i}(world + vec2(0.0, eps)) - crease${i}(world - vec2(0.0, eps))) / (2.0 * eps);
+  float g2 = dot(g, g);
+  if (g2 < 0.01) return;
+  vec2 m = -e * g / g2;
+  float l = length(m);
+  if (l > 0.5 * h) m *= 0.5 * h / l;
+  best = abs(e);
+  move = m;
+}`
+    )
+    .join('\n');
   const vectors = Math.max(1, Math.ceil(params.length / 4));
   const samplers = [...Array(MAX_FIELD_SLOTS).keys()].map((j) => `uniform sampler2D uField${j};`).join('\n');
 
@@ -267,6 +312,21 @@ float sdf(vec3 position) {
   p.xz = vec2(uRotation.x * p.x - uRotation.y * p.z, uRotation.y * p.x + uRotation.x * p.z);
   ${lines.join('\n  ')}
   return ${result};
+}
+
+// see compileCreaseSnap in geometry/sdf/evaluate.ts
+float nearestKink(float d, vec3 kinks) {
+  float e = d - kinks.x;
+  if (abs(d - kinks.y) < abs(e)) e = d - kinks.y;
+  if (abs(d - kinks.z) < abs(e)) e = d - kinks.z;
+  return e;
+}
+${creaseGLSL}
+vec2 creaseSnap(vec2 world, float h) {
+  float best = 0.5 * h;
+  vec2 move = vec2(0.0);
+  ${creases.map((_, i) => `snapTo${i}(world, h, best, move);`).join('\n  ')}
+  return world + move;
 }
 `;
 

@@ -1,9 +1,10 @@
 import { DistanceMethodType, distanceMethods, sdGyroid, sdSchwarzD, sdSphere } from '../sdMethods';
 import { IDistanceField, sampleCentredField, sampleField } from '../field';
-import { compilePattern, profile, repeat, sdSine, smoothMin, toPattern, toWorld } from './evaluate';
+import { compileCreaseSnap, compilePattern, creaseKinks, profile, repeat, sdSine, smoothMin, toPattern, toWorld } from './evaluate';
 import { DEFAULT_PROFILE, IPattern, SdfNode, constantNode, defaultPattern, groupNode, isGroup, methodNode, sineNode, svgKey, svgNode, textNode } from './tree';
 import { canUnwrap, changeKind, duplicateNode, findPath, insertChild, moveInto, moveNode, moveOut, moveTargets, nodeFrame, removeNode, staticScale, unwrap, updateNode, wrapNode } from './treeOps';
 import { formula } from './formula';
+import { buildOutlineField } from '../outline/outlineField';
 import { MAX_FIELD_SLOTS, sdfShaderPlan } from '../../three/shaders/sdfCodegen';
 
 // the method chain the tree replaced: every method's scale is the output of the one after it, the last gets the product of all the numbers
@@ -217,10 +218,11 @@ describe('shader plan', () => {
   });
 
   test('an svg and a text node have their profile as params', () => {
-    // svg: scale, offset x z, width, repeat, the sizes of its levels (7), its frame, 4 of the profile, gain: 18 in 5 vec4s
-    expect(sdfShaderPlan(pattern(svgNode('a'))).params(new Map()).length).toBe(20);
-    // text: scale, centre x z, the sizes of its levels (7), its frame, 4 of the profile, gain
-    expect(sdfShaderPlan(pattern(textNode('a'))).params(new Map()).length).toBe(16);
+    // svg: scale, offset x z, width, repeat, the sizes of its levels (7), its frame, 5 of the profile, gain,
+    // and for snapping to its edges 3 kinks and its round: 23 in 6 vec4s
+    expect(sdfShaderPlan(pattern(svgNode('a'))).params(new Map()).length).toBe(24);
+    // text: scale, centre x z, the sizes of its levels (7), its frame, 5 of the profile, gain, 3 kinks, round: 21
+    expect(sdfShaderPlan(pattern(textNode('a'))).params(new Map()).length).toBe(24);
   });
 
   test('too many svg shapes do not fit', () => {
@@ -251,11 +253,52 @@ test('the profile of a distance: plateau, bevel, cutoff', () => {
   const ds = [-5, -1, -0.25, 0, 0.5, 4];
   // the default is the distance itself
   expect(ds.map((d) => profile(d, DEFAULT_PROFILE))).toEqual(ds);
-  const flat = { inside: 'constant' as const, depth: 2, bevel: 1, cutoff: 3 };
+  const flat = { inside: 'constant' as const, depth: 2, bevel: 1, cutoff: 3, round: 0 };
   expect(ds.map((d) => profile(d, flat))).toEqual([-2, -2, -0.5, 0, 0.5, 3]);
   // no bevel is a step
   expect(profile(-0.01, { ...flat, bevel: 0 })).toBe(-2);
   expect(profile(-7, { ...DEFAULT_PROFILE, cutoff: 2 })).toBe(-7);
+});
+
+test('grid locations close to a sharp edge of the profile move onto it, others stay', () => {
+  // a disc of radius 0.3 of the long side, 30 mm wide: 9 mm, its rim 1 mm wide down to the plateau at 8 mm
+  const disc = Float64Array.from({ length: 1440 }, (_, k) => 0.3 * (k % 2 ? Math.sin : Math.cos)((2 * Math.PI * Math.floor(k / 2)) / 720));
+  const fields = new Map([['a', buildOutlineField([disc], { minX: -0.6, minZ: -0.6, maxX: 0.6, maxZ: 0.6 }, 1 / 512)]]);
+  const node = { ...svgNode('a', 30), inside: 'constant' as const, depth: 2, bevel: 1, round: 0 };
+  const snap = compileCreaseSnap(pattern(node), fields);
+  const h = 0.25;
+  for (const [r, to] of [
+    [9.1, 9],
+    [8.9, 9],
+    [8.05, 8],
+    [7.9, 8],
+  ])
+    for (const a of [0.3, 1.2, 2.9]) {
+      const [x, z] = snap(r * Math.cos(a), r * Math.sin(a), h);
+      expect(Math.abs(Math.hypot(x, z) - to)).toBeLessThan(2e-3);
+      // along the gradient: the direction stays
+      expect(Math.atan2(z, x)).toBeCloseTo(a, 4);
+    }
+  // in between, and far away, nothing moves
+  expect(snap(8.5, 0, h)).toEqual([8.5, 0]);
+  expect(snap(20, 3, h)).toEqual([20, 3]);
+  // a rounded edge needs no snapping
+  expect(compileCreaseSnap(pattern({ ...node, round: 0.3 }), fields)(9.1, 0, h)).toEqual([9.1, 0]);
+  // nor does a rim as steep as the outside
+  const kinks = creaseKinks({ ...node, depth: 1 });
+  expect(kinks[0]).toBeGreaterThan(1e6);
+  expect(kinks[1]).toBe(-1);
+});
+
+test('a rounded profile has no sharp edges, and is the sharp one away from them', () => {
+  const sharp = { inside: 'constant' as const, depth: 2, bevel: 1, cutoff: 3, round: 0 };
+  const rounded = { ...sharp, round: 0.4 };
+  const slope = (d: number) => (profile(d + 1e-5, rounded) - profile(d - 1e-5, rounded)) / 2e-5;
+  // at the edges of the rim, of the plateau and of the cutoff the slope goes over without a step
+  for (const edge of [0, -1, 3]) expect(Math.abs(slope(edge - 1e-3) - slope(edge + 1e-3))).toBeLessThan(0.05);
+  for (let d = -4; d < 5; d += 0.01) expect(Math.abs(profile(d, rounded) - profile(d, sharp))).toBeLessThanOrEqual(0.4);
+  // away from them it is the sharp profile
+  for (const d of [-3, -0.5, 1.5, 4.5]) expect(profile(d, rounded)).toBeCloseTo(profile(d, sharp), 12);
 });
 
 test('a point of a node is placed on the bars the way the pattern samples it', () => {

@@ -33,9 +33,11 @@ export interface IProfile {
   bevel: number;
   /** outside, the distance stays flat beyond it, 0 is no cutoff */
   cutoff: number;
+  /** the radius the edges of the rim and of the cutoff are rounded with, 0 is sharp */
+  round: number;
 }
 
-export const DEFAULT_PROFILE: IProfile = { inside: 'distance', depth: 1, bevel: 0.5, cutoff: 0 };
+export const DEFAULT_PROFILE: IProfile = { inside: 'distance', depth: 1, bevel: 0.5, cutoff: 0, round: 0.2 };
 
 /** an svg shape in the xz plane, distances in mm */
 export interface ISvgNode extends INodeBase, IProfile {

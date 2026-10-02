@@ -34,7 +34,8 @@ uniform float uAmplitude;
 
 void main() {
   vec2 ij = floor(gl_FragCoord.xy);
-  vec2 local = ij * uStep;
+  // on a sharp edge of the relief when it is close, see creaseSnap in sdfCodegen.ts
+  vec2 local = creaseSnap(uOrigin + ij * uStep, max(uStep.x, uStep.y)) - uOrigin;
   vec2 d = fanOffset(ij, uDivisions, uInset);
   float s = sdf(vec3(uOrigin.x + local.x, uHeight, uOrigin.y + local.y)) * uAmplitude / uHeight;
   gl_FragColor = vec4(local.x + d.x * s, uHeight + uHeight * s, local.y + d.y * s, 1.0);

@@ -1,6 +1,6 @@
 import { sampleCentredField } from '../field';
 import { DistanceMethod, ScaledDistanceMethod, distanceMethods } from '../sdMethods';
-import { IPattern, IProfile, SdfNode, SvgFields, textFieldKey } from './tree';
+import { IPattern, IProfile, ISvgNode, ITextNode, SdfNode, SvgFields, isGroup, textFieldKey } from './tree';
 
 // the pattern compiled into closures, evaluated per vertex. three/shaders/sdfCodegen.ts generates the same in glsl.
 // every node is evaluated at a scale s: s' = s * node.scale is what the node works with, its output is multiplied by node.gain.
@@ -22,15 +22,50 @@ export const sdSine = (x: number, z: number, amplitude: number, period: number):
   return Math.abs(z - amplitude * Math.sin(k * x)) / Math.sqrt(1 + slope * slope);
 };
 
-/** the distance d (in mm, negative inside) to an svg shape or a text, shaped by its profile, see profile in three/shaders/sdfCodegen.ts */
-export const profile = (d: number, { inside, depth, bevel, cutoff }: IProfile): number => {
-  if (d >= 0) return cutoff > 0 ? Math.min(d, cutoff) : d;
-  if (inside === 'distance') return d;
-  return bevel > 0 ? -depth * Math.min(-d / bevel, 1) : -depth;
+/**
+ * The distance d (in mm, negative inside) to an svg shape or a text, shaped by its profile: d outside, inside d or a plateau at
+ * -depth with a rim as wide as the bevel, flat beyond the cutoff. Its edges rounded (smooth minimum and maximum), see profile in
+ * three/shaders/sdfCodegen.ts
+ */
+export const profile = (d: number, { inside, depth, bevel, cutoff, round = 0 }: IProfile): number => {
+  let f = d;
+  if (inside === 'constant') {
+    if (bevel > 0) {
+      // the rim down to the plateau: d outside, slope * max(d, -bevel) inside
+      const e = smoothMax(d, -bevel, round);
+      f = e + (depth / bevel - 1) * smoothMin(e, 0, round);
+    } else f = d >= 0 ? d : -depth;
+  }
+  return cutoff > 0 ? smoothMin(f, cutoff, round) : f;
 };
 
 /** centred tiling, positive for negative coordinates too (unlike %) */
 export const repeat = (v: number, period: number): number => (period > 0 ? v - period * Math.floor(v / period + 0.5) : v);
+
+/** the distance of an svg or a text at a location of the plane it works in, already scaled; undefined without its field */
+const fieldSample = (node: ISvgNode | ITextNode, fields: SvgFields): ((u: number, v: number) => number) | undefined => {
+  if (node.kind === 'svg') {
+    const field = fields.get(node.asset);
+    const { width, offsetX, offsetZ, repeat: period } = node;
+    if (!field || !(width > 0)) return undefined;
+    return (u, v) => width * sampleCentredField(field, repeat(u - offsetX, period) / width, repeat(v - offsetZ, period) / width);
+  }
+  const field = fields.get(textFieldKey(node));
+  if (!field) return undefined;
+  const { x: cx, z: cz } = field.center ?? { x: 0, z: 0 };
+  return (u, v) => sampleCentredField(field, u - cx, v - cz);
+};
+
+/** no kink, far from any distance */
+const NO_KINK = 1e9;
+
+/** the distances where the profile has a sharp edge (unrounded): the rim, the plateau, the cutoff; NO_KINK where there is none */
+export const creaseKinks = ({ inside, depth, bevel, cutoff }: IProfile): [number, number, number] => {
+  const constant = inside === 'constant';
+  // a rim as steep as the distance outside has no edge where they meet
+  const rim = constant && (bevel <= 0 || Math.abs(depth / bevel - 1) > 1e-6);
+  return [rim ? 0 : NO_KINK, constant && bevel > 0 ? -bevel : NO_KINK, cutoff > 0 ? cutoff : NO_KINK];
+};
 
 const compileNode = (node: SdfNode, fields: SvgFields, parentFrame = 1): ScaledDistanceMethod => {
   const { scale, gain } = node;
@@ -43,19 +78,11 @@ const compileNode = (node: SdfNode, fields: SvgFields, parentFrame = 1): ScaledD
     }
     case 'constant':
       return () => gain * node.value;
-    case 'svg': {
-      const field = fields.get(node.asset);
-      const { width, offsetX, offsetZ, repeat: period } = node;
-      if (!field || !(width > 0)) return () => 0;
-      return (x, _y, z, s) =>
-        gain *
-        profile((width * sampleCentredField(field, repeat(x * s * scale - offsetX, period) / width, repeat(z * s * scale - offsetZ, period) / width)) / frame, node);
-    }
+    case 'svg':
     case 'text': {
-      const field = fields.get(textFieldKey(node));
-      if (!field) return () => 0;
-      const { x: cx, z: cz } = field.center ?? { x: 0, z: 0 };
-      return (x, _y, z, s) => gain * profile(sampleCentredField(field, x * s * scale - cx, z * s * scale - cz) / frame, node);
+      const sample = fieldSample(node, fields);
+      if (!sample) return () => 0;
+      return (x, _y, z, s) => gain * profile(sample(x * s * scale, z * s * scale) / frame, node);
     }
     case 'sine': {
       const { amplitude, period } = node;
@@ -113,6 +140,61 @@ export const compilePattern = (pattern: IPattern, fields: SvgFields = new Map())
     const px = x - cx;
     const pz = z - cz;
     return sdf(c * px - sn * pz, y - cy, sn * px + c * pz, 1);
+  };
+};
+
+/**
+ * Moves a location (x, z) of the bars onto the nearest sharp edge of the profile of an svg or a text (see creaseKinks) when it is
+ * less than half the grid step h from it (one Newton step along the gradient of the distance), so that the edges of a mesh on a grid
+ * follow those of the relief instead of crossing them in steps. Only nodes with a static frame (see nodeFrame in treeOps.ts) and
+ * a round smaller than the step. See creaseSnap in three/shaders/sdfCodegen.ts
+ */
+export const compileCreaseSnap = (pattern: IPattern, fields: SvgFields = new Map()): ((x: number, z: number, h: number) => [number, number]) => {
+  const { x: cx, z: cz } = pattern.center;
+  const angle = (pattern.rotation * Math.PI) / 180;
+  const c = Math.cos(angle);
+  const sn = Math.sin(angle);
+
+  const leaves: { distance: (x: number, z: number) => number; kinks: [number, number, number]; round: number }[] = [];
+  const visit = (node: SdfNode, parentFrame: number, exact: boolean) => {
+    const frame = parentFrame * node.scale;
+    if (node.kind === 'svg' || node.kind === 'text') {
+      const sample = fieldSample(node, fields);
+      if (!sample || !exact) return;
+      const distance = (x: number, z: number) => {
+        const [px, pz] = [x - cx, z - cz];
+        return sample((c * px - sn * pz) * frame, (sn * px + c * pz) * frame) / frame;
+      };
+      leaves.push({ distance, kinks: creaseKinks(node), round: node.round ?? 0 });
+    } else if (isGroup(node)) {
+      const last = node.children.length - 1;
+      node.children.forEach((child, i) => (node.kind === 'chain' && i !== last ? visit(child, 1, false) : visit(child, frame, exact)));
+    }
+  };
+  visit(pattern.root, 1, true);
+
+  return (x, z, h) => {
+    let best = 0.5 * h;
+    let [mx, mz] = [0, 0];
+    for (const { distance, kinks, round } of leaves) {
+      if (round >= h) continue;
+      const d = distance(x, z);
+      let e = d - kinks[0];
+      if (Math.abs(d - kinks[1]) < Math.abs(e)) e = d - kinks[1];
+      if (Math.abs(d - kinks[2]) < Math.abs(e)) e = d - kinks[2];
+      if (!(Math.abs(e) < best)) continue;
+      const eps = 0.25 * h;
+      const gx = (distance(x + eps, z) - distance(x - eps, z)) / (2 * eps);
+      const gz = (distance(x, z + eps) - distance(x, z - eps)) / (2 * eps);
+      const g2 = gx * gx + gz * gz;
+      if (g2 < 0.01) continue;
+      let [ox, oz] = [(-e * gx) / g2, (-e * gz) / g2];
+      const length = Math.hypot(ox, oz);
+      if (length > 0.5 * h) [ox, oz] = [(ox * 0.5 * h) / length, (oz * 0.5 * h) / length];
+      best = Math.abs(e);
+      [mx, mz] = [ox, oz];
+    }
+    return [x + mx, z + mz];
   };
 };
 

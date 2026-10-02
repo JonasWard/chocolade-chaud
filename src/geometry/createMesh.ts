@@ -1,5 +1,5 @@
 import { IPattern, SvgFields, defaultPattern } from './sdf/tree';
-import { compilePattern } from './sdf/evaluate';
+import { compileCreaseSnap, compilePattern } from './sdf/evaluate';
 
 import { INSET, fanOffset, supportColumns, supportMaxHeight } from './barMath';
 import { createBarFaces, weldedWallVertex } from './barLayout';
@@ -113,6 +113,8 @@ export const createIMesh = (
   const baseGrid = new Float64Array(vertexCount * 3);
 
   const sdf = compilePattern(sdfSettings, fields);
+  const snap = compileCreaseSnap(sdfSettings, fields);
+  const step = Math.max(gridWidth, gridLength);
 
   for (let i = 0; i < horizontalDivisions + 1; i++) {
     for (let j = 0; j < verticalDivisions + 1; j++) {
@@ -127,10 +129,12 @@ export const createIMesh = (
       const dy = height;
       const dz = fanOffset(j, verticalDivisions, inset);
 
-      const s = (sdf(x, y, z) * amplitude) / height;
-      movedGrid[k] = x + dx * s;
+      // a top vertex close to a sharp edge of the relief goes onto it
+      const [sx, sz] = snap(x, z, step);
+      const s = (sdf(sx, y, sz) * amplitude) / height;
+      movedGrid[k] = sx + dx * s;
       movedGrid[k + 1] = y + dy * s;
-      movedGrid[k + 2] = z + dz * s;
+      movedGrid[k + 2] = sz + dz * s;
 
       baseGrid[k] = x - dx;
       baseGrid[k + 1] = y - dy;

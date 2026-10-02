@@ -66,9 +66,10 @@ export const NodeInspector: React.FC<{ node: SdfNode; pattern: IPattern; onChang
       {p.inside === 'constant' && number('Depth mm', p.depth, 'depth', 0.1)}
       {p.inside === 'constant' && number('Bevel mm', p.bevel, 'bevel', 0.1, 0)}
       {number('Cutoff mm', p.cutoff, 'cutoff', 0.5, 0)}
+      {number('Round mm', p.round ?? 0, 'round', 0.1, 0)}
       <p className='hint'>
-        Constant: a flat plateau at −depth inside, with a slanted rim as wide as the bevel. Outside, the distance stays flat beyond the cutoff (0 is none). These
-        are mm on the bars, whatever the scale.
+        Constant: a flat plateau at −depth inside, with a slanted rim as wide as the bevel. Outside, the distance stays flat beyond the cutoff (0 is none). Round
+        softens these edges (0 keeps them sharp). These are mm on the bars, whatever the scale.
       </p>
     </>
   );

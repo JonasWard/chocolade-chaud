@@ -1,6 +1,6 @@
 import { DefaultGridSettings, GridType, IEditableGrid, ISimpleGrid, ISingleGrid } from '../geometry/grid';
 import { DistanceMethodType } from '../geometry/sdMethods';
-import { IBooleanNode, IPattern, SdfNode, constantNode, defaultPattern, groupNode, methodNode, sineNode, svgKey, svgNode, textNode } from '../geometry/sdf/tree';
+import { IBooleanNode, IPattern, SdfNode, constantNode, defaultPattern, groupNode, isGroup, methodNode, sineNode, svgKey, svgNode, textNode } from '../geometry/sdf/tree';
 import { decodeState, encodeState } from './schema';
 
 const single = () => DefaultGridSettings(GridType.Single) as ISingleGrid;
@@ -65,6 +65,17 @@ test('a grid keeps its colours, out of range values are clamped', () => {
   expect(decoded.colors).toEqual(grid.colors);
   expect(decoded.uCount).toBe(3);
   expect(decoded.cellWidth).toBe(400);
+});
+
+test('a state of version 4 still opens, its profiles without rounding', () => {
+  // a union of a text "ab" (constant inside, depth 1.5, bevel 0.5, cutoff 2) and the star svg (cutoff 1), encoded by version 4
+  const v4 = 'BB5GBtYAD6ElxO6BdwU50EMNQMNQMNQIygBX7JiYlTiGKiAAARJxDFRAEAMIAxCgBzAGEAbgBzAC0AcwBlAHIAaQBmQj8AGGoGGoHCFPTAGQAyBTiGKiAAZCcQTiAAATugBkAGQ';
+  const decoded = decodeState(v4, library);
+  const root = decoded?.sdfSetting.root;
+  expect(root?.kind).toBe('union');
+  const [text, svg] = root && isGroup(root) ? root.children : [];
+  expect(text).toMatchObject({ kind: 'text', text: 'ab', inside: 'constant', depth: 1.5, bevel: 0.5, cutoff: 2, round: 0 });
+  expect(svg).toMatchObject({ kind: 'svg', width: 20, cutoff: 1, round: 0 });
 });
 
 test('anything else is not a state', () => {
