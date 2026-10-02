@@ -25,6 +25,8 @@ test('the default state survives a round trip and is short', () => {
   expect(encoded).toMatch(/^[A-Za-z0-9_-]+$/);
   expect(encoded.length).toBeLessThanOrEqual(64);
   expectClose(decodeState(encoded, library), grid);
+  // the numbers come back as they were typed, without the noise of their steps
+  expect(decodeState(encoded, library)?.amplitude).toBe(0.2);
 });
 
 test('a tree with every kind of node survives a round trip', () => {
@@ -36,7 +38,7 @@ test('a tree with every kind of node survives a round trip', () => {
     { ...groupNode('intersection', [svgNode(star)]), gain: -2 },
     groupNode('add', [methodNode(DistanceMethodType.SDTorus, 1e-3)]),
     groupNode('subtract', [
-      { ...textNode('Ça ¡chaud! 🍫'), font: 'Playfair Display', fontSource: 'google', bold: false, size: 9.5, offsetX: -3, angle: 30 },
+      { ...textNode('Ça ¡chaud! 🍫'), font: 'Playfair Display', fontSource: 'google', bold: false, size: 9.5, offsetX: -3, angle: 30, inside: 'constant', depth: 1.25, bevel: 0, cutoff: 3.5 },
       {
         ...textNode('on a curve'),
         curve: { mode: 'spline', points: [{ x: -20, z: 0 }, { x: -10, z: -8.25 }, { x: 10, z: 8 }, { x: 20, z: 0.5 }] },

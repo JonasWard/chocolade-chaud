@@ -1,5 +1,5 @@
 import React from 'react';
-import { DefaultGridSettings, GridType, IEditableGrid, MAX_DIV_PER_MM, MAX_UV_COUNT } from '../geometry/grid';
+import { DefaultGridSettings, GridType, IEditableGrid, MAX_DIVS_ONE_SIDE, MAX_DIV_PER_MM, MAX_UV_COUNT, MAX_VERTICES, effectiveDivPerMM } from '../geometry/grid';
 import { DEFAULT_COLOR } from '../geometry/createMesh';
 import { Field, NumberField, Select } from './ui';
 
@@ -30,6 +30,12 @@ export const BarPanel: React.FC<{ grid: IEditableGrid; setGrid: (g: IEditableGri
       {number('Inset', 'inset', 0.5)}
       {number('Amplitude', 'amplitude', 0.05)}
       {number('Divisions/mm', 'divPerMM', 0.25, 0.25, MAX_DIV_PER_MM)}
+      {effectiveDivPerMM(grid) < grid.divPerMM && (
+        <p className='hint'>
+          Limited to {effectiveDivPerMM(grid).toFixed(2)}/mm here: a side has at most {MAX_DIVS_ONE_SIDE} divisions, all bars together{' '}
+          {(MAX_VERTICES / 1e6).toFixed(1)} million vertices.
+        </p>
+      )}
       <Field label='Wireframe'>
         <input type='checkbox' checked={!!grid.displayWireframe} onChange={(e) => set({ displayWireframe: e.target.checked })} />
       </Field>

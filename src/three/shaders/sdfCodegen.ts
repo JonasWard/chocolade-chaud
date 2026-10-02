@@ -1,5 +1,7 @@
 import { DistanceMethodType } from '../../geometry/sdMethods';
-import { IPattern, SdfNode, SvgFields, textFieldKey } from '../../geometry/sdf/tree';
+import { IPattern, IProfile, SdfNode, SvgFields, textFieldKey } from '../../geometry/sdf/tree';
+import { IFieldLevel, LEVEL_BLEND, LEVEL_MARGIN, LEVEL_REACH } from '../../geometry/field';
+import { LEVEL_COUNT } from '../../geometry/outline/outlineField';
 
 // glsl port of geometry/sdf/evaluate.ts. The structure of the tree is generated into the shader, its numbers are uniforms,
 // so only adding, removing or changing the kind of a node compiles a new shader, editing a number does not.
@@ -24,20 +26,46 @@ const methodFunctions = Object.entries(methodGLSL)
   .map(([method, body]) => `float sd${method.slice(2)}(vec3 q) { return ${body}; }`)
   .join('\n');
 
-/** bilinear by hand: float textures don't filter everywhere, and this way it is the same sample as sampleField in geometry/field.ts */
+/**
+ * Bicubic (catmull-rom) by hand, the same sample as sampleField in geometry/field.ts: float textures don't filter everywhere.
+ * A field is an atlas of its levels (see createFieldTexture in shaders/bake.ts), a level is a rectangle of it
+ */
 export const fieldGLSL = /* glsl */ `
-float fieldTexel(sampler2D field, ivec2 p) {
-  return texelFetch(field, clamp(p, ivec2(0), textureSize(field, 0) - 1), 0).r;
+// beyond its edge pixels a level continues along its slope there
+float levelTexel(sampler2D field, ivec2 origin, ivec2 size, ivec2 p) {
+  ivec2 c = clamp(p, ivec2(0), size - 1);
+  ivec2 e = p - c;
+  float d = texelFetch(field, origin + c, 0).r;
+  if (e == ivec2(0)) return d;
+  float dx = texelFetch(field, origin + clamp(c - ivec2(sign(e.x), 0), ivec2(0), size - 1), 0).r;
+  float dy = texelFetch(field, origin + clamp(c - ivec2(0, sign(e.y)), ivec2(0), size - 1), 0).r;
+  return d + float(abs(e.x)) * (d - dx) + float(abs(e.y)) * (d - dy);
 }
 
-float fieldDistance(sampler2D field, vec2 local, float pixelSize) {
+vec4 catmullRom(float t) {
+  float t2 = t * t;
+  float t3 = t2 * t;
+  return vec4(-0.5 * t3 + t2 - 0.5 * t, 1.5 * t3 - 2.5 * t2 + 1.0, -1.5 * t3 + 2.0 * t2 + 0.5 * t, 0.5 * t3 - 0.5 * t2);
+}
+
+float levelDistance(sampler2D field, ivec2 origin, ivec2 size, vec2 local, float pixelSize) {
   vec2 f = local / pixelSize - 0.5;
   vec2 f0 = floor(f);
-  vec2 t = f - f0;
+  vec4 wx = catmullRom(f.x - f0.x);
+  vec4 wz = catmullRom(f.y - f0.y);
   ivec2 p = ivec2(f0);
-  float near = mix(fieldTexel(field, p), fieldTexel(field, p + ivec2(1, 0)), t.x);
-  float far = mix(fieldTexel(field, p + ivec2(0, 1)), fieldTexel(field, p + ivec2(1, 1)), t.x);
-  return mix(near, far, t.y);
+  float sum = 0.0;
+  for (int j = 0; j < 4; j++) {
+    ivec2 q = p + ivec2(0, j - 1);
+    vec4 row = vec4(
+      levelTexel(field, origin, size, q + ivec2(-1, 0)),
+      levelTexel(field, origin, size, q),
+      levelTexel(field, origin, size, q + ivec2(1, 0)),
+      levelTexel(field, origin, size, q + ivec2(2, 0))
+    );
+    sum += dot(row, wx) * wz[j];
+  }
+  return sum;
 }
 `;
 
@@ -54,12 +82,48 @@ float opDifference(float a, float b, float k) { return opIntersection(a, -b, k);
 
 vec2 opRepeat(vec2 v, float period) { return period > 0.0 ? v - period * floor(v / period + 0.5) : v; }
 
+// level k of a field: the finest (width, height, pixel size) is l0, every coarser one (l1.xy) is LEVEL_REACH times further than
+// the one before it, l1.z the pixel size of the first of them, l1.w how many there are
+void fieldLevel(int k, vec3 l0, vec4 l1, out ivec2 origin, out ivec2 size, out float pixelSize) {
+  origin = k == 0 ? ivec2(0) : ivec2((k - 1) * int(l1.x), int(l0.y));
+  size = k == 0 ? ivec2(l0.xy) : ivec2(l1.xy);
+  pixelSize = k == 0 ? l0.z : l1.z * pow(${LEVEL_REACH.toFixed(1)}, float(k - 1));
+}
+
+float fieldLevelDistance(sampler2D field, int k, vec3 l0, vec4 l1, vec2 v) {
+  ivec2 origin;
+  ivec2 size;
+  float pixelSize;
+  fieldLevel(k, l0, l1, origin, size, pixelSize);
+  return levelDistance(field, origin, size, v + vec2(size) * pixelSize * 0.5, pixelSize);
+}
+
 // see sampleCentredField in geometry/field.ts, a pixel size of 0 means the field isn't there (yet)
-float centredFieldDistance(sampler2D field, vec2 v, float pixelSize) {
-  vec2 size = vec2(textureSize(field, 0)) * pixelSize;
-  vec2 local = v + size * 0.5;
-  vec2 clamped = clamp(local, vec2(0.0), size);
-  return fieldDistance(field, clamped, pixelSize) + length(local - clamped);
+float centredFieldDistance(sampler2D field, vec2 v, vec3 l0, vec4 l1) {
+  int last = int(l1.w);
+  for (int k = 0; k < ${LEVEL_COUNT}; k++) {
+    if (k >= last) break;
+    ivec2 origin;
+    ivec2 size;
+    float pixelSize;
+    fieldLevel(k, l0, l1, origin, size, pixelSize);
+    // how far inside of the part of the level that is used, in its pixels
+    vec2 inside = vec2(size) * 0.5 - ${LEVEL_MARGIN.toFixed(1)} - abs(v) / pixelSize;
+    float within = min(inside.x, inside.y);
+    if (within < 0.0) continue;
+    float d = levelDistance(field, origin, size, v + vec2(size) * pixelSize * 0.5, pixelSize);
+    if (within >= ${LEVEL_BLEND.toFixed(1)}) return d;
+    float t = smoothstep(0.0, 1.0, 1.0 - within / ${LEVEL_BLEND.toFixed(1)});
+    return mix(d, fieldLevelDistance(field, k + 1, l0, l1, v), t);
+  }
+  ivec2 origin;
+  ivec2 size;
+  float pixelSize;
+  fieldLevel(last, l0, l1, origin, size, pixelSize);
+  vec2 extent = vec2(size) * pixelSize;
+  vec2 local = v + extent * 0.5;
+  vec2 clamped = clamp(local, vec2(0.0), extent);
+  return levelDistance(field, origin, size, clamped, pixelSize) + length(local - clamped);
 }
 
 // see sdSine in geometry/sdf/evaluate.ts
@@ -70,9 +134,16 @@ float sdSine(vec2 q, float amplitude, float period) {
   return abs(q.y - amplitude * sin(k * q.x)) / sqrt(1.0 + slope * slope);
 }
 
-float svgDistance(sampler2D field, vec2 v, float width, vec2 offset, float period, float pixelSize) {
-  if (pixelSize <= 0.0 || width <= 0.0) return 0.0;
-  return width * centredFieldDistance(field, opRepeat(v - offset, period) / width, pixelSize);
+// see profile in geometry/sdf/evaluate.ts
+float profile(float d, float constant, float depth, float bevel, float cutoff) {
+  if (d >= 0.0) return cutoff > 0.0 ? min(d, cutoff) : d;
+  if (constant < 0.5) return d;
+  return bevel > 0.0 ? -depth * min(-d / bevel, 1.0) : -depth;
+}
+
+float svgDistance(sampler2D field, vec2 v, float width, vec2 offset, float period, vec3 l0, vec4 l1) {
+  if (l0.z <= 0.0 || width <= 0.0) return 0.0;
+  return width * centredFieldDistance(field, opRepeat(v - offset, period) / width, l0, l1);
 }
 `;
 
@@ -104,10 +175,25 @@ const buildPlan = (root: SdfNode): ISdfShaderPlan => {
     const i = params.push(value) - 1;
     return `uParams[${i >> 2}].${'xyzw'[i & 3]}`;
   };
+  // the sizes of the levels of a field, see centredFieldDistance
+  const levels = (key: string) => {
+    const level = (k: number, value: (l: IFieldLevel) => number) => param((fields) => {
+      const field = fields.get(key);
+      const l = k === 0 ? field : field?.levels?.[0];
+      return l ? value(l) : 0;
+    });
+    const l0 = `vec3(${level(0, (l) => l.width)}, ${level(0, (l) => l.height)}, ${level(0, (l) => l.pixelSize)})`;
+    const count = param((fields) => fields.get(key)?.levels?.length ?? 0);
+    return `${l0}, vec4(${level(1, (l) => l.width)}, ${level(1, (l) => l.height)}, ${level(1, (l) => l.pixelSize)}, ${count})`;
+  };
+  const shaped = (d: string, node: IProfile) =>
+    `profile(${d}, ${param(() => (node.inside === 'constant' ? 1 : 0))}, ${param(() => node.depth)}, ${param(() => node.bevel)}, ${param(() => node.cutoff)})`;
 
-  // returns the name of the variable holding the distance of the node, s is the scale it is evaluated at
-  const generate = (node: SdfNode, s: string): string => {
+  // returns the name of the variable holding the distance of the node, s is the scale it is evaluated at,
+  // parentFrame the static part of it (see compileNode in geometry/sdf/evaluate.ts)
+  const generate = (node: SdfNode, s: string, parentFrame: () => number): string => {
     const k = count++;
+    const frame = () => parentFrame() * node.scale;
     const sk = `s${k}`;
     lines.push(`float ${sk} = ${s} * ${param(() => node.scale)};`);
     let d: string;
@@ -121,8 +207,7 @@ const buildPlan = (root: SdfNode): ISdfShaderPlan => {
       case 'svg': {
         const field = slot(node.asset);
         const offset = `vec2(${param(() => node.offsetX)}, ${param(() => node.offsetZ)})`;
-        const pixelSize = param((fields) => fields.get(node.asset)?.pixelSize ?? 0);
-        d = `svgDistance(${field}, p.xz * ${sk}, ${param(() => node.width)}, ${offset}, ${param(() => node.repeat)}, ${pixelSize})`;
+        d = shaped(`svgDistance(${field}, p.xz * ${sk}, ${param(() => node.width)}, ${offset}, ${param(() => node.repeat)}, ${levels(node.asset)}) / ${param(frame)}`, node);
         break;
       }
       case 'text': {
@@ -130,8 +215,7 @@ const buildPlan = (root: SdfNode): ISdfShaderPlan => {
         const key = textFieldKey(node);
         const field = slot(key);
         const center = `vec2(${param((fields) => fields.get(key)?.center?.x ?? 0)}, ${param((fields) => fields.get(key)?.center?.z ?? 0)})`;
-        const pixelSize = param((fields) => fields.get(key)?.pixelSize ?? 0);
-        d = `svgDistance(${field}, p.xz * ${sk}, 1.0, ${center}, 0.0, ${pixelSize})`;
+        d = shaped(`svgDistance(${field}, p.xz * ${sk}, 1.0, ${center}, 0.0, ${levels(key)}) / ${param(frame)}`, node);
         break;
       }
       case 'sine': {
@@ -143,7 +227,8 @@ const buildPlan = (root: SdfNode): ISdfShaderPlan => {
       }
       case 'chain': {
         d = '0.0';
-        for (let i = node.children.length - 1; i >= 0; i--) d = generate(node.children[i], i === node.children.length - 1 ? sk : d);
+        const last = node.children.length - 1;
+        for (let i = last; i >= 0; i--) d = i === last ? generate(node.children[i], sk, frame) : generate(node.children[i], d, () => 1);
         break;
       }
       case 'union':
@@ -151,13 +236,13 @@ const buildPlan = (root: SdfNode): ISdfShaderPlan => {
       case 'difference': {
         const op = `op${node.kind[0].toUpperCase()}${node.kind.slice(1)}`;
         const smooth = param(() => node.smooth);
-        const ds = node.children.map((c) => generate(c, sk));
+        const ds = node.children.map((c) => generate(c, sk, frame));
         d = ds.length ? ds.reduce((a, b) => `${op}(${a}, ${b}, ${smooth})`) : '0.0';
         break;
       }
       case 'add':
       case 'subtract': {
-        const ds = node.children.map((c) => generate(c, sk));
+        const ds = node.children.map((c) => generate(c, sk, frame));
         d = ds.length ? ds.join(node.kind === 'add' ? ' + ' : ' - ') : '0.0';
         break;
       }
@@ -166,7 +251,7 @@ const buildPlan = (root: SdfNode): ISdfShaderPlan => {
     return `d${k}`;
   };
 
-  const result = generate(root, '1.0');
+  const result = generate(root, '1.0', () => 1);
   const vectors = Math.max(1, Math.ceil(params.length / 4));
   const samplers = [...Array(MAX_FIELD_SLOTS).keys()].map((j) => `uniform sampler2D uField${j};`).join('\n');
 

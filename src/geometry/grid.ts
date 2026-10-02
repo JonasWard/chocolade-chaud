@@ -70,15 +70,29 @@ export type CellData = {
 const applyGridData = (cellData: CellData): ITriangularMesh => createIMesh(cellData.geometrySettings, cellData.sdfSettings, cellData.withSupports, cellData.fields);
 
 export const MAX_UV_COUNT = 10;
-export const MAX_DIV_PER_MM = 8;
-export const MAX_DIVS_ONE_SIDE = 2048;
+export const MAX_DIV_PER_MM = 32;
+// the size of the baked top surface of a bar, see three/shaders/bake.ts: a gpu that can't hold it shows the mesh of the worker
+export const MAX_DIVS_ONE_SIDE = 8192;
+// top vertices of all the bars together, what the memory of a phone or a small laptop holds (the mesh, its baked surface, the stl)
+export const MAX_VERTICES = 2 * 2048 * 2048;
+
+/**
+ * The divisions per mm a grid gets, the same along both sides: as asked, unless a side would have more than MAX_DIVS_ONE_SIDE
+ * or all its bars together more than MAX_VERTICES
+ */
+export const effectiveDivPerMM = (grid: IGridSettings): number => {
+  const divPerMM = Math.min(grid.divPerMM, MAX_DIV_PER_MM);
+  if (!('cellWidth' in grid)) return divPerMM;
+  const count = (n: number) => Math.max(Math.min(Math.round(n), MAX_UV_COUNT), 1);
+  const bars = grid.type === GridType.Simple ? count(grid.uCount) * count(grid.vCount) : 1;
+  return Math.min(divPerMM, MAX_DIVS_ONE_SIDE / Math.max(grid.cellWidth, grid.cellLength), Math.sqrt(MAX_VERTICES / (bars * grid.cellWidth * grid.cellLength)));
+};
 
 // rounding some key parameters
 const parsingBasicGridData = <T extends BaseGrid>(grid: T): T => ({
   ...grid,
   uCount: Math.max(Math.min(Math.round(grid.uCount), MAX_UV_COUNT), 1),
   vCount: Math.max(Math.min(Math.round(grid.vCount), MAX_UV_COUNT), 1),
-  divPerMM: Math.min(grid.divPerMM, MAX_DIV_PER_MM),
 });
 
 const singleGridCells = (grid: ISingleGrid, withSupports: boolean, fields?: SvgFields): CellData[] => [
@@ -90,8 +104,8 @@ const singleGridCells = (grid: ISingleGrid, withSupports: boolean, fields?: SvgF
       innerLength: grid.cellLength,
       // centred on the origin, like a grid, so the origin of the pattern is the middle of the bar
       basePosition: { x: -grid.cellWidth / 2, y: 0, z: -grid.cellLength / 2 },
-      horizontalDivisions: Math.min(Math.round(grid.cellWidth * grid.divPerMM), MAX_DIVS_ONE_SIDE),
-      verticalDivisions: Math.min(Math.round(grid.cellLength * grid.divPerMM), MAX_DIVS_ONE_SIDE),
+      horizontalDivisions: Math.min(Math.round(grid.cellWidth * effectiveDivPerMM(grid)), MAX_DIVS_ONE_SIDE),
+      verticalDivisions: Math.min(Math.round(grid.cellLength * effectiveDivPerMM(grid)), MAX_DIVS_ONE_SIDE),
       displayWireframe: grid.displayWireframe,
     },
     sdfSettings: grid.sdfSetting,
@@ -102,7 +116,8 @@ const singleGridCells = (grid: ISingleGrid, withSupports: boolean, fields?: SvgF
 
 const simpleGridCells = (grid: ISimpleGrid, withSupports: boolean, fields?: SvgFields): CellData[] => {
   // loading in variables
-  const { uCount, vCount, divPerMM, height, inset, spacing, amplitude, cellLength, cellWidth, sdfSetting } = parsingBasicGridData(grid);
+  const { uCount, vCount, height, inset, spacing, amplitude, cellLength, cellWidth, sdfSetting } = parsingBasicGridData(grid);
+  const divPerMM = effectiveDivPerMM(grid);
 
   const uLength = (uCount - 1) * (spacing - 2 * inset) + uCount * cellWidth;
   const vLength = (vCount - 1) * (spacing - 2 * inset) + vCount * cellLength;

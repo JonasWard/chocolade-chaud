@@ -12,7 +12,7 @@ import { MOBILE } from './Components/pattern/PatternPanel';
 import { useHistory } from './hooks/useHistory';
 import { loadState, saveState } from './state/persist';
 import { ICurve } from './geometry/curve';
-import { findNode, staticScale, updateNode } from './geometry/sdf/treeOps';
+import { findNode, nodeFrame, updateNode } from './geometry/sdf/treeOps';
 import { ICurveEditing } from './three/CurveEditor';
 
 const SAVE_DELAY = 300;
@@ -38,13 +38,14 @@ function App() {
 
   const node = selected ? findNode(pattern.root, selected) : undefined;
   const textNode = node?.kind === 'text' && node.curve ? node : undefined;
-  const scale = textNode && staticScale(pattern.root, textNode.id);
-  const editing = curveEdit && scale !== undefined;
+  const frame = textNode && nodeFrame(pattern.root, textNode.id);
+  const editing = curveEdit && !!frame;
   const curve: ICurveEditing | undefined =
-    textNode?.curve && scale !== undefined
+    textNode?.curve && frame
       ? {
           curve: textNode.curve,
-          scale,
+          scale: frame.scale,
+          exact: frame.exact,
           editing,
           point: curvePoint,
           onChange: (c: ICurve) => setGrid({ ...grid, sdfSetting: { ...pattern, root: updateNode(pattern.root, textNode.id, (n) => ({ ...n, curve: c })) } }),
@@ -84,6 +85,7 @@ function App() {
                 {editing ? '👁 View' : '✎ Edit curve'}
               </button>
             )}
+            {editing && !curve?.exact && <span className='toolbar-note'>warped by its chain: points as if its input were 1</span>}
             <button onClick={undo} disabled={!canUndo} aria-label='undo' title='Undo (Ctrl+Z)'>
               ↶
             </button>

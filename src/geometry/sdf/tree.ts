@@ -24,8 +24,21 @@ export interface IMethodNode extends INodeBase {
   method: DistanceMethodType;
 }
 
+/** how the distance to an svg shape or a text is shaped, in mm */
+export interface IProfile {
+  /** inside: the distance, or a constant plateau at -depth */
+  inside: 'distance' | 'constant';
+  depth: number;
+  /** of the rim of the plateau, 0 is a sharp step */
+  bevel: number;
+  /** outside, the distance stays flat beyond it, 0 is no cutoff */
+  cutoff: number;
+}
+
+export const DEFAULT_PROFILE: IProfile = { inside: 'distance', depth: 1, bevel: 0.5, cutoff: 0 };
+
 /** an svg shape in the xz plane, distances in mm */
-export interface ISvgNode extends INodeBase {
+export interface ISvgNode extends INodeBase, IProfile {
   kind: 'svg';
   /** key in IPattern.svgs */
   asset: string;
@@ -40,7 +53,7 @@ export interface ISvgNode extends INodeBase {
 export type FontSource = 'local' | 'google';
 
 /** text in the xz plane, along a base curve or on a straight line. Signed distance in mm to the outline of its glyphs */
-export interface ITextNode extends INodeBase {
+export interface ITextNode extends INodeBase, IProfile {
   kind: 'text';
   text: string;
   /** family name, an installed font or a google font */
@@ -120,9 +133,10 @@ export const newId = (): string => (typeof crypto !== 'undefined' && 'randomUUID
 const base = (scale = 1) => ({ id: newId(), scale, gain: 1 });
 
 export const methodNode = (method: DistanceMethodType, scale = 1): IMethodNode => ({ ...base(scale), kind: 'method', method });
-export const svgNode = (asset: string, width = 30): ISvgNode => ({ ...base(), kind: 'svg', asset, width, offsetX: 0, offsetZ: 0, repeat: 0 });
+export const svgNode = (asset: string, width = 30): ISvgNode => ({ ...base(), ...DEFAULT_PROFILE, kind: 'svg', asset, width, offsetX: 0, offsetZ: 0, repeat: 0 });
 export const textNode = (text = 'Chaud'): ITextNode => ({
   ...base(),
+  ...DEFAULT_PROFILE,
   kind: 'text',
   text,
   font: 'sans-serif',

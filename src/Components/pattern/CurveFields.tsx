@@ -7,7 +7,8 @@ import { EditorContext } from './editorContext';
 type BaseLine = 'none' | CurveMode;
 
 /** the base curve of a text node: its kind and its points, edited here or in the scene */
-export const CurveFields: React.FC<{ node: ITextNode; onChange: (node: ITextNode) => void; editable: boolean }> = ({ node, onChange, editable }) => {
+/** exact: whether the curve has a fixed place on the bars, inside a chain it is warped by the input of the chain */
+export const CurveFields: React.FC<{ node: ITextNode; onChange: (node: ITextNode) => void; exact: boolean }> = ({ node, onChange, exact }) => {
   const { curveEdit, setCurveEdit, curvePoint, setCurvePoint } = React.useContext(EditorContext);
   const { curve } = node;
   const setCurve = (next: ICurve | null) => onChange({ ...node, curve: next });
@@ -41,7 +42,7 @@ export const CurveFields: React.FC<{ node: ITextNode; onChange: (node: ITextNode
       {curve && (
         <>
           <div className='row'>
-            <button className={curveEdit ? 'primary' : ''} aria-pressed={curveEdit} disabled={!editable} onClick={() => setCurveEdit(!curveEdit)}>
+            <button className={curveEdit ? 'primary' : ''} aria-pressed={curveEdit} onClick={() => setCurveEdit(!curveEdit)}>
               {curveEdit ? '👁 Back to view' : '✎ Edit in 3D'}
             </button>
             {curvePoint !== undefined && canDelete(curve, curvePoint) && (
@@ -56,9 +57,8 @@ export const CurveFields: React.FC<{ node: ITextNode; onChange: (node: ITextNode
             )}
           </div>
           <p className='hint'>
-            {editable
-              ? 'In 3D: drag a point to move it, drag a small dot between two points to add one, tap a point and press Delete to remove it.'
-              : 'Inside a chain the scale of this text varies over the bar, so its curve can only be edited here.'}
+            In 3D: drag a point to move it, drag a small dot between two points to add one, tap a point and press Delete to remove it.
+            {!exact && ' Inside a chain the letters are warped by the input of the chain, the points are placed as if it were 1.'}
           </p>
           <ol className='points'>
             {curve.points.map((p, i) => (

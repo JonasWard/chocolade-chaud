@@ -52,6 +52,53 @@ export const moveNode = (root: SdfNode, id: string, delta: number): SdfNode => {
   });
 };
 
+/** the groups a node can move into: not itself, nothing inside it, not the group it is in. path runs from the root to the group */
+export const moveTargets = (root: SdfNode, id: string): { group: GroupNode; path: SdfNode[] }[] => {
+  const parent = findParent(root, id);
+  const targets: { group: GroupNode; path: SdfNode[] }[] = [];
+  const visit = (node: SdfNode, path: SdfNode[]) => {
+    // nothing inside the node itself
+    if (node.id === id || !isGroup(node)) return;
+    const here = [...path, node];
+    if (node !== parent) targets.push({ group: node, path: here });
+    node.children.forEach((c) => visit(c, here));
+  };
+  visit(root, []);
+  return targets;
+};
+
+/** moves the node to the end of another group, in a chain that is the innermost place */
+export const moveInto = (root: SdfNode, id: string, groupId: string): SdfNode => {
+  const node = findNode(root, id);
+  if (!node || !moveTargets(root, id).some((t) => t.group.id === groupId)) return root;
+  return insertChild(removeNode(root, id), groupId, node);
+};
+
+/** moves the node out of its group, into the group around that, right after it */
+export const moveOut = (root: SdfNode, id: string): SdfNode => {
+  const path = findPath(root, id);
+  if (!path || path.length < 3) return root;
+  const [grandparent, parent, node] = path.slice(-3) as [GroupNode, GroupNode, SdfNode];
+  const after = grandparent.children.indexOf(parent) + 1;
+  return insertChild(removeNode(root, id), grandparent.id, node, after);
+};
+
+/** whether the group can be replaced by its children: it has some, and a root only when it has exactly one */
+export const canUnwrap = (root: SdfNode, id: string): boolean => {
+  const node = findNode(root, id);
+  if (!node || !isGroup(node) || !node.children.length) return false;
+  return node !== root || node.children.length === 1;
+};
+
+/** replaces a group by its children, at its place */
+export const unwrap = (root: SdfNode, id: string): SdfNode => {
+  if (!canUnwrap(root, id)) return root;
+  const group = findNode(root, id) as GroupNode;
+  if (group === root) return group.children[0];
+  const parent = findParent(root, id) as GroupNode;
+  return updateChildren(root, parent.id, (children) => children.flatMap((c) => (c.id === id ? group.children : [c])));
+};
+
 /** puts the node in a new group, in its place */
 export const wrapNode = (root: SdfNode, id: string, kind: GroupKind): { root: SdfNode; group: GroupNode } => {
   let group = groupNode(kind);
@@ -96,15 +143,27 @@ export const changeKind = (node: SdfNode, kind: NodeKind, defaultAsset = ''): Sd
 export const countNodes = (node: SdfNode): number => 1 + (isGroup(node) ? node.children.reduce((n, c) => n + countNodes(c), 0) : 0);
 
 /**
- * The scale a node is evaluated at, the product of the scales down to it. Undefined when it varies over space: a child of a chain,
- * other than its last, is evaluated at the output of the child after it
+ * The scale a node is evaluated at, the product of the scales down to it. A child of a chain, other than its last, is evaluated
+ * at the output of the child after it, which varies over space: the frame is then not exact, as if that output were 1
  */
-export const staticScale = (root: SdfNode, id: string): number | undefined => {
+export const nodeFrame = (root: SdfNode, id: string): { scale: number; exact: boolean } | undefined => {
   const path = findPath(root, id);
   if (!path) return undefined;
-  for (let i = 0; i < path.length - 1; i++) {
-    const parent = path[i];
-    if (parent.kind === 'chain' && parent.children[parent.children.length - 1] !== path[i + 1]) return undefined;
-  }
-  return path.reduce((s, n) => s * n.scale, 1);
+  let scale = 1;
+  let exact = true;
+  path.forEach((node, i) => {
+    scale *= node.scale;
+    const next = path[i + 1];
+    if (node.kind === 'chain' && next && node.children[node.children.length - 1] !== next) {
+      scale = 1;
+      exact = false;
+    }
+  });
+  return { scale, exact };
+};
+
+/** the scale a node is evaluated at, undefined when it varies over space (see nodeFrame) */
+export const staticScale = (root: SdfNode, id: string): number | undefined => {
+  const frame = nodeFrame(root, id);
+  return frame?.exact ? frame.scale : undefined;
 };

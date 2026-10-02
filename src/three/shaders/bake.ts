@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { CellData } from '../../geometry/grid';
 import { MAX_FIELD_SLOTS, fieldGLSL, sdfShaderPlan, sdfUniformValues } from './sdfCodegen';
-import { IDistanceField } from '../../geometry/field';
+import { IDistanceField, IFieldLevel } from '../../geometry/field';
 
 // Bakes the top surface of a bar into two float textures of one texel per grid vertex:
 // the location of the vertex (relative to the base position of the bar) and its normal.
@@ -136,9 +136,20 @@ const positionMaterial = (sdfGLSL: string): THREE.ShaderMaterial => {
   return material;
 };
 
-/** a distance field as a texture for the bake, to be disposed by the caller */
-export const createFieldTexture = ({ width, height, distances }: IDistanceField): THREE.DataTexture => {
-  const texture = new THREE.DataTexture(distances, width, height, THREE.RedFormat, THREE.FloatType);
+/** the size of the texture of a field: its finest level on top, the coarser ones side by side below it */
+export const fieldTextureSize = ({ width, height, levels = [] }: IDistanceField): [number, number] =>
+  levels.length ? [Math.max(width, levels.length * levels[0].width), height + levels[0].height] : [width, height];
+
+/** a distance field as a texture for the bake, to be disposed by the caller. See fieldLevel in shaders/sdfCodegen.ts */
+export const createFieldTexture = (field: IDistanceField): THREE.DataTexture => {
+  const [width, height] = fieldTextureSize(field);
+  const atlas = new Float32Array(width * height);
+  const put = ({ width: w, height: h, distances }: IFieldLevel, x: number, y: number) => {
+    for (let row = 0; row < h; row++) atlas.set(distances.subarray(row * w, (row + 1) * w), (y + row) * width + x);
+  };
+  put(field, 0, 0);
+  field.levels?.forEach((level, k) => put(level, k * level.width, field.height));
+  const texture = new THREE.DataTexture(atlas, width, height, THREE.RedFormat, THREE.FloatType);
   texture.needsUpdate = true;
   return texture;
 };

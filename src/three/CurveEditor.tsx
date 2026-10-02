@@ -8,10 +8,11 @@ import { toPattern, toWorld } from '../geometry/sdf/evaluate';
 
 // the base curve of a text node in the scene, its points dragged on the plane at the top of the bars
 
-/** the curve being edited, scale is the static scale of its text node (see staticScale) */
+/** the curve being edited, scale is the scale of its text node, exact whether that is its scale everywhere (see nodeFrame) */
 export interface ICurveEditing {
   curve: ICurve;
   scale: number;
+  exact: boolean;
   /** points can be dragged, added and deleted, else the curve is only shown */
   editing: boolean;
   point?: number;

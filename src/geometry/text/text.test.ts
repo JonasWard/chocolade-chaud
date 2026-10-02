@@ -1,54 +1,46 @@
-import { signedDistanceTransform } from './edt';
-import { IDistanceField, sampleField } from '../field';
+import { IDistanceField, fieldDetail, sampleField } from '../field';
 import { layoutGlyphs } from './layout';
 import { compilePattern } from '../sdf/evaluate';
 import { textFieldKey, textNode } from '../sdf/tree';
 
-// the distance to the nearest pixel on the other side of the outline, the slow way
-const bruteForce = (mask: number[], width: number): number[] =>
-  mask.map((m, p) => {
-    let nearest = Infinity;
-    for (let q = 0; q < mask.length; q++) {
-      if (!!mask[q] === !!m) continue;
-      nearest = Math.min(nearest, Math.hypot((q % width) - (p % width), Math.floor(q / width) - Math.floor(p / width)));
-    }
-    return (m ? -1 : 1) * (nearest - 0.5);
-  });
-
-test.each([
-  [7, 5],
-  [16, 16],
-  [3, 31],
-  [40, 9],
-])('the distance transform is exact (%i x %i)', (width, height) => {
-  // a few deterministic blobs
-  const mask = [...Array(width * height).keys()].map((p) => {
-    const [x, y] = [p % width, Math.floor(p / width)];
-    return Math.hypot(x - width * 0.3, y - height * 0.4) < Math.min(width, height) * 0.3 || (x * 7 + y * 13) % 11 === 0 ? 1 : 0;
-  });
-  const distances = signedDistanceTransform(mask, width, height);
-  bruteForce(mask, width).forEach((d, p) => expect(distances[p]).toBeCloseTo(d, 4));
-});
-
-test('the distance is negative inside, and half a pixel from the outline next to it', () => {
-  const distances = signedDistanceTransform([0, 0, 1, 1, 1, 0], 6, 1);
-  expect([...distances]).toEqual([1.5, 0.5, -0.5, -1.5, -0.5, 0.5]);
-});
-
-test('a mask without an outline has no finite distance', () => {
-  expect([...signedDistanceTransform([0, 0, 0, 0], 2, 2)]).toEqual([Infinity, Infinity, Infinity, Infinity]);
-  expect([...signedDistanceTransform([1, 1, 1, 1], 2, 2)]).toEqual([-Infinity, -Infinity, -Infinity, -Infinity]);
-});
-
 // 4 x 2 pixels of 0.5 mm, the distance equals the pixel column
 const field: IDistanceField = { width: 4, height: 2, pixelSize: 0.5, distances: new Float32Array([0, 1, 2, 3, 0, 1, 2, 3]) };
 
-test('the field is sampled at the pixel centres, bilinear in between and clamped outside', () => {
+test('the field is sampled at the pixel centres, bicubic in between and along its slope outside', () => {
   expect(sampleField(field, 0.25, 0.25)).toBeCloseTo(0);
   expect(sampleField(field, 0.75, 0.75)).toBeCloseTo(1);
   expect(sampleField(field, 1, 0.5)).toBeCloseTo(1.5);
-  expect(sampleField(field, -5, -5)).toBeCloseTo(0);
-  expect(sampleField(field, 50, 50)).toBeCloseTo(3);
+  // half a pixel past the edge centres
+  expect(sampleField(field, 0, 0.5)).toBeCloseTo(-0.5);
+  expect(sampleField(field, 2, -0.5)).toBeCloseTo(3.5);
+});
+
+// 8 x 8 pixels of 1 mm with the given distance at every pixel centre
+const fieldOf = (f: (x: number, z: number) => number): IDistanceField => ({
+  width: 8,
+  height: 8,
+  pixelSize: 1,
+  distances: Float32Array.from({ length: 64 }, (_, p) => f((p % 8) + 0.5, Math.floor(p / 8) + 0.5)),
+});
+
+test('the bicubic sample reproduces a linear field', () => {
+  const linear = fieldOf((x, z) => 0.3 * x - 0.7 * z + 1);
+  for (const [x, z] of [[2.5, 3.5], [3.1, 4.7], [4.25, 2.9], [5.5, 5.01]]) expect(sampleField(linear, x, z)).toBeCloseTo(0.3 * x - 0.7 * z + 1, 5);
+});
+
+test('the slope of the bicubic sample is continuous across the pixel centres, unlike a bilinear one', () => {
+  const disc = fieldOf((x, z) => Math.hypot(x - 1.2, z - 0.7) - 2);
+  const slope = (x: number) => (sampleField(disc, x + 1e-4, 4.2) - sampleField(disc, x - 1e-4, 4.2)) / 2e-4;
+  // on both sides of the pixel centre at x = 3.5
+  expect(Math.abs(slope(3.5 - 1e-3) - slope(3.5 + 1e-3))).toBeLessThan(1e-2);
+  // bilinear would jump there by the change of the slope between the pixels
+  const step = (x: number) => disc.distances[4 * 8 + x];
+  const bilinearJump = Math.abs(step(4) - step(3) - (step(3) - step(2)));
+  expect(bilinearJump).toBeGreaterThan(0.05);
+});
+
+test('a field is drawn finer when its node is enlarged, in powers of two up to 8', () => {
+  expect([4, 1, 0.9, 0.5, 0.3, 0.2, 0.01].map(fieldDetail)).toEqual([1, 1, 1, 2, 4, 8, 8]);
 });
 
 test('a straight line of text is centred on its offset and turned by its angle', () => {
