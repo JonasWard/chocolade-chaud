@@ -76,7 +76,7 @@ export const ColumnEditor: React.FC<TreeEditorProps & { focus: string; setFocus:
               ›
             </button>
           )}
-          <NodeMenu node={child} isRoot={isRoot} onAction={(a) => onAction(child.id, a)} />
+          <NodeMenu node={child} pattern={pattern} isRoot={isRoot} onAction={(a) => onAction(child.id, a)} />
         </div>
         {isOpen && <NodeInspector node={child} pattern={pattern} onChange={onChange} />}
       </div>

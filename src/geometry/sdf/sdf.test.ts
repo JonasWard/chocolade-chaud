@@ -2,7 +2,7 @@ import { DistanceMethodType, distanceMethods, sdGyroid, sdSchwarzD, sdSphere } f
 import { IDistanceField, sampleCentredField, sampleField } from '../field';
 import { compilePattern, profile, repeat, sdSine, smoothMin, toPattern, toWorld } from './evaluate';
 import { DEFAULT_PROFILE, IPattern, SdfNode, constantNode, defaultPattern, groupNode, isGroup, methodNode, sineNode, svgKey, svgNode, textNode } from './tree';
-import { changeKind, duplicateNode, findPath, insertChild, moveNode, nodeFrame, removeNode, staticScale, updateNode, wrapNode } from './treeOps';
+import { canUnwrap, changeKind, duplicateNode, findPath, insertChild, moveInto, moveNode, moveOut, moveTargets, nodeFrame, removeNode, staticScale, unwrap, updateNode, wrapNode } from './treeOps';
 import { formula } from './formula';
 import { MAX_FIELD_SLOTS, sdfShaderPlan } from '../../three/shaders/sdfCodegen';
 
@@ -245,4 +245,62 @@ test('a point of a node is placed on the bars the way the pattern samples it', (
   const box = compilePattern({ ...p, root: methodNode(DistanceMethodType.SDBox, 2.5) });
   const centre = toWorld(p, 2.5, { x: 0, z: 0 });
   expect(box(centre.x, 0, centre.z)).toBeCloseTo(-1, 12);
+});
+
+describe('moving nodes between groups', () => {
+  // union [ a, chain [ b, c ], add [ d ] ]
+  const tree = () => {
+    const [a, b, c, d] = [constantNode(1), methodNode(DistanceMethodType.SDGyroid), methodNode(DistanceMethodType.SDSchwarzD, 0.1), constantNode(4)];
+    const chain = groupNode('chain', [b, c]);
+    const add = groupNode('add', [d]);
+    return { a, b, c, d, chain, add, root: groupNode('union', [a, chain, add]) };
+  };
+  const ids = (n: SdfNode): unknown => (isGroup(n) ? [n.kind, n.children.map(ids)] : n.id);
+
+  test('into another group, last, which in a chain is the innermost', () => {
+    const { a, b, c, d, chain, add, root } = tree();
+    expect(ids(moveInto(root, a.id, chain.id))).toEqual(['union', [['chain', [b.id, c.id, a.id]], ['add', [d.id]]]]);
+    const moved = moveInto(root, b.id, add.id);
+    expect(ids(moved)).toEqual(['union', [a.id, ['chain', [c.id]], ['add', [d.id, b.id]]]]);
+    // the untouched part is shared
+    expect((moved as { children: SdfNode[] }).children[0]).toBe(a);
+  });
+
+  test('not into itself, what is inside it, or where it already is', () => {
+    const { a, chain, root } = tree();
+    expect(moveInto(root, chain.id, chain.id)).toBe(root);
+    expect(moveInto(root, a.id, root.id)).toBe(root);
+    const nested = moveInto(root, a.id, chain.id);
+    expect(moveInto(nested, chain.id, chain.id)).toBe(nested);
+    expect(moveTargets(root, chain.id).map((t) => t.group.kind)).toEqual(['add']);
+    expect(moveTargets(root, a.id).map((t) => t.path.map((n) => n.kind).join(' › '))).toEqual(['union › chain', 'union › add']);
+  });
+
+  test('out of a group, right after it', () => {
+    const { a, b, c, d, chain, root } = tree();
+    expect(ids(moveOut(root, b.id))).toEqual(['union', [a.id, ['chain', [c.id]], b.id, ['add', [d.id]]]]);
+    expect(moveOut(root, chain.id)).toBe(root);
+  });
+
+  test('unwrapping replaces a group by its children', () => {
+    const { a, b, c, d, chain, add, root } = tree();
+    expect(ids(unwrap(root, chain.id))).toEqual(['union', [a.id, b.id, c.id, ['add', [d.id]]]]);
+    expect(canUnwrap(root, root.id)).toBe(false);
+    expect(unwrap(root, root.id)).toBe(root);
+    // a root with one child gives it its place
+    const single = groupNode('union', [add]);
+    expect(unwrap(single, single.id)).toBe(add);
+    expect(canUnwrap(root, a.id)).toBe(false);
+  });
+
+  test('a method moved out of the default chain and back in at the end gives the same pattern', () => {
+    const p = defaultPattern();
+    const [neovius, schwarzD] = (p.root as { children: SdfNode[] }).children;
+    const wrapped = wrapNode(p.root, neovius.id, 'union').root;
+    const out = moveInto(wrapped, schwarzD.id, (wrapped as { children: SdfNode[] }).children[0].id);
+    const back = moveOut(out, schwarzD.id);
+    const sdf = compilePattern({ ...p, root: back });
+    const original = compilePattern(p);
+    points.forEach(([x, y, z]) => expect(sdf(x, y, z)).toBeCloseTo(original(x, y, z), 10));
+  });
 });

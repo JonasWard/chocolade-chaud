@@ -1,7 +1,8 @@
 import React from 'react';
 import { DistanceMethodType } from '../../geometry/sdMethods';
-import { NodeKind, SdfNode, isGroup } from '../../geometry/sdf/tree';
-import { KIND_LABEL, methodLabel } from '../../geometry/sdf/formula';
+import { IPattern, NodeKind, SdfNode, isGroup } from '../../geometry/sdf/tree';
+import { KIND_LABEL, methodLabel, nodeLabel } from '../../geometry/sdf/formula';
+import { canUnwrap, findPath, moveTargets } from '../../geometry/sdf/treeOps';
 import { IPickerSection, Picker } from '../Picker';
 import { NodeAction } from './actions';
 import { ActionIcon, KindIcon } from './icons';
@@ -34,25 +35,60 @@ const addAction = (k: KindChoice): NodeAction => (isMethod(k) ? `add:method:${k}
 export const ADD_SECTIONS = kindSections(addAction);
 export const WRAP_SECTIONS = kindSections((k) => `wrap:${k}` as NodeAction, isGroupKind);
 
-const EDIT_SECTION: IPickerSection<NodeAction> = {
-  title: 'Edit',
-  items: [
-    { value: 'duplicate', label: 'Duplicate', icon: <ActionIcon action='duplicate' /> },
-    { value: 'up', label: 'Move up', icon: <ActionIcon action='up' /> },
-    { value: 'down', label: 'Move down', icon: <ActionIcon action='down' /> },
-    { value: 'delete', label: 'Delete', icon: <ActionIcon action='delete' /> },
-  ],
+/** the groups the node can move into, by the path to them */
+const moveSection = ({ root, svgs }: IPattern, id: string): IPickerSection<NodeAction> => ({
+  title: 'Move into',
+  items: moveTargets(root, id).map(({ group, path }) => ({
+    value: `move-into:${group.id}`,
+    label: path.map((n) => nodeLabel(n, svgs)).join(' › '),
+    icon: <KindIcon kind={group.kind} />,
+    hint: group.kind === 'chain' ? 'as innermost' : undefined,
+  })),
+});
+
+const editSection = ({ root, svgs }: IPattern, node: SdfNode, isRoot: boolean): IPickerSection<NodeAction> => {
+  const path = findPath(root, node.id) ?? [];
+  const parent = path.at(-2);
+  return {
+    title: 'Edit',
+    items: [
+      ...(isRoot
+        ? []
+        : [
+            { value: 'up' as const, label: 'Move up', icon: <ActionIcon action='up' /> },
+            { value: 'down' as const, label: 'Move down', icon: <ActionIcon action='down' /> },
+          ]),
+      ...(parent && path.length > 2 ? [{ value: 'move-out' as const, label: `Move out of ${nodeLabel(parent, svgs)}`, icon: <ActionIcon action='out' /> }] : []),
+      ...(canUnwrap(root, node.id) ? [{ value: 'unwrap' as const, label: 'Unwrap', hint: 'replace by its children', icon: <ActionIcon action='unwrap' /> }] : []),
+      ...(isRoot
+        ? []
+        : [
+            { value: 'duplicate' as const, label: 'Duplicate', icon: <ActionIcon action='duplicate' /> },
+            { value: 'delete' as const, label: 'Delete', icon: <ActionIcon action='delete' /> },
+          ]),
+    ],
+  };
 };
 
 const titled = (prefix: string, sections: IPickerSection<NodeAction>[]) => sections.map((s) => ({ ...s, title: `${prefix} · ${s.title}` }));
 
-/** what can be done with a node: add a child to a group, wrap it in a group, duplicate, move or delete it */
-export const NodeMenu: React.FC<{ node: SdfNode; isRoot: boolean; onAction: (action: NodeAction) => void }> = ({ node, isRoot, onAction }) => (
+/** what can be done with a node: add a child to a group, move it into or out of a group, wrap or unwrap it, duplicate or delete it */
+export const NodeMenu: React.FC<{ node: SdfNode; pattern: IPattern; isRoot: boolean; onAction: (action: NodeAction) => void }> = ({
+  node,
+  pattern,
+  isRoot,
+  onAction,
+}) => (
   <Picker<NodeAction>
     label='actions'
     className='menu'
     trigger='⋯'
-    sections={[...(isGroup(node) ? titled('Add', ADD_SECTIONS) : []), ...titled('Wrap in', WRAP_SECTIONS), ...(isRoot ? [] : [EDIT_SECTION])]}
+    sections={[
+      ...(isGroup(node) ? titled('Add', ADD_SECTIONS) : []),
+      moveSection(pattern, node.id),
+      ...titled('Wrap in', WRAP_SECTIONS),
+      editSection(pattern, node, isRoot),
+    ]}
     onPick={onAction}
   />
 );

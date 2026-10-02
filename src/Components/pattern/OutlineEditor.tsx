@@ -34,7 +34,7 @@ export const OutlineEditor: React.FC<TreeEditorProps> = ({ pattern, selected, on
           <NodeIcon node={node} svgs={pattern.svgs} />
           <span className='name'>{nodeLabel(node, pattern.svgs)}</span>
           <span className='meta'>{nodeSummary(node)}</span>
-          <NodeMenu node={node} isRoot={isRoot} onAction={(a) => onAction(node.id, a)} />
+          <NodeMenu node={node} pattern={pattern} isRoot={isRoot} onAction={(a) => onAction(node.id, a)} />
         </div>
         {open && node.children.length > 0 && <ul>{node.children.map((c) => renderNode(c, false))}</ul>}
       </li>

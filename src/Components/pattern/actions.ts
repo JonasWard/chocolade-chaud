@@ -1,10 +1,20 @@
 import { DistanceMethodType } from '../../geometry/sdMethods';
-import { GroupKind, IPattern, NodeKind, SdfNode, constantNode, groupNode, methodNode, sineNode, svgNode, textNode } from '../../geometry/sdf/tree';
-import { duplicateNode, findParent, insertChild, moveNode, removeNode, wrapNode } from '../../geometry/sdf/treeOps';
+import { GroupKind, IPattern, NodeKind, SdfNode, constantNode, groupNode, isGroup, methodNode, sineNode, svgNode, textNode } from '../../geometry/sdf/tree';
+import { duplicateNode, findNode, findParent, insertChild, moveInto, moveNode, moveOut, removeNode, unwrap, wrapNode } from '../../geometry/sdf/treeOps';
 import { formatNumber } from '../../geometry/sdf/formula';
 
 // what the menu of a node can do, as the value of an option: 'add:union', 'wrap:chain', 'delete', ...
-export type NodeAction = `add:${NodeKind}` | `add:method:${DistanceMethodType}` | `wrap:${GroupKind}` | 'duplicate' | 'up' | 'down' | 'delete';
+export type NodeAction =
+  | `add:${NodeKind}`
+  | `add:method:${DistanceMethodType}`
+  | `wrap:${GroupKind}`
+  | `move-into:${string}`
+  | 'move-out'
+  | 'unwrap'
+  | 'duplicate'
+  | 'up'
+  | 'down'
+  | 'delete';
 
 export const firstAsset = (pattern: IPattern): string => Object.keys(pattern.svgs)[0] ?? '';
 
@@ -48,6 +58,15 @@ export const applyAction = (pattern: IPattern, id: string, action: NodeAction): 
       return { root: moveNode(root, id, 1) };
     case 'delete':
       return { root: removeNode(root, id), select: findParent(root, id)?.id };
+    // the moved node stays selected, its id does not change
+    case 'move-into':
+      return { root: moveInto(root, id, kind), select: id };
+    case 'move-out':
+      return { root: moveOut(root, id), select: id };
+    case 'unwrap': {
+      const group = findNode(root, id);
+      return { root: unwrap(root, id), select: group && isGroup(group) ? group.children[0]?.id : undefined };
+    }
   }
   return { root };
 };
