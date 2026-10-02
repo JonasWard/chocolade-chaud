@@ -1,19 +1,26 @@
-import { DenseField, array, bool, densing, enumeration, fixed, int, meta, object, optional, pointer, schema, undensing, union } from 'densing';
+import { DenseField, array, bool, densing, enumeration, fixed, int, meta, object, pointer, schema, undensing, union } from 'densing';
 import { DefaultGridSettings, GridType, IEditableGrid, MAX_DIV_PER_MM, MAX_UV_COUNT } from '../geometry/grid';
 import { DistanceMethodType } from '../geometry/sdMethods';
 import { GROUP_KINDS, IPattern, ISvgAsset, NodeKind, SdfNode, isGroup, newId, svgHash } from '../geometry/sdf/tree';
-import { FONT_FAMILIES, ITextSettings } from '../geometry/text/textField';
 
 // the state of the app packed into a short url safe string with densing. Numbers are rounded to the precision of their field,
 // svg sources don't fit: an svg is stored as the hash of its source (see svgKey), its source comes from the svg library
 
-export const STATE_VERSION = 1;
+export const STATE_VERSION = 2;
 
 const MAX_CHILDREN = 16;
 const MAX_SVGS = 32;
-const MAX_TEXT = 64;
+const MAX_TEXT = 128;
+const MAX_FONT = 64;
+const MAX_POINTS = 64;
 
-const NODE_KINDS: NodeKind[] = ['method', 'svg', 'sine', 'constant', ...GROUP_KINDS];
+const NODE_KINDS: NodeKind[] = ['method', 'svg', 'text', 'sine', 'constant', ...GROUP_KINDS];
+
+// a string as utf-16 code units, so any text fits
+const chars = (name: string, max: number) => array(name, 0, max, int('char', 0, 0xffff));
+const toChars = (s: string) => s.split('').map((c) => c.charCodeAt(0));
+const fromChars = (codes: number[]) => String.fromCharCode(...codes);
+const coordinate = (name: string) => fixed(name, -1000, 1000, 0.01);
 
 // every node has a scale (as log10) and a gain, a node of the tree is a pointer to this union
 const variant = (...fields: DenseField[]) => [fixed('scale', -5, 5, 0.001), fixed('gain', -100, 100, 0.001), ...fields];
@@ -22,6 +29,19 @@ const smooth = fixed('smooth', 0, 100, 0.01);
 const node = union('node', enumeration('kind', NODE_KINDS), {
   method: variant(enumeration('method', Object.values(DistanceMethodType))),
   svg: variant(int('asset', 0, MAX_SVGS - 1), fixed('width', 0, 1000, 0.1), fixed('offsetX', -1000, 1000, 0.1), fixed('offsetZ', -1000, 1000, 0.1), fixed('repeat', 0, 1000, 0.1)),
+  text: variant(
+    chars('text', MAX_TEXT),
+    chars('font', MAX_FONT),
+    enumeration('fontSource', ['local', 'google']),
+    bool('bold'),
+    fixed('size', 0.5, 200, 0.01),
+    // the mode of the base curve, the points are its points
+    enumeration('curve', ['none', 'polyline', 'spline']),
+    array('points', 0, MAX_POINTS, object('point', coordinate('x'), coordinate('z'))),
+    coordinate('offsetX'),
+    coordinate('offsetZ'),
+    fixed('angle', -360, 360, 0.1)
+  ),
   sine: variant(fixed('amplitude', -100, 100, 0.01), fixed('period', 0, 1000, 0.01), fixed('angle', -360, 360, 0.1)),
   constant: variant(fixed('value', -1000, 1000, 0.001)),
   union: variant(smooth, children),
@@ -48,20 +68,6 @@ export const StateSchema = schema(
   size('divPerMM', 0.25, MAX_DIV_PER_MM),
   bool('wireframe'),
   array('colors', 1, 16, int('color', 0, 0xffffff)),
-  optional(
-    'text',
-    object(
-      'textSettings',
-      array('chars', 0, MAX_TEXT, int('char', 0, 0xffff)),
-      enumeration('fontFamily', FONT_FAMILIES),
-      fixed('size', 1, 200, 0.1),
-      size('depth', -5, 5),
-      size('bevelWidth', 0, 10),
-      size('patternFade', 0, 1),
-      fixed('offsetX', -500, 500, 0.1),
-      fixed('offsetZ', -500, 500, 0.1)
-    )
-  ),
   object('center', size('x', -1000, 1000), size('y', -1000, 1000), size('z', -1000, 1000)),
   size('rotation', -360, 360),
   array('svgs', 0, MAX_SVGS, int('hash', 0, 0xffffffff)),
@@ -110,6 +116,7 @@ type NodeData = Record<string, unknown> & { kind: NodeKind; scale: number; gain:
 const nodeData = (n: SdfNode, assets: string[]): NodeData => {
   const data = { ...n, scale: Math.log10(n.scale) } as unknown as NodeData;
   if (n.kind === 'svg') data.asset = assets.indexOf(n.asset);
+  if (n.kind === 'text') Object.assign(data, { text: toChars(n.text), font: toChars(n.font), curve: n.curve?.mode ?? 'none', points: n.curve?.points ?? [] });
   if (isGroup(n)) data.children = n.children.map((c) => nodeData(c, assets));
   return data;
 };
@@ -117,6 +124,12 @@ const nodeData = (n: SdfNode, assets: string[]): NodeData => {
 const nodeFrom = (data: NodeData, assets: string[]): SdfNode => {
   const n: Record<string, unknown> = { ...data, id: newId(), scale: 10 ** data.scale };
   if (data.kind === 'svg') n.asset = assets[data.asset as number] ?? '';
+  if (data.kind === 'text') {
+    n.text = fromChars(data.text as number[]);
+    n.font = fromChars(data.font as number[]);
+    n.curve = data.curve === 'none' ? null : { mode: data.curve, points: data.points };
+    delete n.points;
+  }
   if (data.children) n.children = data.children.map((c) => nodeFrom(c, assets));
   return n as unknown as SdfNode;
 };
@@ -127,7 +140,6 @@ const svgNodes = (n: SdfNode): string[] => (n.kind === 'svg' ? [n.asset] : isGro
 export const encodeState = (grid: IEditableGrid): string => {
   const pattern = grid.sdfSetting;
   const assets = [...new Set([...Object.keys(pattern.svgs), ...svgNodes(pattern.root)])].slice(0, MAX_SVGS);
-  const text = grid.type === GridType.Single && grid.text?.text ? grid.text : undefined;
   const data = {
     version: STATE_VERSION,
     type: grid.type,
@@ -141,8 +153,6 @@ export const encodeState = (grid: IEditableGrid): string => {
     divPerMM: grid.divPerMM,
     wireframe: grid.displayWireframe,
     colors: (grid.type === GridType.Single ? [grid.color] : grid.colors).map((c) => parseInt(c.slice(1), 16)),
-    // utf-16 code units, so any text fits
-    text: text && { ...text, chars: text.text.split('').map((c) => c.charCodeAt(0)) },
     center: pattern.center,
     rotation: pattern.rotation,
     svgs: assets.map(hashOf),
@@ -163,9 +173,7 @@ export const decodeState = (encoded: string, library: Record<string, ISvgAsset>)
     const base = DefaultGridSettings(data.type) as IEditableGrid;
     const { cellWidth, cellLength, uCount, vCount, height, inset, amplitude, divPerMM } = data;
     const grid = { ...base, cellWidth, cellLength, uCount, vCount, height, inset, amplitude, divPerMM, displayWireframe: data.wireframe, sdfSetting };
-    if (grid.type === GridType.Simple) return { ...grid, colors };
-    const { chars, ...text } = data.text ?? {};
-    return { ...grid, color: colors[0], text: data.text ? ({ ...text, text: String.fromCharCode(...chars) } as ITextSettings) : undefined };
+    return grid.type === GridType.Simple ? { ...grid, colors } : { ...grid, color: colors[0] };
   } catch {
     return undefined;
   }

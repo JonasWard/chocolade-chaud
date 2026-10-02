@@ -1,6 +1,5 @@
 import { DEFAULT_COLOR, IGeometrySettings, ITriangularMesh, createIMesh } from './createMesh';
 import { IPattern, SvgFields, defaultPattern } from './sdf/tree';
-import { ITextRelief, ITextSettings } from './text/textField';
 
 export enum GridType {
   Single = 'Single',
@@ -26,7 +25,6 @@ export type ISingleGrid = BaseGrid & {
   cellWidth: number;
   sdfSetting: IPattern;
   color: string;
-  text?: ITextSettings;
 };
 
 export type ISimpleGrid = BaseGrid & {
@@ -65,12 +63,11 @@ export type CellData = {
   geometrySettings: IGeometrySettings;
   sdfSettings: IPattern;
   withSupports: boolean;
-  text?: ITextRelief;
   /** the distance fields of the svg shapes of the pattern */
   fields?: SvgFields;
 };
 
-const applyGridData = (cellData: CellData): ITriangularMesh => createIMesh(cellData.geometrySettings, cellData.sdfSettings, cellData.withSupports, cellData.text, cellData.fields);
+const applyGridData = (cellData: CellData): ITriangularMesh => createIMesh(cellData.geometrySettings, cellData.sdfSettings, cellData.withSupports, cellData.fields);
 
 export const MAX_UV_COUNT = 10;
 export const MAX_DIV_PER_MM = 8;
@@ -84,7 +81,7 @@ const parsingBasicGridData = <T extends BaseGrid>(grid: T): T => ({
   divPerMM: Math.min(grid.divPerMM, MAX_DIV_PER_MM),
 });
 
-const singleGridCells = (grid: ISingleGrid, withSupports: boolean, text?: ITextRelief, fields?: SvgFields): CellData[] => [
+const singleGridCells = (grid: ISingleGrid, withSupports: boolean, fields?: SvgFields): CellData[] => [
   {
     geometrySettings: {
       ...grid,
@@ -99,7 +96,6 @@ const singleGridCells = (grid: ISingleGrid, withSupports: boolean, text?: ITextR
     },
     sdfSettings: grid.sdfSetting,
     withSupports,
-    text,
     fields,
   },
 ];
@@ -144,14 +140,11 @@ const simpleGridCells = (grid: ISimpleGrid, withSupports: boolean, fields?: SvgF
   return cellData;
 };
 
-/**
- * the settings of every bar of a grid, text is the relief of the text of the grid (only a single bar has one),
- * fields the distance fields of the svg shapes of its pattern
- */
-export const gridCells = (grid: IGridSettings, withSupports = false, text?: ITextRelief, fields?: SvgFields): CellData[] => {
+/** the settings of every bar of a grid, fields are the distance fields of the svg and text nodes of its pattern */
+export const gridCells = (grid: IGridSettings, withSupports = false, fields?: SvgFields): CellData[] => {
   switch (grid.type) {
     case GridType.Single:
-      return singleGridCells(grid, withSupports, text, fields);
+      return singleGridCells(grid, withSupports, fields);
     case GridType.Simple:
       return simpleGridCells(grid, withSupports, fields);
     // not implemented yet
@@ -223,7 +216,7 @@ export const DefaultGridSettings = (gridType: GridType): IGridSettings => {
   }
 };
 
-export const GridParser = (grid: IGridSettings, cellData: CellData[] = [], withSupports = false, text?: ITextRelief, fields?: SvgFields): ITriangularMesh[] => {
-  cellData.push(...gridCells(grid, withSupports, text, fields));
+export const GridParser = (grid: IGridSettings, cellData: CellData[] = [], withSupports = false, fields?: SvgFields): ITriangularMesh[] => {
+  cellData.push(...gridCells(grid, withSupports, fields));
   return cellData.map(applyGridData);
 };

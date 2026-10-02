@@ -1,6 +1,6 @@
 import { sampleCentredField } from '../field';
 import { DistanceMethod, ScaledDistanceMethod, distanceMethods } from '../sdMethods';
-import { IPattern, SdfNode, SvgFields } from './tree';
+import { IPattern, SdfNode, SvgFields, textFieldKey } from './tree';
 
 // the pattern compiled into closures, evaluated per vertex. three/shaders/sdfCodegen.ts generates the same in glsl.
 // every node is evaluated at a scale s: s' = s * node.scale is what the node works with, its output is multiplied by node.gain
@@ -39,6 +39,12 @@ const compileNode = (node: SdfNode, fields: SvgFields): ScaledDistanceMethod => 
       if (!field || !(width > 0)) return () => 0;
       return (x, _y, z, s) =>
         gain * width * sampleCentredField(field, repeat(x * s * scale - offsetX, period) / width, repeat(z * s * scale - offsetZ, period) / width);
+    }
+    case 'text': {
+      const field = fields.get(textFieldKey(node));
+      if (!field) return () => 0;
+      const { x: cx, z: cz } = field.center ?? { x: 0, z: 0 };
+      return (x, _y, z, s) => gain * sampleCentredField(field, x * s * scale - cx, z * s * scale - cz);
     }
     case 'sine': {
       const { amplitude, period } = node;
@@ -96,4 +102,20 @@ export const compilePattern = (pattern: IPattern, fields: SvgFields = new Map())
     const pz = z - cz;
     return sdf(c * px - sn * pz, y - cy, sn * px + c * pz, 1);
   };
+};
+
+/** where a point of the plane a node works in (at the given static scale, see staticScale) is on the bars, in mm */
+export const toWorld = (pattern: IPattern, scale: number, { x, z }: { x: number; z: number }): { x: number; z: number } => {
+  const angle = (pattern.rotation * Math.PI) / 180;
+  const [c, sn] = [Math.cos(angle), Math.sin(angle)];
+  const [rx, rz] = [x / scale, z / scale];
+  return { x: c * rx + sn * rz + pattern.center.x, z: -sn * rx + c * rz + pattern.center.z };
+};
+
+/** the inverse of toWorld */
+export const toPattern = (pattern: IPattern, scale: number, { x, z }: { x: number; z: number }): { x: number; z: number } => {
+  const angle = (pattern.rotation * Math.PI) / 180;
+  const [c, sn] = [Math.cos(angle), Math.sin(angle)];
+  const [px, pz] = [x - pattern.center.x, z - pattern.center.z];
+  return { x: (c * px - sn * pz) * scale, z: (sn * px + c * pz) * scale };
 };

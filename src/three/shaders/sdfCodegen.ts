@@ -1,10 +1,11 @@
 import { DistanceMethodType } from '../../geometry/sdMethods';
-import { IPattern, SdfNode, SvgFields } from '../../geometry/sdf/tree';
+import { IPattern, SdfNode, SvgFields, textFieldKey } from '../../geometry/sdf/tree';
 
 // glsl port of geometry/sdf/evaluate.ts. The structure of the tree is generated into the shader, its numbers are uniforms,
 // so only adding, removing or changing the kind of a node compiles a new shader, editing a number does not.
 
-export const MAX_SVG_SLOTS = 4;
+// samplers for the distance fields of svg and text nodes
+export const MAX_FIELD_SLOTS = 8;
 // vec4s, webgl2 guarantees 224 uniform vectors in a fragment shader, the bake uses a few more
 export const MAX_PARAM_VECTORS = 192;
 
@@ -80,8 +81,8 @@ type Param = (fields: SvgFields) => number;
 export interface ISdfShaderPlan {
   /** the glsl of the sdf, it only depends on the structure of the tree, so it is the key of the shader too */
   glsl: string;
-  /** the svg asset of every sampler slot, uSvg0, uSvg1, ... */
-  svgAssets: string[];
+  /** the field key of every sampler slot, uField0, uField1, ... */
+  fieldKeys: string[];
   /** whether the shader can hold the tree */
   fits: boolean;
   /** the values of uParams */
@@ -91,7 +92,12 @@ export interface ISdfShaderPlan {
 const buildPlan = (root: SdfNode): ISdfShaderPlan => {
   const lines: string[] = [];
   const params: Param[] = [];
-  const svgAssets: string[] = [];
+  const fieldKeys: string[] = [];
+  const slot = (key: string) => {
+    let i = fieldKeys.indexOf(key);
+    if (i < 0) i = fieldKeys.push(key) - 1;
+    return `uField${Math.min(i, MAX_FIELD_SLOTS - 1)}`;
+  };
   let count = 0;
 
   const param = (value: Param): string => {
@@ -113,12 +119,19 @@ const buildPlan = (root: SdfNode): ISdfShaderPlan => {
         d = param(() => node.value);
         break;
       case 'svg': {
-        let slot = svgAssets.indexOf(node.asset);
-        if (slot < 0) slot = svgAssets.push(node.asset) - 1;
-        const field = `uSvg${Math.min(slot, MAX_SVG_SLOTS - 1)}`;
+        const field = slot(node.asset);
         const offset = `vec2(${param(() => node.offsetX)}, ${param(() => node.offsetZ)})`;
         const pixelSize = param((fields) => fields.get(node.asset)?.pixelSize ?? 0);
         d = `svgDistance(${field}, p.xz * ${sk}, ${param(() => node.width)}, ${offset}, ${param(() => node.repeat)}, ${pixelSize})`;
+        break;
+      }
+      case 'text': {
+        // in mm around the centre of its field, see the text case in geometry/sdf/evaluate.ts
+        const key = textFieldKey(node);
+        const field = slot(key);
+        const center = `vec2(${param((fields) => fields.get(key)?.center?.x ?? 0)}, ${param((fields) => fields.get(key)?.center?.z ?? 0)})`;
+        const pixelSize = param((fields) => fields.get(key)?.pixelSize ?? 0);
+        d = `svgDistance(${field}, p.xz * ${sk}, 1.0, ${center}, 0.0, ${pixelSize})`;
         break;
       }
       case 'sine': {
@@ -155,7 +168,7 @@ const buildPlan = (root: SdfNode): ISdfShaderPlan => {
 
   const result = generate(root, '1.0');
   const vectors = Math.max(1, Math.ceil(params.length / 4));
-  const samplers = [...Array(MAX_SVG_SLOTS).keys()].map((j) => `uniform sampler2D uSvg${j};`).join('\n');
+  const samplers = [...Array(MAX_FIELD_SLOTS).keys()].map((j) => `uniform sampler2D uField${j};`).join('\n');
 
   const glsl = /* glsl */ `
 uniform vec4 uParams[${vectors}];
@@ -174,8 +187,8 @@ float sdf(vec3 position) {
 
   return {
     glsl,
-    svgAssets,
-    fits: svgAssets.length <= MAX_SVG_SLOTS && vectors <= MAX_PARAM_VECTORS,
+    fieldKeys,
+    fits: fieldKeys.length <= MAX_FIELD_SLOTS && vectors <= MAX_PARAM_VECTORS,
     params: (fields) => {
       const values = new Float32Array(vectors * 4);
       params.forEach((value, i) => (values[i] = value(fields)));
@@ -193,7 +206,7 @@ export const sdfShaderPlan = (pattern: IPattern): ISdfShaderPlan => {
   return plan;
 };
 
-/** the uniforms of the sdf of the plan, but for the svg samplers */
+/** the uniforms of the sdf of the plan, but for the field samplers */
 export const sdfUniformValues = (pattern: IPattern, fields: SvgFields) => {
   const angle = (pattern.rotation * Math.PI) / 180;
   return {

@@ -1,5 +1,5 @@
 import { DistanceMethodType } from '../../geometry/sdMethods';
-import { GROUP_KINDS, GroupKind, IPattern, NodeKind, SdfNode, constantNode, groupNode, methodNode, sineNode, svgNode } from '../../geometry/sdf/tree';
+import { GROUP_KINDS, GroupKind, IPattern, NodeKind, SdfNode, constantNode, groupNode, methodNode, sineNode, svgNode, textNode } from '../../geometry/sdf/tree';
 import { duplicateNode, findParent, insertChild, moveNode, removeNode, wrapNode } from '../../geometry/sdf/treeOps';
 import { formatNumber } from '../../geometry/sdf/formula';
 
@@ -14,6 +14,8 @@ export const newNode = (kind: NodeKind, pattern: IPattern): SdfNode => {
       return methodNode(DistanceMethodType.SDGyroid);
     case 'svg':
       return svgNode(firstAsset(pattern));
+    case 'text':
+      return textNode();
     case 'sine':
       return sineNode();
     case 'constant':
@@ -50,13 +52,35 @@ export const applyAction = (pattern: IPattern, id: string, action: NodeAction): 
   return { root };
 };
 
-export const ADDABLE: NodeKind[] = ['method', 'svg', 'sine', 'constant', ...GROUP_KINDS];
+export const ADDABLE: NodeKind[] = ['method', 'svg', 'text', 'sine', 'constant', ...GROUP_KINDS];
 
 /** the scale and smooth radius of a node, next to its name in the tree */
 export const nodeSummary = (node: SdfNode): string =>
   [node.kind !== 'constant' && node.scale !== 1 && `@${formatNumber(node.scale)}`, 'smooth' in node && node.smooth > 0 && `~${formatNumber(node.smooth)}`]
     .filter(Boolean)
     .join(' ');
+
+/** the key attributes of a node in a few words, for a closed card */
+export const nodeDetails = (node: SdfNode): string => {
+  const f = formatNumber;
+  const own = (() => {
+    switch (node.kind) {
+      case 'svg':
+        return [`${f(node.width)} mm`, node.repeat > 0 && `↻ ${f(node.repeat)}`];
+      case 'text':
+        return [node.font, `${f(node.size)} mm`, node.curve?.mode];
+      case 'sine':
+        // amplitude and period are in its name
+        return [node.angle !== 0 && `${f(node.angle)}°`];
+      case 'method':
+      case 'constant':
+        return [];
+      default:
+        return [`${node.children.length} ${node.children.length === 1 ? 'item' : 'items'}`, 'smooth' in node && node.smooth > 0 && `~${f(node.smooth)}`];
+    }
+  })();
+  return [...own, node.kind !== 'constant' && node.scale !== 1 && `@${f(node.scale)}`, node.gain !== 1 && `×${f(node.gain)}`].filter(Boolean).join(' · ');
+};
 
 export interface TreeEditorProps {
   pattern: IPattern;

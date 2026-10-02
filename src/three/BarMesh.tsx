@@ -143,10 +143,9 @@ const logParity = (gl: THREE.WebGLRenderer, surface: Parameters<typeof readTopSu
 export const BarMesh: React.FC<{
   cell: CellData;
   geometry: THREE.BufferGeometry;
-  textTexture?: THREE.Texture;
-  svgTextures: ReadonlyMap<string, THREE.Texture>;
+  fieldTextures: ReadonlyMap<string, THREE.Texture>;
   reference?: ITriangularMesh;
-}> = ({ cell, geometry, textTexture, svgTextures, reference }) => {
+}> = ({ cell, geometry, fieldTextures, reference }) => {
   const gl = useThree((state) => state.gl);
   const invalidate = useThree((state) => state.invalidate);
   const { geometrySettings } = cell;
@@ -159,12 +158,12 @@ export const BarMesh: React.FC<{
   React.useEffect(() => () => material.dispose(), [material]);
 
   React.useLayoutEffect(() => {
-    bakeTopSurface(gl, surface, cell, textTexture, svgTextures);
+    bakeTopSurface(gl, surface, cell, fieldTextures);
     uniforms.uPositions.value = surface.positions.texture;
     uniforms.uNormals.value = surface.normals.texture;
     setBarUniforms(uniforms, cell.geometrySettings);
     invalidate();
-  }, [gl, surface, cell, textTexture, svgTextures, uniforms, invalidate]);
+  }, [gl, surface, cell, fieldTextures, uniforms, invalidate]);
 
   React.useLayoutEffect(() => {
     material.color.set(geometrySettings.color ?? DEFAULT_COLOR);
@@ -174,7 +173,7 @@ export const BarMesh: React.FC<{
 
   React.useEffect(() => {
     if (import.meta.env.DEV && reference) logParity(gl, surface, reference, cell.geometrySettings);
-  }, [gl, surface, cell, textTexture, reference]);
+  }, [gl, surface, cell, fieldTextures, reference]);
 
   // the pattern is not part of the bounding box, so don't cull on it
   return <mesh geometry={geometry} material={material} position={[basePosition.x, 0, basePosition.z]} frustumCulled={false} />;

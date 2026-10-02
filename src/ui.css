@@ -62,6 +62,40 @@ body {
   line-height: 1;
 }
 
+.toolbar .mode {
+  width: auto;
+  font-size: inherit;
+}
+
+/* the points of a base curve, its controls indented */
+
+.points {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.points li {
+  display: flex;
+  gap: 4px;
+}
+
+.points input {
+  flex: 1;
+  width: 0;
+}
+
+.points .control {
+  padding-left: 1.5em;
+  opacity: 0.7;
+}
+
+.points .selected input {
+  border-color: var(--accent);
+}
+
 .panels {
   overflow-y: auto;
   background: var(--panel);
@@ -84,7 +118,8 @@ body {
 /* sections */
 
 summary,
-.node {
+.node,
+.line .summary {
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
@@ -264,7 +299,7 @@ input[type='range'] {
 }
 
 .node,
-.card > header {
+.line {
   display: flex;
   align-items: center;
   gap: 4px;
@@ -331,41 +366,109 @@ input[type='range'] {
   border-top: 1px solid var(--line);
 }
 
-/* the mobile tree: a breadcrumb over the cards of one level */
+/* the mobile tree: a column of cards per level, in a strip that snaps to them, the parent peeking at the left */
 
-.crumbs {
+.columns {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 2px;
-  color: var(--muted);
+  gap: var(--gap);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
 }
 
-.crumbs button {
+.column {
+  display: grid;
+  flex: 0 0 85%;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+  scroll-snap-align: end;
+}
+
+.column:only-child {
+  flex-basis: 100%;
+}
+
+.column-head {
+  display: flex;
+  align-items: start;
+  gap: 4px;
+}
+
+.column-head > button {
+  min-height: 0;
+  padding: 0 6px;
   color: var(--accent);
   background: none;
   border: 0;
 }
 
+.column-head > details {
+  flex: 1;
+  min-width: 0;
+}
+
+.column-head summary {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card.on-path {
+  border-left: 3px solid var(--accent);
+}
+
+.line > button.active {
+  color: var(--accent);
+  font-weight: 700;
+}
+
 .card {
   display: grid;
   gap: var(--gap);
-  padding: var(--gap);
+  padding: 2px 2px 2px 6px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
 }
 
+.card:has(> .stack) {
+  padding-bottom: var(--gap);
+}
+
+/* the line of a card, its summary takes the room the buttons leave */
+.line .summary {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+  background: none;
+  border: 0;
+}
+
+.line .summary .name {
+  flex: 0 1 auto;
+}
+
+.line .summary .meta {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.line > button:not(.summary) {
+  width: var(--control);
+  background: none;
+  border-color: transparent;
+}
+
 .card.selected {
   border-color: var(--accent);
-}
-
-.more > summary {
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.more[open] > summary {
-  margin-bottom: var(--gap);
 }
 
 .card .menu {

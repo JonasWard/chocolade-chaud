@@ -1,17 +1,20 @@
 import React from 'react';
 import { DistanceMethodType } from '../../geometry/sdMethods';
-import { GROUP_KINDS, IPattern, NodeKind, SdfNode, isGroup } from '../../geometry/sdf/tree';
+import { GROUP_KINDS, IPattern, NodeKind, SdfNode, isGroup, textFieldKey } from '../../geometry/sdf/tree';
 import { KIND_GLYPH, KIND_LABEL, methodLabel } from '../../geometry/sdf/formula';
-import { changeKind } from '../../geometry/sdf/treeOps';
+import { changeKind, staticScale } from '../../geometry/sdf/treeOps';
 import { Field, LogSlider, NumberField, Select } from '../ui';
 import { firstAsset } from './actions';
 import { NodeIcon } from './icons';
+import { FontField } from './FontField';
+import { CurveFields } from './CurveFields';
+import { EditorContext } from './editorContext';
 
 // one select for the kind of a node, the methods are kinds of their own in it
 type KindOption = DistanceMethodType | Exclude<NodeKind, 'method'>;
 const KIND_OPTIONS: [KindOption, string][] = [
   ...Object.values(DistanceMethodType).map((m): [KindOption, string] => [m, `${KIND_GLYPH.method} ${methodLabel(m)}`]),
-  ...(['svg', 'sine', 'constant', ...GROUP_KINDS] as const).map((k): [KindOption, string] => [k, `${KIND_GLYPH[k]} ${KIND_LABEL[k]}`]),
+  ...(['svg', 'text', 'sine', 'constant', ...GROUP_KINDS] as const).map((k): [KindOption, string] => [k, `${KIND_GLYPH[k]} ${KIND_LABEL[k]}`]),
 ];
 
 const HINTS: Partial<Record<NodeKind, string>> = {
@@ -19,6 +22,7 @@ const HINTS: Partial<Record<NodeKind, string>> = {
   difference: 'The first child minus the others.',
   subtract: 'The first child minus the others.',
   sine: 'Distance in mm to a sine curve along x, turned by the angle. Union it with a constant to cap it, or use it to drive a chain.',
+  text: 'Distance in mm to the outline of the letters, negative inside. Intersect it with a constant for flat letters.',
   svg: 'Distance in mm to the shape, centred on the middle of the bar. Repeat tiles it, 0 shows it once. In a union with a constant, the constant caps the distance.',
 };
 
@@ -29,6 +33,7 @@ export const NodeInspector: React.FC<{ node: SdfNode; pattern: IPattern; onChang
   onChange,
   hideScale,
 }) => {
+  const { errors } = React.useContext(EditorContext);
   const set = (patch: object) => onChange({ ...node, ...patch } as SdfNode);
   const number = (label: string, value: number, key: string, step = 0.1, min?: number) => (
     <Field label={label}>
@@ -80,6 +85,28 @@ export const NodeInspector: React.FC<{ node: SdfNode; pattern: IPattern; onChang
           {number('Offset X', node.offsetX, 'offsetX', 1)}
           {number('Offset Z', node.offsetZ, 'offsetZ', 1)}
           {number('Repeat mm', node.repeat, 'repeat', 1, 0)}
+        </>
+      )}
+      {node.kind === 'text' && (
+        <>
+          <input aria-label='text' placeholder='text' value={node.text} onChange={(e) => set({ text: e.target.value })} />
+          <Field label='Font'>
+            <div className='stack'>
+              <FontField font={node.font} source={node.fontSource} error={errors[textFieldKey(node)]} onChange={(font, fontSource) => set({ font, fontSource })} />
+            </div>
+          </Field>
+          <Field label='Bold'>
+            <input type='checkbox' checked={node.bold} onChange={(e) => set({ bold: e.target.checked })} />
+          </Field>
+          {number('Size mm', node.size, 'size', 0.5, 0.5)}
+          {!node.curve && (
+            <>
+              {number('Offset X', node.offsetX, 'offsetX', 1)}
+              {number('Offset Z', node.offsetZ, 'offsetZ', 1)}
+              {number('Angle °', node.angle, 'angle', 5)}
+            </>
+          )}
+          <CurveFields node={node} onChange={onChange} editable={staticScale(pattern.root, node.id) !== undefined} />
         </>
       )}
       {node.kind === 'sine' && (

@@ -1,5 +1,6 @@
 import type { IVector } from '../createMesh';
 import type { IDistanceField } from '../field';
+import type { ICurve } from '../curve';
 import { DistanceMethodType } from '../sdMethods';
 
 // the pattern is a tree of distance functions, see evaluate.ts for what every node computes
@@ -7,7 +8,7 @@ import { DistanceMethodType } from '../sdMethods';
 export type BooleanKind = 'union' | 'difference' | 'intersection';
 export type ArithmeticKind = 'add' | 'subtract';
 export type GroupKind = BooleanKind | ArithmeticKind | 'chain';
-export type LeafKind = 'method' | 'svg' | 'sine' | 'constant';
+export type LeafKind = 'method' | 'svg' | 'text' | 'sine' | 'constant';
 export type NodeKind = GroupKind | LeafKind;
 
 interface INodeBase {
@@ -34,6 +35,26 @@ export interface ISvgNode extends INodeBase {
   offsetZ: number;
   /** tiles the shape every repeat mm, 0 is once */
   repeat: number;
+}
+
+export type FontSource = 'local' | 'google';
+
+/** text in the xz plane, along a base curve or on a straight line. Signed distance in mm to the outline of its glyphs */
+export interface ITextNode extends INodeBase {
+  kind: 'text';
+  text: string;
+  /** family name, an installed font or a google font */
+  font: string;
+  fontSource: FontSource;
+  bold: boolean;
+  /** font size in mm */
+  size: number;
+  /** the base line the text stands on, centred on it. Without one, the text is centred on the offset, turned by the angle */
+  curve: ICurve | null;
+  offsetX: number;
+  offsetZ: number;
+  /** in degrees */
+  angle: number;
 }
 
 /** unsigned distance to the curve z = amplitude * sin(2 pi x / period) in the xz plane, turned by angle, in mm */
@@ -69,7 +90,7 @@ export interface IChainNode extends INodeBase {
   children: SdfNode[];
 }
 
-export type LeafNode = IMethodNode | ISvgNode | ISineNode | IConstantNode;
+export type LeafNode = IMethodNode | ISvgNode | ITextNode | ISineNode | IConstantNode;
 export type GroupNode = IBooleanNode | IArithmeticNode | IChainNode;
 export type SdfNode = LeafNode | GroupNode;
 
@@ -86,7 +107,7 @@ export interface IPattern {
   svgs: Record<string, ISvgAsset>;
 }
 
-/** the distance fields of the svg assets of a pattern, by asset key */
+/** the distance fields of the svg assets and the text nodes of a pattern, by field key (see fieldKey) */
 export type SvgFields = ReadonlyMap<string, IDistanceField>;
 
 export const GROUP_KINDS: GroupKind[] = ['union', 'difference', 'intersection', 'add', 'subtract', 'chain'];
@@ -100,6 +121,19 @@ const base = (scale = 1) => ({ id: newId(), scale, gain: 1 });
 
 export const methodNode = (method: DistanceMethodType, scale = 1): IMethodNode => ({ ...base(scale), kind: 'method', method });
 export const svgNode = (asset: string, width = 30): ISvgNode => ({ ...base(), kind: 'svg', asset, width, offsetX: 0, offsetZ: 0, repeat: 0 });
+export const textNode = (text = 'Chaud'): ITextNode => ({
+  ...base(),
+  kind: 'text',
+  text,
+  font: 'sans-serif',
+  fontSource: 'local',
+  bold: true,
+  size: 12,
+  curve: null,
+  offsetX: 0,
+  offsetZ: 0,
+  angle: 0,
+});
 export const sineNode = (amplitude = 5, period = 20): ISineNode => ({ ...base(), kind: 'sine', amplitude, period, angle: 0 });
 export const constantNode = (value = 0): IConstantNode => ({ ...base(), kind: 'constant', value });
 
@@ -125,6 +159,13 @@ export const svgHash = (source: string): number => {
 
 /** an svg asset is keyed by its source, so the same svg is the same asset everywhere (and in a link) */
 export const svgKey = (source: string): string => `h${svgHash(source).toString(16).padStart(8, '0')}`;
+
+/** what is drawn of a text node, a change of it needs a new distance field */
+export const textFieldKey = ({ text, font, fontSource, bold, size, curve, offsetX, offsetZ, angle }: ITextNode): string =>
+  `t${svgHash(JSON.stringify([text, font, fontSource, bold, size, curve, offsetX, offsetZ, angle])).toString(16).padStart(8, '0')}`;
+
+/** the key of the distance field of a node that has one */
+export const fieldKey = (node: SdfNode): string | undefined => (node.kind === 'svg' ? node.asset : node.kind === 'text' ? textFieldKey(node) : undefined);
 
 export const STAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 4l13.5 30.5 33 3.5-24.8 22.2 7 32.6L50 76.2 21.3 92.8l7-32.6L3.5 38l33-3.5z"/></svg>`;
 

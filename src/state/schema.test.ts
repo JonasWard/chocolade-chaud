@@ -1,6 +1,6 @@
 import { DefaultGridSettings, GridType, IEditableGrid, ISimpleGrid, ISingleGrid } from '../geometry/grid';
 import { DistanceMethodType } from '../geometry/sdMethods';
-import { IBooleanNode, IPattern, SdfNode, constantNode, defaultPattern, groupNode, methodNode, sineNode, svgKey, svgNode } from '../geometry/sdf/tree';
+import { IBooleanNode, IPattern, SdfNode, constantNode, defaultPattern, groupNode, methodNode, sineNode, svgKey, svgNode, textNode } from '../geometry/sdf/tree';
 import { decodeState, encodeState } from './schema';
 
 const single = () => DefaultGridSettings(GridType.Single) as ISingleGrid;
@@ -27,7 +27,7 @@ test('the default state survives a round trip and is short', () => {
   expectClose(decodeState(encoded, library), grid);
 });
 
-test('a tree with every kind of node and text survives a round trip', () => {
+test('a tree with every kind of node survives a round trip', () => {
   const logo = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"><rect width="1" height="1"/></svg>';
   const star = Object.keys(library)[0];
   const root = groupNode('union', [
@@ -35,11 +35,16 @@ test('a tree with every kind of node and text survives a round trip', () => {
     { ...(groupNode('difference', [sineNode(2.5, 17), constantNode(-0.75)]) as IBooleanNode), smooth: 1.5 },
     { ...groupNode('intersection', [svgNode(star)]), gain: -2 },
     groupNode('add', [methodNode(DistanceMethodType.SDTorus, 1e-3)]),
-    groupNode('subtract'),
+    groupNode('subtract', [
+      { ...textNode('Ça ¡chaud! 🍫'), font: 'Playfair Display', fontSource: 'google', bold: false, size: 9.5, offsetX: -3, angle: 30 },
+      {
+        ...textNode('on a curve'),
+        curve: { mode: 'spline', points: [{ x: -20, z: 0 }, { x: -10, z: -8.25 }, { x: 10, z: 8 }, { x: 20, z: 0.5 }] },
+      },
+    ]),
   ]);
   const pattern: IPattern = { root, center: { x: 1.5, y: -2, z: 30 }, rotation: 45, svgs: { ...library, [svgKey(logo)]: { name: 'logo', source: logo } } };
-  const text = { text: 'Ça ¡chaud! 🍫', fontFamily: 'serif', size: 12, offsetX: -3, offsetZ: 2.5, depth: -0.4, bevelWidth: 0.7, patternFade: 0.5 };
-  const grid: IEditableGrid = { ...single(), cellWidth: 123.45, amplitude: -0.35, displayWireframe: true, color: '#12abef', text, sdfSetting: pattern };
+  const grid: IEditableGrid = { ...single(), cellWidth: 123.45, amplitude: -0.35, displayWireframe: true, color: '#12abef', sdfSetting: pattern };
 
   const withLogo = { ...library, [svgKey(logo)]: { name: 'logo', source: logo } };
   const decoded = decodeState(encodeState(grid), withLogo);
