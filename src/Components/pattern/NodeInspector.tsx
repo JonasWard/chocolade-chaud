@@ -91,7 +91,7 @@ export const NodeInspector: React.FC<{ node: SdfNode; pattern: IPattern; onChang
               {number('Angle °', node.angle, 'angle', 5)}
             </>
           )}
-          <CurveFields node={node} onChange={onChange} exact={frame?.exact ?? true} />
+          <CurveFields node={node} onChange={onChange} />
           {profileFields(node)}
         </>
       )}

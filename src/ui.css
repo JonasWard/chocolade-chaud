@@ -711,12 +711,3 @@ input[type='range'] {
   border-color: var(--accent);
 }
 
-.toolbar-note {
-  align-self: center;
-  max-width: 14em;
-  padding: 2px 6px;
-  color: var(--muted);
-  font-size: 11px;
-  background: var(--panel);
-  border-radius: var(--radius);
-}

@@ -6,7 +6,7 @@ import { GROUP_KINDS, IPattern, ISvgAsset, NodeKind, SdfNode, isGroup, newId, sv
 // the state of the app packed into a short url safe string with densing. Numbers are rounded to the precision of their field,
 // svg sources don't fit: an svg is stored as the hash of its source (see svgKey), its source comes from the svg library
 
-export const STATE_VERSION = 5;
+export const STATE_VERSION = 6;
 // the oldest version a state can still be read from, see MIGRATIONS
 const OLDEST_VERSION = 4;
 
@@ -59,8 +59,8 @@ const stateSchema = (version: number) => {
       enumeration('fontSource', ['local', 'google']),
       bool('bold'),
       fixed('size', 0.5, 200, 0.01),
-      // the mode of the base curve, the points are its points
-      enumeration('curve', ['none', 'polyline', 'spline']),
+      // the mode of the base curve, the points are its points. Smooth curves came in version 6
+      enumeration('curve', version >= 6 ? ['none', 'polyline', 'spline', 'smooth'] : ['none', 'polyline', 'spline']),
       array('points', 0, MAX_POINTS, object('point', coordinate('x'), coordinate('z'))),
       coordinate('offsetX'),
       coordinate('offsetZ'),
@@ -155,6 +155,8 @@ const MIGRATIONS: Record<number, (n: NodeData) => NodeData> = {
         ? { ...n, inner: Math.max(depth as number, 0.01), outer: cutoff, beveled: true, innerBevel: bevel, outerBevel: cutoff }
         : { ...n, inner: 0, outer: cutoff, beveled: false, innerBevel: 0, outerBevel: 0 }
       : n,
+  // only added a mode of curves
+  5: (n) => n,
 };
 
 const migrate = (data: NodeData, from: number): NodeData => {

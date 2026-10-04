@@ -1,4 +1,4 @@
-import { ICurve, arcLengths, canDelete, convert, cubicPoint, deleteAt, flatten, insertAt, moveAt, pointAt, segmentCount, segmentMidpoints, straightCurve } from './curve';
+import { ICurve, SAMPLES_PER_SEGMENT, arcLengths, canDelete, convert, cubicPoint, deleteAt, flatten, insertAt, isAnchor, moveAt, pointAt, segmentCount, segmentMidpoints, straightCurve } from './curve';
 
 const spline: ICurve = {
   mode: 'spline',
@@ -84,4 +84,39 @@ test('arc length and extrapolation', () => {
   expect(pointAt(corner, lengths, -3).point).toEqual({ x: -3, z: 0 });
   expect(pointAt(corner, lengths, 24).point).toEqual({ x: 10, z: 14 });
   expect(arcLengths(flatten(straightCurve('spline', 40))).at(-1)).toBeCloseTo(40, 10);
+});
+
+describe('a smooth curve', () => {
+  const smooth: ICurve = { mode: 'smooth', points: [{ x: 0, z: 0 }, { x: 10, z: 10 }, { x: 20, z: 0 }, { x: 30, z: 10 }] };
+
+  test('runs through its points, with tangents parallel to the line between their neighbours', () => {
+    const line = flatten(smooth);
+    expect(line.length).toBe(3 * SAMPLES_PER_SEGMENT + 1);
+    smooth.points.forEach((p, k) => expect(line[k * SAMPLES_PER_SEGMENT]).toEqual(p));
+    // at (10, 10) the neighbours are (0, 0) and (20, 0): the curve runs level there
+    const [before, after] = [line[SAMPLES_PER_SEGMENT - 1], line[SAMPLES_PER_SEGMENT + 1]];
+    expect(after.z - before.z).toBeCloseTo(0, 1);
+    expect(after.x).toBeGreaterThan(before.x);
+  });
+
+  test('all its points are anchors, added on the curve and deleted one by one', () => {
+    expect(smooth.points.every((_, i) => isAnchor(smooth, i))).toBe(true);
+    expect(segmentCount(smooth)).toBe(3);
+    const { curve, index } = insertAt(smooth, 1);
+    expect(index).toBe(2);
+    expect(curve.points[2]).toEqual(segmentMidpoints(smooth)[1]);
+    expect(deleteAt(curve, 2)).toEqual(smooth);
+    expect(canDelete({ ...smooth, points: smooth.points.slice(0, 2) }, 0)).toBe(false);
+    // moving a point moves only that point
+    expect(moveAt(smooth, 1, { x: 12, z: 8 }).points).toEqual([smooth.points[0], { x: 12, z: 8 }, ...smooth.points.slice(2)]);
+  });
+
+  test('becomes a spline of the same shape, and back', () => {
+    const spline = convert(smooth, 'spline');
+    expect(spline.points.length).toBe(10);
+    expect(flatten(spline)).toEqual(flatten(smooth));
+    expect(convert(spline, 'smooth')).toEqual(smooth);
+    expect(convert(smooth, 'polyline').points).toEqual(smooth.points);
+    expect(convert(convert(smooth, 'polyline'), 'smooth')).toEqual(smooth);
+  });
 });

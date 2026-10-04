@@ -4,16 +4,16 @@ import { ThreeEvent, useFrame, useThree } from '@react-three/fiber';
 import { Line } from '@react-three/drei';
 import { ICurve, IPoint2, deleteAt, flatten, insertAt, isAnchor, moveAt, segmentMidpoints } from '../geometry/curve';
 import { IPattern } from '../geometry/sdf/tree';
-import { toPattern, toWorld } from '../geometry/sdf/evaluate';
+import { fromNode, toPattern, toWorld } from '../geometry/sdf/evaluate';
 
-// the base curve of a text node in the scene, its points dragged on the plane at the top of the bars
+// the base curve of a text node in the scene while it is edited, its points dragged on the plane at the top of the bars
 
-/** the curve being edited, scale is the scale of its text node, exact whether that is its scale everywhere (see nodeFrame) */
+/** the curve of the selected text node */
 export interface ICurveEditing {
   curve: ICurve;
-  scale: number;
-  exact: boolean;
-  /** points can be dragged, added and deleted, else the curve is only shown */
+  /** the scale its text node is evaluated at, at a point of the plane of the pattern (see nodeScaleAt) */
+  scaleAt: (x: number, z: number) => number;
+  /** whether it is edited in the scene */
   editing: boolean;
   point?: number;
   onChange: (curve: ICurve) => void;
@@ -33,22 +33,37 @@ const overlay = { depthTest: false, depthWrite: false, transparent: true } as co
 
 const isTyping = (target: EventTarget | null) => target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement;
 
-export const CurveEditor: React.FC<ICurveEditing & { pattern: IPattern; y: number }> = ({ curve, scale, editing, point, onChange, onSelectPoint, pattern, y }) => {
+/** where the points of the text node are on the bars, undefined where they are nowhere (see fromNode). Every point starts from the one before */
+export const curveToWorld = (pattern: IPattern, scaleAt: ICurveEditing['scaleAt'], points: IPoint2[]): (IPoint2 | undefined)[] => {
+  let previous: IPoint2 | undefined;
+  return points.map((q) => {
+    const p = fromNode(scaleAt, q, previous) ?? fromNode(scaleAt, q);
+    previous = p;
+    return p && toWorld(pattern, 1, p);
+  });
+};
+
+/** the runs of a line that are somewhere */
+const runs = (points: (THREE.Vector3 | undefined)[]): THREE.Vector3[][] =>
+  points.reduce<THREE.Vector3[][]>((all, p, i) => {
+    if (!p) return all;
+    if (i === 0 || !points[i - 1]) all.push([]);
+    all[all.length - 1].push(p);
+    return all;
+  }, []);
+
+export const CurveEditor: React.FC<ICurveEditing & { pattern: IPattern; y: number }> = ({ curve, scaleAt, point, onChange, onSelectPoint, pattern, y }) => {
   const get = useThree((state) => state.get);
   const handles = React.useRef<THREE.Group>(null);
 
-  const world = (p: IPoint2) => {
-    const w = toWorld(pattern, scale, p);
-    return new THREE.Vector3(w.x, y, w.z);
-  };
+  const vector = (w?: IPoint2) => w && new THREE.Vector3(w.x, y, w.z);
+  const toScene = (points: IPoint2[]) => curveToWorld(pattern, scaleAt, points).map(vector);
 
   // a world unit per pixel, so the handles have the same size on screen at every zoom
   useFrame(({ camera, size }) => {
     if (!handles.current) return;
     const unit =
-      camera instanceof THREE.OrthographicCamera
-        ? 1 / camera.zoom
-        : (2 * camera.position.y * Math.tan(((camera as THREE.PerspectiveCamera).fov * Math.PI) / 360)) / size.height;
+      camera instanceof THREE.OrthographicCamera ? 1 / camera.zoom : (2 * camera.position.y * Math.tan(((camera as THREE.PerspectiveCamera).fov * Math.PI) / 360)) / size.height;
     handles.current.children.forEach((h) => h.scale.setScalar(unit));
   });
 
@@ -68,7 +83,9 @@ export const CurveEditor: React.FC<ICurveEditing & { pattern: IPattern; y: numbe
       const ndc = new THREE.Vector2(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
       raycaster.setFromCamera(ndc, get().camera);
       if (!raycaster.ray.intersectPlane(plane, hit)) return;
-      current = moveAt(current, index, toPattern(pattern, scale, { x: hit.x, z: hit.z }));
+      const p = toPattern(pattern, 1, { x: hit.x, z: hit.z });
+      const s = scaleAt(p.x, p.z);
+      current = moveAt(current, index, { x: p.x * s, z: p.z * s });
       onChange(current);
     };
     const end = () => {
@@ -96,7 +113,7 @@ export const CurveEditor: React.FC<ICurveEditing & { pattern: IPattern; y: numbe
 
   // the selected point is deleted with delete or backspace
   React.useEffect(() => {
-    if (!editing || point === undefined) return;
+    if (point === undefined) return;
     const onKey = (e: KeyboardEvent) => {
       if ((e.key !== 'Delete' && e.key !== 'Backspace') || isTyping(e.target)) return;
       e.preventDefault();
@@ -105,40 +122,45 @@ export const CurveEditor: React.FC<ICurveEditing & { pattern: IPattern; y: numbe
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [editing, point, curve, onChange, onSelectPoint]);
+  }, [point, curve, onChange, onSelectPoint]);
 
-  const path = flatten(curve).map(world);
-  const points = curve.points.map(world);
+  const path = runs(toScene(flatten(curve)));
+  const points = toScene(curve.points);
+  const midpoints = toScene(segmentMidpoints(curve));
 
   return (
     <group renderOrder={10}>
-      <Line points={path} color={ACCENT} lineWidth={editing ? 2 : 1.5} transparent opacity={editing ? 1 : 0.5} depthTest={false} renderOrder={10} />
-      {editing && curve.mode === 'spline' && (
+      {path.map((run, i) => run.length > 1 && <Line key={i} points={run} color={ACCENT} lineWidth={2} depthTest={false} renderOrder={10} />)}
+      {curve.mode === 'spline' && (
         // the arms from the anchors to their controls
         <>
-          {points.map((p, i) =>
-            isAnchor(curve, i) ? null : (
-              <Line key={i} points={[p, points[i % 3 === 1 ? i - 1 : i + 1]]} color={INK} lineWidth={1} transparent opacity={0.5} depthTest={false} renderOrder={10} />
-            )
-          )}
+          {points.map((p, i) => {
+            const anchor = points[i % 3 === 1 ? i - 1 : i + 1];
+            return isAnchor(curve, i) || !p || !anchor ? null : (
+              <Line key={i} points={[p, anchor]} color={INK} lineWidth={1} transparent opacity={0.5} depthTest={false} renderOrder={10} />
+            );
+          })}
         </>
       )}
-      {editing && (
-        <group ref={handles}>
-          {segmentMidpoints(curve).map((m, k) => (
-            <mesh key={`ghost-${k}`} position={world(m)} rotation={flat} renderOrder={11} onPointerDown={onGhost(k)}>
-              <circleGeometry args={[HIT * 0.7, 16]} />
-              <meshBasicMaterial color={ACCENT} opacity={0} {...overlay} />
-              <mesh renderOrder={11}>
-                <circleGeometry args={[GHOST, 16]} />
-                <meshBasicMaterial color={ACCENT} opacity={0.35} {...overlay} />
+      <group ref={handles}>
+        {midpoints.map(
+          (m, k) =>
+            m && (
+              <mesh key={`ghost-${k}`} position={m} rotation={flat} renderOrder={11} onPointerDown={onGhost(k)}>
+                <circleGeometry args={[HIT * 0.7, 16]} />
+                <meshBasicMaterial color={ACCENT} opacity={0} {...overlay} />
+                <mesh renderOrder={11}>
+                  <circleGeometry args={[GHOST, 16]} />
+                  <meshBasicMaterial color={ACCENT} opacity={0.35} {...overlay} />
+                </mesh>
               </mesh>
-            </mesh>
-          ))}
-          {points.map((p, i) => {
-            const anchor = isAnchor(curve, i);
-            const selected = i === point;
-            return (
+            )
+        )}
+        {points.map((p, i) => {
+          const anchor = isAnchor(curve, i);
+          const selected = i === point;
+          return (
+            p && (
               <mesh key={i} position={p} rotation={flat} renderOrder={12} onPointerDown={onPoint(i)}>
                 <circleGeometry args={[HIT, 16]} />
                 <meshBasicMaterial color={ACCENT} opacity={0} {...overlay} />
@@ -153,10 +175,10 @@ export const CurveEditor: React.FC<ICurveEditing & { pattern: IPattern; y: numbe
                   </mesh>
                 )}
               </mesh>
-            );
-          })}
-        </group>
-      )}
+            )
+          );
+        })}
+      </group>
     </group>
   );
 };
