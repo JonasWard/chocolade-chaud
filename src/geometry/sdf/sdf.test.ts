@@ -1,6 +1,6 @@
 import { DistanceMethodType, distanceMethods, sdGyroid, sdSchwarzD, sdSphere } from '../sdMethods';
 import { IDistanceField, sampleCentredField, sampleField } from '../field';
-import { compilePattern, profile, repeat, sdSine, smoothMin, toPattern, toWorld } from './evaluate';
+import { compilePattern, fromNode, nodeScaleAt, profile, repeat, sdSine, smoothMin, toPattern, toWorld } from './evaluate';
 import { DEFAULT_PROFILE, IPattern, SdfNode, constantNode, defaultPattern, groupNode, isGroup, methodNode, sineNode, svgKey, svgNode, textNode } from './tree';
 import { canUnwrap, changeKind, duplicateNode, findPath, insertChild, moveInto, moveNode, moveOut, moveTargets, nodeFrame, removeNode, staticScale, unwrap, updateNode, wrapNode } from './treeOps';
 import { formula } from './formula';
@@ -330,5 +330,42 @@ describe('moving nodes between groups', () => {
     const sdf = compilePattern({ ...p, root: back });
     const original = compilePattern(p);
     points.forEach(([x, y, z]) => expect(sdf(x, y, z)).toBeCloseTo(original(x, y, z), 10));
+  });
+});
+
+describe('the scale a node is evaluated at', () => {
+  test('is its static scale outside a chain', () => {
+    const leaf = methodNode(DistanceMethodType.SDGyroid, 3);
+    const p = pattern({ ...groupNode('union', [leaf]), scale: 2 });
+    expect(nodeScaleAt(p, leaf.id)!(5, -7)).toBe(6);
+    expect(fromNode(nodeScaleAt(p, leaf.id)!, { x: 12, z: -6 })).toEqual({ x: 2, z: -1 });
+  });
+
+  test('inside a chain it is the output of the children after it, as the pattern evaluates it', () => {
+    const gyroid = methodNode(DistanceMethodType.SDGyroid, 2);
+    const sine = { ...sineNode(0.5, 40), gain: 0.2 };
+    const inner = groupNode('add', [sine, constantNode(1)]);
+    const p = pattern({ ...groupNode('chain', [gyroid, inner]), scale: 1.5 });
+    const scaleAt = nodeScaleAt(p, gyroid.id, new Map(), 2)!;
+    const sdf = compilePattern(p);
+    for (const [x, z] of [
+      [0, 0],
+      [3, -8],
+      [-12.5, 4],
+      [20, 17],
+    ]) {
+      expect(sdf(x, 2, z)).toBeCloseTo(distanceMethods[DistanceMethodType.SDGyroid](x, 2, z, scaleAt(x, z)), 10);
+      // and a point of the gyroid is found back on the plane
+      const q = { x: x * scaleAt(x, z), z: z * scaleAt(x, z) };
+      const found = fromNode(scaleAt, q)!;
+      expect(found.x * scaleAt(found.x, found.z)).toBeCloseTo(q.x, 2);
+      expect(found.z * scaleAt(found.x, found.z)).toBeCloseTo(q.z, 2);
+    }
+  });
+
+  test('where the scale is 0, a point of the node is nowhere', () => {
+    const gyroid = methodNode(DistanceMethodType.SDGyroid);
+    const p = pattern(groupNode('chain', [gyroid, constantNode(0)]));
+    expect(fromNode(nodeScaleAt(p, gyroid.id)!, { x: 1, z: 1 })).toBeUndefined();
   });
 });

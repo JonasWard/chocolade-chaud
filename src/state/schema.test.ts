@@ -44,6 +44,7 @@ test('a tree with every kind of node survives a round trip', () => {
         ...textNode('on a curve'),
         curve: { mode: 'spline', points: [{ x: -20, z: 0 }, { x: -10, z: -8.25 }, { x: 10, z: 8 }, { x: 20, z: 0.5 }] },
       },
+      { ...textNode('on a smooth curve'), curve: { mode: 'smooth', points: [{ x: -20, z: 0 }, { x: 0, z: 5 }, { x: 20, z: 0 }] } },
     ]),
   ]);
   const pattern: IPattern = { root, center: { x: 1.5, y: -2, z: 30 }, rotation: 45, svgs: { ...library, [svgKey(logo)]: { name: 'logo', source: logo } } };
@@ -93,4 +94,15 @@ test('a state of version 4 still reads, its profiles shaped the same', () => {
   for (const d of [-3, -0.4, -0.1, 0, 0.2, 2, 9]) expect(profile(d, flat as IProfile)).toBeCloseTo(old(d), 12);
   // and it is written as the current version
   expectClose(decodeState(encodeState(grid), library), grid);
+});
+
+// written by version 5: the text 'flat' with limits and bevels, the text 'curve' on a spline
+const V5 =
+  'BR5GBtYAD6ElxO6BdwU50EMNQMNQMNQIygBX7JiYlTiGKiAAARJxDFRAIAMwA2ADCAOgoAcwBhAG4AcwAtAHMAZQByAGkAZkI_ABhqBhqBwgAH0Ar0AGQAyCTiGKiAUAYwB1AHIAdgBlFADmAMIA3ADmAFoA5gDKAOQA0gDMhH6CL9oMNQMFcMHAMVEMTgMc4MNQMNQMNQOEAAAAAAAAAAAA';
+
+test('a state of version 5 still reads', () => {
+  const grid = decodeState(V5, library) as ISingleGrid;
+  const [flat, curve] = (grid.sdfSetting.root as { children: SdfNode[] }).children;
+  expect(flat).toMatchObject({ kind: 'text', text: 'flat', inner: 1.25, outer: 3.5, beveled: true, innerBevel: 0.5, outerBevel: 2 });
+  expect(curve).toMatchObject({ text: 'curve', curve: { mode: 'spline', points: [{ x: -20, z: 0 }, { x: -10, z: -8 }, { x: 10, z: 8 }, { x: 20, z: 0 }] } });
 });

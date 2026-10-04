@@ -9,9 +9,8 @@ import { BarMesh, barGeometryKey, createBarGeometry } from './BarMesh';
 import { canBakeTopSurface, createFieldTexture, fieldTextureSize } from './shaders/bake';
 import { sdfShaderPlan } from './shaders/sdfCodegen';
 import { SvgFields } from '../geometry/sdf/tree';
-import { CurveEditor, ICurveEditing } from './CurveEditor';
+import { CurveEditor, ICurveEditing, curveToWorld } from './CurveEditor';
 import { IViewFocus, ViewController } from './ViewController';
-import { toWorld } from '../geometry/sdf/evaluate';
 
 // the part of the settings that changes the outline of the grid, the camera is only refitted when it changes
 const footprint = (grid: IGridSettings): string => {
@@ -63,13 +62,7 @@ const Bars: React.FC<SceneProps> = ({ grid, fields, meshes }) => {
   const references = meshes?.grid === grid && meshes.fields === fields ? meshes.meshes : undefined;
 
   return cells.map((cell, i) => (
-    <BarMesh
-      key={i}
-      cell={cell}
-      geometry={geometries.get(geometryKeys[i]) as THREE.BufferGeometry}
-      fieldTextures={fieldTextures}
-      reference={references?.[i]}
-    />
+    <BarMesh key={i} cell={cell} geometry={geometries.get(geometryKeys[i]) as THREE.BufferGeometry} fieldTextures={fieldTextures} reference={references?.[i]} />
   ));
 };
 
@@ -102,15 +95,16 @@ const Meshes: React.FC<MeshesProps> = ({ grid, fields, meshes, fit }) => {
 };
 
 // the box around a curve on the bars, what the camera looks at while it is edited
-const curveFocus = (grid: IGridSettings, { curve, scale }: ICurveEditing): IViewFocus => {
+const curveFocus = (grid: IGridSettings, { curve, scaleAt }: ICurveEditing): IViewFocus => {
   const pattern = 'sdfSetting' in grid ? grid.sdfSetting : grid.sdfSettings[0];
-  const points = curve.points.map((p) => toWorld(pattern, scale, p));
+  const found = curveToWorld(pattern, scaleAt, curve.points).filter((p) => !!p);
+  const points = found.length ? found : [{ x: 0, z: 0 }];
   const [xs, zs] = [points.map((p) => p.x), points.map((p) => p.z)];
   const [x0, x1, z0, z1] = [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)];
   return { x: (x0 + x1) / 2, y: grid.height, z: (z0 + z1) / 2, width: Math.max(x1 - x0, 20), depth: Math.max(z1 - z0, 20) };
 };
 
-/** curve is the base curve of the selected text node, when it has one: shown, and edited from above in edit mode */
+/** curve is the base curve of the selected text node, when it has one: shown and edited from above in edit mode */
 export const Scene: React.FC<SceneProps & { curve?: ICurveEditing }> = ({ grid, fields, meshes, curve }) => {
   const editing = !!curve?.editing;
   const pattern = 'sdfSetting' in grid ? grid.sdfSetting : grid.sdfSettings[0];
@@ -125,7 +119,7 @@ export const Scene: React.FC<SceneProps & { curve?: ICurveEditing }> = ({ grid, 
         <Bounds margin={1.2}>
           <Meshes grid={grid} fields={fields} meshes={meshes} fit={!editing} />
         </Bounds>
-        {curve && <CurveEditor {...curve} pattern={pattern} y={grid.height} />}
+        {curve?.editing && <CurveEditor {...curve} pattern={pattern} y={grid.height} />}
         <ViewController editing={editing} focus={curve && curveFocus(grid, curve)} />
       </Canvas>
     </div>

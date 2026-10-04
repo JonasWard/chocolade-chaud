@@ -13,7 +13,8 @@ import { useHistory } from './hooks/useHistory';
 import { useStoredFlag } from './hooks/useStoredFlag';
 import { loadState, saveState } from './state/persist';
 import { ICurve } from './geometry/curve';
-import { findNode, nodeFrame, updateNode } from './geometry/sdf/treeOps';
+import { findNode, updateNode } from './geometry/sdf/treeOps';
+import { nodeScaleAt } from './geometry/sdf/evaluate';
 import { ICurveEditing } from './three/CurveEditor';
 
 const SAVE_DELAY = 300;
@@ -39,14 +40,15 @@ function App() {
 
   const node = selected ? findNode(pattern.root, selected) : undefined;
   const textNode = node?.kind === 'text' && node.curve ? node : undefined;
-  const frame = textNode && nodeFrame(pattern.root, textNode.id);
-  const editing = curveEdit && !!frame;
+  // the scale the text is drawn at over the bars, it varies inside a chain
+  const textId = textNode?.id;
+  const scaleAt = React.useMemo(() => textId && nodeScaleAt(pattern, textId, fields, grid.height - pattern.center.y), [pattern, textId, fields, grid.height]);
+  const editing = curveEdit && !!scaleAt;
   const curve: ICurveEditing | undefined =
-    textNode?.curve && frame
+    textNode?.curve && scaleAt
       ? {
           curve: textNode.curve,
-          scale: frame.scale,
-          exact: frame.exact,
+          scaleAt,
           editing,
           point: curvePoint,
           onChange: (c: ICurve) => setGrid({ ...grid, sdfSetting: { ...pattern, root: updateNode(pattern.root, textNode.id, (n) => ({ ...n, curve: c })) } }),
@@ -90,7 +92,6 @@ function App() {
                 {editing ? '👁 View' : '✎ Edit curve'}
               </button>
             )}
-            {editing && !curve?.exact && <span className='toolbar-note'>warped by its chain: points as if its input were 1</span>}
             <button onClick={undo} disabled={!canUndo} aria-label='undo' title='Undo (Ctrl+Z)'>
               ↶
             </button>
