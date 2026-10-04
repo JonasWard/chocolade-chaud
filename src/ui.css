@@ -386,6 +386,33 @@ input[type='range'] {
   appearance: none;
 }
 
+/* the icon of a node, a button that picks its kind */
+.kind-button,
+.line > button.kind-button,
+.column-head > button.kind-button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  min-height: 0;
+  padding: 2px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+}
+
+.kind-button:hover,
+.kind-button[aria-expanded='true'] {
+  background: var(--accent-soft);
+  border-color: var(--line);
+}
+
+.line > button.kind-button {
+  width: var(--control);
+  min-height: var(--control);
+}
+
 .inspector {
   padding-top: var(--gap);
   border-top: 1px solid var(--line);

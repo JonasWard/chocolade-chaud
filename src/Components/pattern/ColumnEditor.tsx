@@ -3,8 +3,7 @@ import { GroupNode, SdfNode, isGroup } from '../../geometry/sdf/tree';
 import { nodeLabel } from '../../geometry/sdf/formula';
 import { findPath } from '../../geometry/sdf/treeOps';
 import { NodeInspector } from './NodeInspector';
-import { ADD_SECTIONS, ActionPicker, NodeMenu, WRAP_SECTIONS } from './NodeMenu';
-import { NodeIcon } from './icons';
+import { ADD_SECTIONS, ActionPicker, KindPicker, NodeMenu, WRAP_SECTIONS } from './NodeMenu';
 import { TreeEditorProps, nodeDetails } from './actions';
 
 const scrollBehavior = (): ScrollBehavior => (window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth');
@@ -58,8 +57,8 @@ export const ColumnEditor: React.FC<TreeEditorProps & { focus: string; setFocus:
     return (
       <div className={['card', child.id === selected && 'selected', onPath && 'on-path'].filter(Boolean).join(' ')}>
         <div className='line'>
+          <KindPicker node={child} pattern={pattern} onChange={onChange} />
           <button className='summary' aria-expanded={isOpen} onClick={() => toggle(child.id)}>
-            <NodeIcon node={child} svgs={svgs} />
             <span className='name'>{nodeLabel(child, svgs)}</span>
             <span className='meta'>{nodeDetails(child)}</span>
           </button>
@@ -91,9 +90,10 @@ export const ColumnEditor: React.FC<TreeEditorProps & { focus: string; setFocus:
             ‹
           </button>
         )}
+        <KindPicker node={group} pattern={pattern} onChange={onChange} />
         <details>
           <summary>
-            <NodeIcon node={group} svgs={svgs} /> {nodeLabel(group, svgs)} <span className='meta'>{nodeDetails(group)}</span>
+            {nodeLabel(group, svgs)} <span className='meta'>{nodeDetails(group)}</span>
           </summary>
           <NodeInspector node={group} pattern={pattern} onChange={onChange} />
         </details>

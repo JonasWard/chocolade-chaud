@@ -3,8 +3,7 @@ import { SdfNode, isGroup } from '../../geometry/sdf/tree';
 import { nodeLabel } from '../../geometry/sdf/formula';
 import { findNode } from '../../geometry/sdf/treeOps';
 import { NodeInspector } from './NodeInspector';
-import { NodeMenu } from './NodeMenu';
-import { NodeIcon } from './icons';
+import { KindPicker, NodeMenu } from './NodeMenu';
 import { TreeEditorProps, nodeSummary } from './actions';
 
 /** desktop: the whole tree as an indented outline, the selected node is edited below it */
@@ -31,7 +30,7 @@ export const OutlineEditor: React.FC<TreeEditorProps> = ({ pattern, selected, on
           ) : (
             <span className='caret' />
           )}
-          <NodeIcon node={node} svgs={pattern.svgs} />
+          <KindPicker node={node} pattern={pattern} onChange={onChange} />
           <span className='name'>{nodeLabel(node, pattern.svgs)}</span>
           <span className='meta'>{nodeSummary(node)}</span>
           <NodeMenu node={node} pattern={pattern} isRoot={isRoot} onAction={(a) => onAction(node.id, a)} />
@@ -50,7 +49,7 @@ export const OutlineEditor: React.FC<TreeEditorProps> = ({ pattern, selected, on
           <NodeInspector node={node} pattern={pattern} onChange={onChange} />
         </div>
       ) : (
-        <p className='hint'>Select a node to edit it, ⋯ to add, wrap or remove.</p>
+        <p className='hint'>Select a node to edit it, its icon to change its kind, ⋯ to add, wrap or remove.</p>
       )}
     </>
   );
