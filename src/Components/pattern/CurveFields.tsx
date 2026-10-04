@@ -19,7 +19,8 @@ export const CurveFields: React.FC<{ node: ITextNode; onChange: (node: ITextNode
     const length = Math.max(node.size * node.text.length * 0.7, 2 * node.size);
     const angle = (node.angle * Math.PI) / 180;
     const straight = straightCurve(mode, length);
-    const points = straight.points.map(({ x }) => ({ x: node.offsetX + Math.cos(angle) * x, z: node.offsetZ + Math.sin(angle) * x }));
+    // where the text is placed moves the curve along
+    const points = straight.points.map(({ x }) => ({ x: Math.cos(angle) * x, z: Math.sin(angle) * x }));
     setCurve({ mode, points });
   };
 

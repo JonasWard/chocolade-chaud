@@ -1,5 +1,7 @@
 import { DEFAULT_COLOR, IGeometrySettings, ITriangularMesh, createIMesh } from './createMesh';
 import { IPattern, SvgFields, defaultPattern } from './sdf/tree';
+import { IBox } from './field';
+import { placePattern } from './sdf/placement';
 
 export enum GridType {
   Single = 'Single',
@@ -155,8 +157,29 @@ const simpleGridCells = (grid: ISimpleGrid, withSupports: boolean, fields?: SvgF
   return cellData;
 };
 
-/** the settings of every bar of a grid, fields are the distance fields of the svg and text nodes of its pattern */
+/** the box around the tops of the bars, in mm */
+export const cellsBox = (cells: CellData[]): IBox => {
+  const xs = cells.flatMap(({ geometrySettings: g }) => [g.basePosition.x, g.basePosition.x + g.innerWidth]);
+  const zs = cells.flatMap(({ geometrySettings: g }) => [g.basePosition.z, g.basePosition.z + g.innerLength]);
+  return xs.length ? { minX: Math.min(...xs), minZ: Math.min(...zs), maxX: Math.max(...xs), maxZ: Math.max(...zs) } : { minX: 0, minZ: 0, maxX: 0, maxZ: 0 };
+};
+
+/** the box around the tops of the bars of a grid */
+export const gridBox = (grid: IGridSettings): IBox => cellsBox(layoutCells(grid, false));
+
+/**
+ * the settings of every bar of a grid, fields are the distance fields of the svg and text nodes of its pattern. The svg shapes and
+ * texts of the pattern are placed on the bars (see placePattern)
+ */
 export const gridCells = (grid: IGridSettings, withSupports = false, fields?: SvgFields): CellData[] => {
+  const cells = layoutCells(grid, withSupports, fields);
+  const box = cellsBox(cells);
+  const placed = new Map<IPattern, IPattern>();
+  const place = (pattern: IPattern) => placed.get(pattern) ?? placed.set(pattern, placePattern(pattern, box, fields)).get(pattern)!;
+  return cells.map((cell) => ({ ...cell, sdfSettings: place(cell.sdfSettings) }));
+};
+
+const layoutCells = (grid: IGridSettings, withSupports: boolean, fields?: SvgFields): CellData[] => {
   switch (grid.type) {
     case GridType.Single:
       return singleGridCells(grid, withSupports, fields);

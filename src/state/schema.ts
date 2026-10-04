@@ -6,7 +6,7 @@ import { GROUP_KINDS, IPattern, ISvgAsset, NodeKind, SdfNode, isGroup, newId, sv
 // the state of the app packed into a short url safe string with densing. Numbers are rounded to the precision of their field,
 // svg sources don't fit: an svg is stored as the hash of its source (see svgKey), its source comes from the svg library
 
-export const STATE_VERSION = 6;
+export const STATE_VERSION = 7;
 // the oldest version a state can still be read from, see MIGRATIONS
 const OLDEST_VERSION = 4;
 
@@ -43,13 +43,14 @@ const size = (name: string, min: number, max: number) => fixed(name, min, max, 0
 /** the schema of the state of a version, see STATE_VERSION */
 const stateSchema = (version: number) => {
   const profile = version >= 5 ? PROFILE : PROFILE_V4;
+  // up to version 6 an svg or a text had an offset, a curved text ignored it
+  const placement = [enumeration('alignX', ['center', 'left', 'right']), enumeration('alignZ', ['middle', 'top', 'bottom']), coordinate('paddingX'), coordinate('paddingZ')];
   const node = union('node', enumeration('kind', NODE_KINDS), {
     method: variant(enumeration('method', Object.values(DistanceMethodType))),
     svg: variant(
       int('asset', 0, MAX_SVGS - 1),
       fixed('width', 0, 1000, 0.1),
-      fixed('offsetX', -1000, 1000, 0.1),
-      fixed('offsetZ', -1000, 1000, 0.1),
+      ...(version >= 7 ? placement : [fixed('offsetX', -1000, 1000, 0.1), fixed('offsetZ', -1000, 1000, 0.1)]),
       fixed('repeat', 0, 1000, 0.1),
       ...profile
     ),
@@ -62,8 +63,7 @@ const stateSchema = (version: number) => {
       // the mode of the base curve, the points are its points. Smooth curves came in version 6
       enumeration('curve', version >= 6 ? ['none', 'polyline', 'spline', 'smooth'] : ['none', 'polyline', 'spline']),
       array('points', 0, MAX_POINTS, object('point', coordinate('x'), coordinate('z'))),
-      coordinate('offsetX'),
-      coordinate('offsetZ'),
+      ...(version >= 7 ? placement : [coordinate('offsetX'), coordinate('offsetZ')]),
       fixed('angle', -360, 360, 0.1),
       ...profile
     ),
@@ -157,6 +157,11 @@ const MIGRATIONS: Record<number, (n: NodeData) => NodeData> = {
       : n,
   // only added a mode of curves
   5: (n) => n,
+  // an offset becomes a centred placement moved by it, a curved text ignored it
+  6: ({ offsetX, offsetZ, ...n }) =>
+    n.kind === 'svg' || n.kind === 'text'
+      ? { ...n, alignX: 'center', alignZ: 'middle', ...(n.kind === 'text' && n.curve !== 'none' ? { paddingX: 0, paddingZ: 0 } : { paddingX: offsetX, paddingZ: offsetZ }) }
+      : n,
 };
 
 const migrate = (data: NodeData, from: number): NodeData => {
@@ -189,6 +194,8 @@ const nodeData = (n: SdfNode, assets: string[]): NodeData => {
 
 const nodeFrom = (data: NodeData, assets: string[]): SdfNode => {
   const n: Record<string, unknown> = { ...data, id: newId(), scale: 10 ** data.scale };
+  // where it goes is filled in by placePattern
+  if (data.kind === 'svg' || data.kind === 'text') Object.assign(n, { offsetX: 0, offsetZ: 0 });
   if (data.kind === 'svg') n.asset = assets[data.asset as number] ?? '';
   if (data.kind === 'text') {
     n.text = fromChars(data.text as number[]);

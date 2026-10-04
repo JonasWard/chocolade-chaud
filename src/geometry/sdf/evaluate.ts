@@ -60,7 +60,8 @@ const compileNode = (node: SdfNode, fields: SvgFields, parentFrame = 1): ScaledD
       const field = fields.get(textFieldKey(node));
       if (!field) return () => 0;
       const { x: cx, z: cz } = field.center ?? { x: 0, z: 0 };
-      return (x, _y, z, s) => gain * profile(sampleCentredField(field, x * s * scale - cx, z * s * scale - cz) / frame, node);
+      const [ox, oz] = [cx + node.offsetX, cz + node.offsetZ];
+      return (x, _y, z, s) => gain * profile(sampleCentredField(field, x * s * scale - ox, z * s * scale - oz) / frame, node);
     }
     case 'sine': {
       const { amplitude, period } = node;

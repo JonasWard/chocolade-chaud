@@ -38,15 +38,31 @@ export interface IProfile {
 
 export const DEFAULT_PROFILE: IProfile = { inner: 0, outer: 0, beveled: false, innerBevel: 0, outerBevel: 0 };
 
+export type AlignX = 'left' | 'center' | 'right';
+export type AlignZ = 'top' | 'middle' | 'bottom';
+
+/**
+ * Where an svg shape or a text goes: against an edge of the bars, padding away from it (top is towards -z), or centred, moved by
+ * the padding. offsetX and offsetZ are where that puts it, filled in by placePattern (see placement.ts), they are not saved
+ */
+export interface IPlacement {
+  alignX: AlignX;
+  alignZ: AlignZ;
+  paddingX: number;
+  paddingZ: number;
+  offsetX: number;
+  offsetZ: number;
+}
+
+export const DEFAULT_PLACEMENT: IPlacement = { alignX: 'center', alignZ: 'middle', paddingX: 0, paddingZ: 0, offsetX: 0, offsetZ: 0 };
+
 /** an svg shape in the xz plane, distances in mm */
-export interface ISvgNode extends INodeBase, IProfile {
+export interface ISvgNode extends INodeBase, IProfile, IPlacement {
   kind: 'svg';
   /** key in IPattern.svgs */
   asset: string;
   /** of the long side of the shape, in mm */
   width: number;
-  offsetX: number;
-  offsetZ: number;
   /** tiles the shape every repeat mm, 0 is once */
   repeat: number;
 }
@@ -54,7 +70,7 @@ export interface ISvgNode extends INodeBase, IProfile {
 export type FontSource = 'local' | 'google';
 
 /** text in the xz plane, along a base curve or on a straight line. Signed distance in mm to the outline of its glyphs */
-export interface ITextNode extends INodeBase, IProfile {
+export interface ITextNode extends INodeBase, IProfile, IPlacement {
   kind: 'text';
   text: string;
   /** family name, an installed font or a google font */
@@ -63,10 +79,8 @@ export interface ITextNode extends INodeBase, IProfile {
   bold: boolean;
   /** font size in mm */
   size: number;
-  /** the base line the text stands on, centred on it. Without one, the text is centred on the offset, turned by the angle */
+  /** the base line the text stands on, centred on it. Without one, the text is centred on the origin, turned by the angle */
   curve: ICurve | null;
-  offsetX: number;
-  offsetZ: number;
   /** in degrees */
   angle: number;
 }
@@ -134,10 +148,11 @@ export const newId = (): string => (typeof crypto !== 'undefined' && 'randomUUID
 const base = (scale = 1) => ({ id: newId(), scale, gain: 1 });
 
 export const methodNode = (method: DistanceMethodType, scale = 1): IMethodNode => ({ ...base(scale), kind: 'method', method });
-export const svgNode = (asset: string, width = 30): ISvgNode => ({ ...base(), ...DEFAULT_PROFILE, kind: 'svg', asset, width, offsetX: 0, offsetZ: 0, repeat: 0 });
+export const svgNode = (asset: string, width = 30): ISvgNode => ({ ...base(), ...DEFAULT_PROFILE, ...DEFAULT_PLACEMENT, kind: 'svg', asset, width, repeat: 0 });
 export const textNode = (text = 'Chaud'): ITextNode => ({
   ...base(),
   ...DEFAULT_PROFILE,
+  ...DEFAULT_PLACEMENT,
   kind: 'text',
   text,
   font: 'sans-serif',
@@ -145,8 +160,6 @@ export const textNode = (text = 'Chaud'): ITextNode => ({
   bold: true,
   size: 12,
   curve: null,
-  offsetX: 0,
-  offsetZ: 0,
   angle: 0,
 });
 export const sineNode = (amplitude = 5, period = 20): ISineNode => ({ ...base(), kind: 'sine', amplitude, period, angle: 0 });
@@ -175,9 +188,9 @@ export const svgHash = (source: string): number => {
 /** an svg asset is keyed by its source, so the same svg is the same asset everywhere (and in a link) */
 export const svgKey = (source: string): string => `h${svgHash(source).toString(16).padStart(8, '0')}`;
 
-/** what is drawn of a text node, a change of it needs a new distance field */
-export const textFieldKey = ({ text, font, fontSource, bold, size, curve, offsetX, offsetZ, angle }: ITextNode): string =>
-  `t${svgHash(JSON.stringify([text, font, fontSource, bold, size, curve, offsetX, offsetZ, angle])).toString(16).padStart(8, '0')}`;
+/** what is drawn of a text node, a change of it needs a new distance field. Where it goes is not, it moves the field */
+export const textFieldKey = ({ text, font, fontSource, bold, size, curve, angle }: ITextNode): string =>
+  `t${svgHash(JSON.stringify([text, font, fontSource, bold, size, curve, angle])).toString(16).padStart(8, '0')}`;
 
 /** the key of the distance field of a node that has one */
 export const fieldKey = (node: SdfNode): string | undefined => (node.kind === 'svg' ? node.asset : node.kind === 'text' ? textFieldKey(node) : undefined);

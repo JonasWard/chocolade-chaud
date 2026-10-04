@@ -64,7 +64,7 @@ export const rasterizeTextNode = async (node: ITextNode, detail = 1): Promise<ID
   // what every character adds to the width of the text up to it, so it keeps its kerning
   const widths = chars.map((_, i) => measure.measureText(chars.slice(0, i + 1).join('')).width);
   const advances = widths.map((w, i) => (w - (i ? widths[i - 1] : 0)) * mm);
-  const placements = layoutGlyphs(advances, curve ?? { x: node.offsetX, z: node.offsetZ, angle: node.angle });
+  const placements = layoutGlyphs(advances, curve ?? { x: 0, z: 0, angle: node.angle });
 
   const tracePx = TRACE_PX_PER_SIZE * Math.min(detail, 4);
   const traceFont = cssFont(font, bold, tracePx);
