@@ -10,6 +10,7 @@ import { usePatternFields } from './hooks/usePatternFields';
 import { useMediaQuery } from './hooks/useMediaQuery';
 import { MOBILE } from './Components/pattern/PatternPanel';
 import { useHistory } from './hooks/useHistory';
+import { useStoredFlag } from './hooks/useStoredFlag';
 import { loadState, saveState } from './state/persist';
 import { ICurve } from './geometry/curve';
 import { findNode, nodeFrame, updateNode } from './geometry/sdf/treeOps';
@@ -61,6 +62,10 @@ function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [editing]);
 
+  // the settings can be hidden, on a phone they make room for a curve while it is edited
+  const [panelsHidden, setPanelsHidden] = useStoredFlag('chocolade-chaud:panels-hidden');
+  const hidden = panelsHidden || (mobile && editing);
+
   const editor: IEditorContext = { errors, curveEdit: editing, setCurveEdit, curvePoint, setCurvePoint };
 
   // in the url and local storage, a little after the last edit or when the page is left before that
@@ -76,7 +81,7 @@ function App() {
 
   return (
     <EditorContext.Provider value={editor}>
-      <div className='app'>
+      <div className={hidden ? 'app panels-hidden' : 'app'}>
         <main className='viewport'>
           <Scene grid={grid} fields={fields} meshes={result} curve={curve} />
           <div className='toolbar'>
@@ -92,6 +97,16 @@ function App() {
             <button onClick={redo} disabled={!canRedo} aria-label='redo' title='Redo (Ctrl+Shift+Z)'>
               ↷
             </button>
+            {!mobile && (
+              <button
+                onClick={() => setPanelsHidden(!panelsHidden)}
+                aria-pressed={!panelsHidden}
+                aria-label={panelsHidden ? 'show the settings' : 'hide the settings'}
+                title={panelsHidden ? 'Show the settings' : 'Hide the settings'}
+              >
+                {panelsHidden ? '⇤' : '⇥'}
+              </button>
+            )}
           </div>
           <div className='status'>
             {pending && <span className='spinner' aria-label='generating' />}
@@ -99,15 +114,26 @@ function App() {
           </div>
         </main>
         <aside className='panels'>
-          <Section title='Bar' open={!mobile}>
-            <BarPanel grid={grid} setGrid={setGrid} />
-          </Section>
-          <Section title='Pattern' open>
-            <PatternPanel pattern={pattern} setPattern={(sdfSetting) => setGrid({ ...grid, sdfSetting })} selected={selected} setSelected={setSelected} />
-          </Section>
-          <Section title='Export' open={!mobile}>
-            <Export meshes={pending ? undefined : result} />
-          </Section>
+          {mobile && (
+            // a handle on top of the sheet
+            <button className='sheet-handle' aria-expanded={!hidden} onClick={() => setPanelsHidden(!hidden)}>
+              <span className='grabber' />
+              {hidden ? 'Settings' : 'Hide'}
+            </button>
+          )}
+          {!hidden && (
+            <>
+              <Section title='Bar' open={!mobile}>
+                <BarPanel grid={grid} setGrid={setGrid} />
+              </Section>
+              <Section title='Pattern' open>
+                <PatternPanel pattern={pattern} setPattern={(sdfSetting) => setGrid({ ...grid, sdfSetting })} selected={selected} setSelected={setSelected} />
+              </Section>
+              <Section title='Export' open={!mobile}>
+                <Export meshes={pending ? undefined : result} />
+              </Section>
+            </>
+          )}
         </aside>
       </div>
     </EditorContext.Provider>
