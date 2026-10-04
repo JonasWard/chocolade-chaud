@@ -19,6 +19,8 @@ Live at [jonasward.github.io/chocolade-chaud](https://JonasWard.github.io/chocol
 - **Live preview**: meshes are generated in a web worker, so the UI stays responsive at up to 32 divisions per mm. A side of a bar has at most 8192 divisions and all bars together at most 8.4 million vertices, beyond that the density is lowered to fit. A GPU that can't hold a bar that large in a texture shows the mesh of the worker instead.
 - **Export**: binary STL or OBJ, tilted on its side for printing and with an internal support structure. A single bar downloads as one file, a grid as one zip.
 
+- **Simple and expert**: simple mode shows what most patterns need: a pattern to start from instead of the formula, the text, its font, size, place, limits and whether it is straight or curved (a curve is smooth, without handles). Expert adds every setting: scale and gain of every node, bevels, the padding along x and z apart, the angle of a straight text, the kind of a curve and its points as numbers, the centre of the pattern, the divisions per mm and the wireframe. A node with expert settings that are not their default says so in simple mode. The mode is kept in this browser, not in the link.
+
 ## How it works
 
 Each bar is a grid of vertices on the top surface. The pattern's distance function moves every vertex along a direction that fans out with the inset, the bottom surface is offset from it and, where it helps the print, raised into ribs that support the top. Top, bottom and the side walls are stitched into one closed, outward-facing triangle mesh.

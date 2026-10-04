@@ -17,6 +17,8 @@ export interface ICurveEditing {
   scaleAt: (x: number, z: number) => number;
   /** whether it is edited in the scene */
   editing: boolean;
+  /** whether the controls of a spline are shown, else only its anchors */
+  handles: boolean;
   point?: number;
   onChange: (curve: ICurve) => void;
   onSelectPoint: (index?: number) => void;
@@ -55,7 +57,17 @@ const runs = (points: (THREE.Vector3 | undefined)[]): THREE.Vector3[][] =>
     return all;
   }, []);
 
-export const CurveEditor: React.FC<ICurveEditing & { pattern: IPattern; y: number }> = ({ curve, offset, scaleAt, point, onChange, onSelectPoint, pattern, y }) => {
+export const CurveEditor: React.FC<ICurveEditing & { pattern: IPattern; y: number }> = ({
+  curve,
+  offset,
+  scaleAt,
+  handles: showControls,
+  point,
+  onChange,
+  onSelectPoint,
+  pattern,
+  y,
+}) => {
   const get = useThree((state) => state.get);
   const handles = React.useRef<THREE.Group>(null);
 
@@ -134,7 +146,7 @@ export const CurveEditor: React.FC<ICurveEditing & { pattern: IPattern; y: numbe
   return (
     <group renderOrder={10}>
       {path.map((run, i) => run.length > 1 && <Line key={i} points={run} color={ACCENT} lineWidth={2} depthTest={false} renderOrder={10} />)}
-      {curve.mode === 'spline' && (
+      {curve.mode === 'spline' && showControls && (
         // the arms from the anchors to their controls
         <>
           {points.map((p, i) => {
@@ -163,7 +175,8 @@ export const CurveEditor: React.FC<ICurveEditing & { pattern: IPattern; y: numbe
           const anchor = isAnchor(curve, i);
           const selected = i === point;
           return (
-            p && (
+            p &&
+            (anchor || showControls) && (
               <mesh key={i} position={p} rotation={flat} renderOrder={12} onPointerDown={onPoint(i)}>
                 <circleGeometry args={[HIT, 16]} />
                 <meshBasicMaterial color={ACCENT} opacity={0} {...overlay} />

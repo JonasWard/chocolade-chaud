@@ -1,14 +1,14 @@
 import React from 'react';
 import { CurveMode, ICurve, anchorSegment, canDelete, convert, deleteAt, insertAt, isAnchor, straightCurve } from '../../geometry/curve';
 import { ITextNode } from '../../geometry/sdf/tree';
-import { NumberField, Select } from '../ui';
+import { NumberField, Segmented, Select } from '../ui';
 import { EditorContext } from './editorContext';
 
 type BaseLine = 'none' | CurveMode;
 
 /** the base curve of a text node: its kind and its points, edited here or in the scene */
 export const CurveFields: React.FC<{ node: ITextNode; onChange: (node: ITextNode) => void }> = ({ node, onChange }) => {
-  const { curveEdit, setCurveEdit, curvePoint, setCurvePoint } = React.useContext(EditorContext);
+  const { expert, curveEdit, setCurveEdit, curvePoint, setCurvePoint } = React.useContext(EditorContext);
   const { curve } = node;
   const setCurve = (next: ICurve | null) => onChange({ ...node, curve: next });
 
@@ -28,17 +28,30 @@ export const CurveFields: React.FC<{ node: ITextNode; onChange: (node: ITextNode
     <>
       <label className='field'>
         <span>Base curve</span>
-        <Select<BaseLine>
-          label='base curve'
-          value={curve?.mode ?? 'none'}
-          options={[
-            ['none', 'None (straight)'],
-            ['smooth', 'Smooth'],
-            ['polyline', 'Polyline'],
-            ['spline', 'Spline (handles)'],
-          ]}
-          onChange={setMode}
-        />
+        {!expert ? (
+          // a curve is smooth, one of another kind stays as it is
+          <Segmented<'straight' | 'curved'>
+            label='base curve'
+            value={curve ? 'curved' : 'straight'}
+            options={[
+              ['straight', 'Straight'],
+              ['curved', 'Curved'],
+            ]}
+            onChange={(v) => (v === 'straight' ? setMode('none') : !curve && setMode('smooth'))}
+          />
+        ) : (
+          <Select<BaseLine>
+            label='base curve'
+            value={curve?.mode ?? 'none'}
+            options={[
+              ['none', 'None (straight)'],
+              ['smooth', 'Smooth'],
+              ['polyline', 'Polyline'],
+              ['spline', 'Spline (handles)'],
+            ]}
+            onChange={setMode}
+          />
+        )}
       </label>
       {curve && (
         <>
@@ -58,27 +71,39 @@ export const CurveFields: React.FC<{ node: ITextNode; onChange: (node: ITextNode
             )}
           </div>
           <p className='hint'>
-            In 3D: drag a point to move it, drag a small dot between two points to add one, tap a point and press Delete to remove it. A smooth curve
-            runs through its points.
+            In 3D: drag a point to move it, drag a small dot between two points to add one, tap a point and press Delete to remove it.
+            {expert && ' A smooth curve runs through its points, a spline has handles.'}
           </p>
-          <ol className='points'>
-            {curve.points.map((p, i) => (
-              <li key={i} className={[isAnchor(curve, i) ? 'anchor' : 'control', i === curvePoint ? 'selected' : ''].join(' ')}>
-                <NumberField label={`x ${i}`} value={+p.x.toFixed(2)} step={1} onChange={(x) => setCurve({ ...curve, points: curve.points.map((q, j) => (j === i ? { ...q, x } : q)) })} />
-                <NumberField label={`z ${i}`} value={+p.z.toFixed(2)} step={1} onChange={(z) => setCurve({ ...curve, points: curve.points.map((q, j) => (j === i ? { ...q, z } : q)) })} />
-                {isAnchor(curve, i) && i < curve.points.length - 1 && (
-                  <button aria-label='add a point after it' onClick={() => setCurve(insertAt(curve, anchorSegment(curve, i)).curve)}>
-                    +
-                  </button>
-                )}
-                {canDelete(curve, i) && (
-                  <button aria-label='delete the point' onClick={() => setCurve(deleteAt(curve, i))}>
-                    ✕
-                  </button>
-                )}
-              </li>
-            ))}
-          </ol>
+          {expert && (
+            <ol className='points'>
+              {curve.points.map((p, i) => (
+                <li key={i} className={[isAnchor(curve, i) ? 'anchor' : 'control', i === curvePoint ? 'selected' : ''].join(' ')}>
+                  <NumberField
+                    label={`x ${i}`}
+                    value={+p.x.toFixed(2)}
+                    step={1}
+                    onChange={(x) => setCurve({ ...curve, points: curve.points.map((q, j) => (j === i ? { ...q, x } : q)) })}
+                  />
+                  <NumberField
+                    label={`z ${i}`}
+                    value={+p.z.toFixed(2)}
+                    step={1}
+                    onChange={(z) => setCurve({ ...curve, points: curve.points.map((q, j) => (j === i ? { ...q, z } : q)) })}
+                  />
+                  {isAnchor(curve, i) && i < curve.points.length - 1 && (
+                    <button aria-label='add a point after it' onClick={() => setCurve(insertAt(curve, anchorSegment(curve, i)).curve)}>
+                      +
+                    </button>
+                  )}
+                  {canDelete(curve, i) && (
+                    <button aria-label='delete the point' onClick={() => setCurve(deleteAt(curve, i))}>
+                      ✕
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ol>
+          )}
         </>
       )}
     </>

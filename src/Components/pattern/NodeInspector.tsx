@@ -12,18 +12,28 @@ const HINTS: Partial<Record<NodeKind, string>> = {
   difference: 'The first child minus the others.',
   subtract: 'The first child minus the others.',
   sine: 'Distance in mm to a sine curve along x, turned by the angle. Union it with a constant to cap it, or use it to drive a chain.',
-  text: 'Distance in mm to the outline of the letters, negative inside. The distance stops at its limits (0 is none), an inside limit gives flat letters. A bevel is how wide the slope to its limit is, 0 is a step. In mm on the bars.',
-  svg: 'Distance in mm to the shape, placed against an edge of the bars or centred. Repeat tiles it, 0 shows it once. The distance stops at its limits (0 is none). A bevel is how wide the slope to its limit is, 0 is a step.',
+  text: 'Distance in mm to the outline of the letters, negative inside. The distance stops at its limits (0 is none), an inside limit gives flat letters. In mm on the bars.',
+  svg: 'Distance in mm to the shape, placed against an edge of the bars or centred. Repeat tiles it, 0 shows it once. The distance stops at its limits (0 is none).',
 };
 
-/** the settings of one node, shared by both tree editors */
-export const NodeInspector: React.FC<{ node: SdfNode; pattern: IPattern; onChange: (node: SdfNode) => void; hideScale?: boolean }> = ({
-  node,
-  pattern,
-  onChange,
-  hideScale,
-}) => {
-  const { errors } = React.useContext(EditorContext);
+/** the settings of a node that simple mode doesn't show but that are not their default */
+const hiddenSettings = (node: SdfNode): string[] =>
+  [
+    node.gain !== 1 && 'gain',
+    node.kind !== 'method' && node.kind !== 'constant' && node.scale !== 1 && 'scale',
+    'beveled' in node && node.beveled && 'bevels',
+    node.kind === 'text' && !node.curve && node.angle !== 0 && 'angle',
+    'alignX' in node &&
+      ((node.alignX === 'center' && node.paddingX !== 0) ||
+        (node.alignZ === 'middle' && node.paddingZ !== 0) ||
+        (node.alignX !== 'center' && node.alignZ !== 'middle' && node.paddingX !== node.paddingZ)) &&
+      'padding',
+    node.kind === 'text' && node.curve && node.curve.mode !== 'smooth' && 'curve kind',
+  ].filter((s): s is string => !!s);
+
+/** the settings of one node, shared by both tree editors, simple mode shows the ones most patterns need */
+export const NodeInspector: React.FC<{ node: SdfNode; pattern: IPattern; onChange: (node: SdfNode) => void; hideScale?: boolean }> = ({ node, pattern, onChange, hideScale }) => {
+  const { errors, expert } = React.useContext(EditorContext);
   const set = (patch: object) => onChange({ ...node, ...patch } as SdfNode);
   const number = (label: string, value: number, key: string, step = 0.1, min?: number) => (
     <Field label={label}>
@@ -34,7 +44,11 @@ export const NodeInspector: React.FC<{ node: SdfNode; pattern: IPattern; onChang
   const frame = nodeFrame(pattern.root, node.id);
   // a size in the frame of the node, on the bars when it is scaled
   const onBars = (mm: number) =>
-    frame && Math.abs(frame.scale - 1) > 1e-6 && <p className='hint'>{`${frame.exact ? '' : 'About '}${+(mm / frame.scale).toPrecision(3)} mm on the bars, scaled by ${+frame.scale.toPrecision(3)}.`}</p>;
+    expert &&
+    frame &&
+    Math.abs(frame.scale - 1) > 1e-6 && (
+      <p className='hint'>{`${frame.exact ? '' : 'About '}${+(mm / frame.scale).toPrecision(3)} mm on the bars, scaled by ${+frame.scale.toPrecision(3)}.`}</p>
+    );
 
   // a number for the inside and one for the outside, side by side
   const pair = (label: string, inner: number, outer: number, keys: [string, string], show: [boolean, boolean] = [true, true]) => (
@@ -58,16 +72,19 @@ export const NodeInspector: React.FC<{ node: SdfNode; pattern: IPattern; onChang
   const profileFields = (p: IProfile) => (
     <>
       {pair('Limits mm', p.inner, p.outer, ['inner', 'outer'])}
-      <Field label='Custom bevel'>
-        <input
-          type='checkbox'
-          checked={p.beveled}
-          // starting as wide as the limits, which is the same as no bevel
-          onChange={(e) => set(e.target.checked ? { beveled: true, innerBevel: p.inner, outerBevel: p.outer } : { beveled: false })}
-        />
-      </Field>
-      {p.beveled && pair('Bevels mm', p.innerBevel, p.outerBevel, ['innerBevel', 'outerBevel'], [p.inner > 0, p.outer > 0])}
-          </>
+      {expert && (
+        <Field label='Custom bevel'>
+          <input
+            type='checkbox'
+            checked={p.beveled}
+            // starting as wide as the limits, which is the same as no bevel
+            onChange={(e) => set(e.target.checked ? { beveled: true, innerBevel: p.inner, outerBevel: p.outer } : { beveled: false })}
+          />
+        </Field>
+      )}
+      {expert && p.beveled && pair('Bevels mm', p.innerBevel, p.outerBevel, ['innerBevel', 'outerBevel'], [p.inner > 0, p.outer > 0])}
+      {expert && p.beveled && <p className='hint'>A bevel is how wide the slope to its limit is, 0 is a step.</p>}
+    </>
   );
 
   return (
@@ -85,8 +102,8 @@ export const NodeInspector: React.FC<{ node: SdfNode; pattern: IPattern; onChang
           </Field>
           {number('Size mm', node.size, 'size', 0.5, 0.5)}
           {onBars(node.size)}
-          <PlacementFields placement={node} onChange={set} />
-          {!node.curve && number('Angle °', node.angle, 'angle', 5)}
+          <PlacementFields placement={node} onChange={set} simple={!expert} />
+          {expert && !node.curve && number('Angle °', node.angle, 'angle', 5)}
           <CurveFields node={node} onChange={onChange} />
           {profileFields(node)}
         </>
@@ -106,7 +123,7 @@ export const NodeInspector: React.FC<{ node: SdfNode; pattern: IPattern; onChang
           </Field>
           {number('Width mm', node.width, 'width', 1, 0)}
           {onBars(node.width)}
-          <PlacementFields placement={node} onChange={set} />
+          <PlacementFields placement={node} onChange={set} simple={!expert} />
           {number('Repeat mm', node.repeat, 'repeat', 1, 0)}
           {profileFields(node)}
         </>
@@ -120,13 +137,14 @@ export const NodeInspector: React.FC<{ node: SdfNode; pattern: IPattern; onChang
       )}
       {node.kind === 'constant' && number('Value', node.value, 'value')}
       {'smooth' in node && number('Smooth', node.smooth, 'smooth', 0.1, 0)}
-      {number('Gain', node.gain, 'gain')}
-      {node.kind !== 'constant' && !hideScale && (
+      {expert && number('Gain', node.gain, 'gain')}
+      {node.kind !== 'constant' && !hideScale && (expert || node.kind === 'method') && (
         <Field label='Scale'>
           <LogSlider label='scale' value={node.scale} onChange={(scale) => set({ scale })} />
         </Field>
       )}
       {HINTS[node.kind] && <p className='hint'>{HINTS[node.kind]}</p>}
+      {!expert && hiddenSettings(node).length > 0 && <p className='hint'>Also set in expert mode: {hiddenSettings(node).join(', ')}.</p>}
     </div>
   );
 };

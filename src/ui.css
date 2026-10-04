@@ -206,6 +206,12 @@ summary,
   min-width: 3em;
 }
 
+/* simple or expert, on top of the settings */
+
+.mode-switch {
+  padding: var(--gap) var(--gap) 0;
+}
+
 /* two numbers side by side, each with a caption */
 
 .pair {
