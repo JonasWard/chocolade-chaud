@@ -1,11 +1,11 @@
 import React from 'react';
 import { DistanceMethodType } from '../../geometry/sdMethods';
-import { IPattern, NodeKind, SdfNode, isGroup } from '../../geometry/sdf/tree';
+import { GROUP_KINDS, IPattern, NodeKind, SdfNode, isGroup } from '../../geometry/sdf/tree';
 import { KIND_LABEL, methodLabel, nodeLabel } from '../../geometry/sdf/formula';
-import { canUnwrap, findPath, moveTargets } from '../../geometry/sdf/treeOps';
+import { canUnwrap, changeKind, findPath, moveTargets } from '../../geometry/sdf/treeOps';
 import { IPickerSection, Picker } from '../Picker';
-import { NodeAction } from './actions';
-import { ActionIcon, KindIcon } from './icons';
+import { NodeAction, firstAsset } from './actions';
+import { ActionIcon, KindIcon, NodeIcon } from './icons';
 
 /** a kind of node, a method is a kind of its own */
 export type KindChoice = DistanceMethodType | Exclude<NodeKind, 'method'>;
@@ -99,3 +99,25 @@ export const ActionPicker: React.FC<{ label: string; sections: IPickerSection<No
   sections,
   onAction,
 }) => <Picker<NodeAction> label={label} trigger={label} sections={sections} onPick={onAction} />;
+
+/** the node as another kind, undefined when the children it would lose are kept */
+const withKind = (node: SdfNode, kind: KindChoice, pattern: IPattern): SdfNode | undefined => {
+  if (isMethod(kind)) return { ...(changeKind(node, 'method') as Extract<SdfNode, { kind: 'method' }>), method: kind };
+  if (isGroup(node) && node.children.length && !(GROUP_KINDS as string[]).includes(kind) && !window.confirm(`Remove the ${node.children.length} children?`)) return undefined;
+  return changeKind(node, kind as NodeKind, firstAsset(pattern));
+};
+
+/** the icon of a node, a tap on it picks another kind for it */
+export const KindPicker: React.FC<{ node: SdfNode; pattern: IPattern; onChange: (node: SdfNode) => void }> = ({ node, pattern, onChange }) => (
+  <Picker<KindChoice>
+    label='kind'
+    className='kind-button'
+    trigger={<NodeIcon node={node} svgs={pattern.svgs} />}
+    sections={KIND_SECTIONS}
+    value={node.kind === 'method' ? node.method : node.kind}
+    onPick={(kind) => {
+      const changed = withKind(node, kind, pattern);
+      if (changed) onChange(changed);
+    }}
+  />
+);
