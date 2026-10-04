@@ -16,7 +16,7 @@ const HINTS: Partial<Record<NodeKind, string>> = {
   difference: 'The first child minus the others.',
   subtract: 'The first child minus the others.',
   sine: 'Distance in mm to a sine curve along x, turned by the angle. Union it with a constant to cap it, or use it to drive a chain.',
-  text: 'Distance in mm to the outline of the letters, negative inside. Intersect it with a constant for flat letters.',
+  text: 'Distance in mm to the outline of the letters, negative inside. An inside limit gives flat letters.',
   svg: 'Distance in mm to the shape, centred on the middle of the bar. Repeat tiles it, 0 shows it once. In a union with a constant, the constant caps the distance.',
 };
 
@@ -51,25 +51,38 @@ export const NodeInspector: React.FC<{ node: SdfNode; pattern: IPattern; onChang
   const onBars = (mm: number) =>
     frame && Math.abs(frame.scale - 1) > 1e-6 && <p className='hint'>{`${frame.exact ? '' : 'About '}${+(mm / frame.scale).toPrecision(3)} mm on the bars, scaled by ${+frame.scale.toPrecision(3)}.`}</p>;
 
-  // how the distance to an svg or a text is shaped
+  // a number for the inside and one for the outside, side by side
+  const pair = (label: string, inner: number, outer: number, keys: [string, string], show: [boolean, boolean] = [true, true]) => (
+    <Field label={label}>
+      <div className='pair'>
+        {(['inside', 'outside'] as const).map((side, i) => (
+          <label key={side} className='mini'>
+            <span>{side}</span>
+            {show[i] ? (
+              <NumberField label={`${label} ${side}`} value={i ? outer : inner} step={0.1} min={0} onChange={(v) => set({ [keys[i]]: v })} />
+            ) : (
+              <span className='meta'>no limit</span>
+            )}
+          </label>
+        ))}
+      </div>
+    </Field>
+  );
+
+  // how the distance to an svg or a text is shaped: it stops at the limits, with bevels over their width
   const profileFields = (p: IProfile) => (
     <>
-      <Field label='Inside'>
-        <div className='segmented' role='radiogroup' aria-label='inside'>
-          {(['distance', 'constant'] as const).map((inside) => (
-            <button key={inside} role='radio' aria-checked={p.inside === inside} className={p.inside === inside ? 'on' : ''} onClick={() => set({ inside })}>
-              {inside === 'distance' ? 'Distance' : 'Constant'}
-            </button>
-          ))}
-        </div>
+      {pair('Limits mm', p.inner, p.outer, ['inner', 'outer'])}
+      <Field label='Custom bevel'>
+        <input
+          type='checkbox'
+          checked={p.beveled}
+          // starting as wide as the limits, which is the same as no bevel
+          onChange={(e) => set(e.target.checked ? { beveled: true, innerBevel: p.inner, outerBevel: p.outer } : { beveled: false })}
+        />
       </Field>
-      {p.inside === 'constant' && number('Depth mm', p.depth, 'depth', 0.1)}
-      {p.inside === 'constant' && number('Bevel mm', p.bevel, 'bevel', 0.1, 0)}
-      {number('Cutoff mm', p.cutoff, 'cutoff', 0.5, 0)}
-      <p className='hint'>
-        Constant: a flat plateau at −depth inside, with a slanted rim as wide as the bevel. Outside, the distance stays flat beyond the cutoff (0 is none). These
-        are mm on the bars, whatever the scale.
-      </p>
+      {p.beveled && pair('Bevels mm', p.innerBevel, p.outerBevel, ['innerBevel', 'outerBevel'], [p.inner > 0, p.outer > 0])}
+      <p className='hint'>The distance stops at the limits, 0 is none. A bevel is how wide the slope to its limit is, 0 is a step. In mm on the bars.</p>
     </>
   );
 

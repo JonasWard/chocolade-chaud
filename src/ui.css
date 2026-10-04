@@ -165,6 +165,31 @@ summary,
   min-width: 3em;
 }
 
+/* two numbers side by side, each with a caption */
+
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--gap);
+}
+
+.mini {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.mini > span:first-child {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.mini > .meta {
+  min-height: var(--control);
+  display: flex;
+  align-items: center;
+}
+
 /* controls */
 
 .field {

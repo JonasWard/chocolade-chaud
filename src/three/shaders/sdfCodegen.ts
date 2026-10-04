@@ -134,11 +134,15 @@ float sdSine(vec2 q, float amplitude, float period) {
   return abs(q.y - amplitude * sin(k * q.x)) / sqrt(1.0 + slope * slope);
 }
 
-// see profile in geometry/sdf/evaluate.ts
-float profile(float d, float constant, float depth, float bevel, float cutoff) {
-  if (d >= 0.0) return cutoff > 0.0 ? min(d, cutoff) : d;
-  if (constant < 0.5) return d;
-  return bevel > 0.0 ? -depth * min(-d / bevel, 1.0) : -depth;
+// see profile in geometry/sdf/evaluate.ts, s is 1 outside and -1 inside
+float limited(float v, float limit, float beveled, float bevel, float s) {
+  if (limit <= 0.0) return v;
+  if (beveled < 0.5) return s * min(s * v, limit);
+  return bevel > 0.0 ? s * limit * min(s * v / bevel, 1.0) : s * limit;
+}
+
+float profile(float d, float inner, float outer, float beveled, float innerBevel, float outerBevel) {
+  return d >= 0.0 ? limited(d, outer, beveled, outerBevel, 1.0) : limited(d, inner, beveled, innerBevel, -1.0);
 }
 
 float svgDistance(sampler2D field, vec2 v, float width, vec2 offset, float period, vec3 l0, vec4 l1) {
@@ -187,7 +191,7 @@ const buildPlan = (root: SdfNode): ISdfShaderPlan => {
     return `${l0}, vec4(${level(1, (l) => l.width)}, ${level(1, (l) => l.height)}, ${level(1, (l) => l.pixelSize)}, ${count})`;
   };
   const shaped = (d: string, node: IProfile) =>
-    `profile(${d}, ${param(() => (node.inside === 'constant' ? 1 : 0))}, ${param(() => node.depth)}, ${param(() => node.bevel)}, ${param(() => node.cutoff)})`;
+    `profile(${d}, ${param(() => node.inner)}, ${param(() => node.outer)}, ${param(() => (node.beveled ? 1 : 0))}, ${param(() => node.innerBevel)}, ${param(() => node.outerBevel)})`;
 
   // returns the name of the variable holding the distance of the node, s is the scale it is evaluated at,
   // parentFrame the static part of it (see compileNode in geometry/sdf/evaluate.ts)

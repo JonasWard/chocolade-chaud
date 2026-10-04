@@ -122,7 +122,7 @@ test('a scale changes the size of an svg, not its distances in mm', () => {
   // twice as small, the same distance in mm
   for (const x of [-12, -3, 0.5, 4, 9]) expect(twice(x / 2, 0, 1)).toBeCloseTo(once(x, 0, 2) / 2);
   // the profile is in mm on the bars too
-  const flat = { ...leaf, scale: 2, cutoff: 1 };
+  const flat = { ...leaf, scale: 2, outer: 1 };
   expect(compilePattern(pattern(flat), fields)(40, 0, 0)).toBeCloseTo(1);
 });
 
@@ -217,10 +217,10 @@ describe('shader plan', () => {
   });
 
   test('an svg and a text node have their profile as params', () => {
-    // svg: scale, offset x z, width, repeat, the sizes of its levels (7), its frame, 4 of the profile, gain: 18 in 5 vec4s
+    // svg: scale, offset x z, width, repeat, the sizes of its levels (7), its frame, 5 of the profile, gain: 19 in 5 vec4s
     expect(sdfShaderPlan(pattern(svgNode('a'))).params(new Map()).length).toBe(20);
-    // text: scale, centre x z, the sizes of its levels (7), its frame, 4 of the profile, gain
-    expect(sdfShaderPlan(pattern(textNode('a'))).params(new Map()).length).toBe(16);
+    // text: scale, centre x z, the sizes of its levels (7), its frame, 5 of the profile, gain: 17 in 5 vec4s
+    expect(sdfShaderPlan(pattern(textNode('a'))).params(new Map()).length).toBe(20);
   });
 
   test('too many svg shapes do not fit', () => {
@@ -247,15 +247,21 @@ test('the static scale of a node is the product of the scales down to it, unless
   expect(nodeFrame(root, root.id)).toEqual({ scale: 2, exact: true });
 });
 
-test('the profile of a distance: plateau, bevel, cutoff', () => {
+test('the profile of a distance: limits inside and outside, optional bevels', () => {
   const ds = [-5, -1, -0.25, 0, 0.5, 4];
   // the default is the distance itself
   expect(ds.map((d) => profile(d, DEFAULT_PROFILE))).toEqual(ds);
-  const flat = { inside: 'constant' as const, depth: 2, bevel: 1, cutoff: 3 };
-  expect(ds.map((d) => profile(d, flat))).toEqual([-2, -2, -0.5, 0, 0.5, 3]);
-  // no bevel is a step
-  expect(profile(-0.01, { ...flat, bevel: 0 })).toBe(-2);
-  expect(profile(-7, { ...DEFAULT_PROFILE, cutoff: 2 })).toBe(-7);
+  // the distance stops at the limits, 0 is none
+  const limited = { ...DEFAULT_PROFILE, inner: 2, outer: 3 };
+  expect(ds.map((d) => profile(d, limited))).toEqual([-2, -1, -0.25, 0, 0.5, 3]);
+  expect(profile(-7, { ...limited, inner: 0 })).toBe(-7);
+  expect(profile(7, { ...limited, outer: 0 })).toBe(7);
+  // with bevels a limit is reached over the width of its bevel, on both sides
+  const beveled = { ...limited, beveled: true, innerBevel: 1, outerBevel: 6 };
+  expect(ds.map((d) => profile(d, beveled))).toEqual([-2, -2, -0.5, 0, 0.25, 2]);
+  // a bevel of 0 is a step, a bevel as wide as its limit the same as none
+  expect(profile(-0.01, { ...beveled, innerBevel: 0 })).toBe(-2);
+  expect(ds.map((d) => profile(d, { ...beveled, innerBevel: 2, outerBevel: 3 }))).toEqual(ds.map((d) => profile(d, limited)));
 });
 
 test('a point of a node is placed on the bars the way the pattern samples it', () => {
