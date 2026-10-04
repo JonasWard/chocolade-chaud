@@ -5,9 +5,16 @@ import { Field, NumberField, Select } from './ui';
 
 const GRID_TYPES = [GridType.Single, GridType.Simple] as const;
 
-export const BarPanel: React.FC<{ grid: IEditableGrid; setGrid: (g: IEditableGrid) => void }> = ({ grid, setGrid }) => {
+/** the size and look of the bars, expert shows how finely they are made and their wireframe */
+export const BarPanel: React.FC<{ grid: IEditableGrid; setGrid: (g: IEditableGrid) => void; expert: boolean }> = ({ grid, setGrid, expert }) => {
   const set = (patch: Partial<IEditableGrid>) => setGrid({ ...grid, ...patch } as IEditableGrid);
-  const number = (label: string, key: 'cellWidth' | 'cellLength' | 'uCount' | 'vCount' | 'height' | 'inset' | 'amplitude' | 'divPerMM', step: number, min?: number, max?: number) => (
+  const number = (
+    label: string,
+    key: 'cellWidth' | 'cellLength' | 'uCount' | 'vCount' | 'height' | 'inset' | 'amplitude' | 'divPerMM',
+    step: number,
+    min?: number,
+    max?: number
+  ) => (
     <Field label={label}>
       <NumberField value={grid[key]} step={step} min={min} max={max} onChange={(v) => set({ [key]: v })} />
     </Field>
@@ -29,16 +36,18 @@ export const BarPanel: React.FC<{ grid: IEditableGrid; setGrid: (g: IEditableGri
       {number('Height', 'height', 0.5, 2.5, 10)}
       {number('Inset', 'inset', 0.5)}
       {number('Amplitude', 'amplitude', 0.05)}
-      {number('Divisions/mm', 'divPerMM', 0.25, 0.25, MAX_DIV_PER_MM)}
-      {effectiveDivPerMM(grid) < grid.divPerMM && (
+      {expert && number('Divisions/mm', 'divPerMM', 0.25, 0.25, MAX_DIV_PER_MM)}
+      {expert && effectiveDivPerMM(grid) < grid.divPerMM && (
         <p className='hint'>
-          Limited to {effectiveDivPerMM(grid).toFixed(2)}/mm here: a side has at most {MAX_DIVS_ONE_SIDE} divisions, all bars together{' '}
-          {(MAX_VERTICES / 1e6).toFixed(1)} million vertices.
+          Limited to {effectiveDivPerMM(grid).toFixed(2)}/mm here: a side has at most {MAX_DIVS_ONE_SIDE} divisions, all bars together {(MAX_VERTICES / 1e6).toFixed(1)} million
+          vertices.
         </p>
       )}
-      <Field label='Wireframe'>
-        <input type='checkbox' checked={!!grid.displayWireframe} onChange={(e) => set({ displayWireframe: e.target.checked })} />
-      </Field>
+      {expert && (
+        <Field label='Wireframe'>
+          <input type='checkbox' checked={!!grid.displayWireframe} onChange={(e) => set({ displayWireframe: e.target.checked })} />
+        </Field>
+      )}
       <Field label='Colour'>
         <div className='row'>
           {colors.map((color, i) => (

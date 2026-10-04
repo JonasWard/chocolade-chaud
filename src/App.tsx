@@ -4,7 +4,7 @@ import { Export } from './Components/Export';
 import { BarPanel } from './Components/BarPanel';
 import { PatternPanel } from './Components/pattern/PatternPanel';
 import { EditorContext, IEditorContext } from './Components/pattern/editorContext';
-import { Section } from './Components/ui';
+import { Section, Segmented } from './Components/ui';
 import { useGridMeshes } from './hooks/useGridMeshes';
 import { usePatternFields } from './hooks/usePatternFields';
 import { useMediaQuery } from './hooks/useMediaQuery';
@@ -41,6 +41,9 @@ function App() {
     setCurvePoint(undefined);
   };
 
+  // expert mode shows every setting, a preference of this browser, not part of the link
+  const [expert, setExpert] = useStoredFlag('chocolade-chaud:expert');
+
   // the svg shapes and texts where they go on the bars
   const placed = React.useMemo(() => placePattern(pattern, gridBox(grid), fields), [pattern, grid, fields]);
   const node = selected ? findNode(placed.root, selected) : undefined;
@@ -55,6 +58,7 @@ function App() {
           curve: textNode.curve,
           offset: { x: textNode.offsetX, z: textNode.offsetZ },
           scaleAt,
+          handles: expert,
           editing,
           point: curvePoint,
           // a text against an edge stays where it is while its curve changes: centred, moved to where it is
@@ -79,7 +83,7 @@ function App() {
   const [panelsHidden, setPanelsHidden] = useStoredFlag('chocolade-chaud:panels-hidden');
   const hidden = panelsHidden || (mobile && editing);
 
-  const editor: IEditorContext = { errors, curveEdit: editing, setCurveEdit, curvePoint, setCurvePoint };
+  const editor: IEditorContext = { expert, errors, curveEdit: editing, setCurveEdit, curvePoint, setCurvePoint };
 
   // in the url and local storage, a little after the last edit or when the page is left before that
   React.useEffect(() => {
@@ -135,8 +139,19 @@ function App() {
           )}
           {!hidden && (
             <>
+              <div className='mode-switch'>
+                <Segmented
+                  label='mode'
+                  value={expert ? 'expert' : 'simple'}
+                  options={[
+                    ['simple', 'Simple'],
+                    ['expert', 'Expert'],
+                  ]}
+                  onChange={(mode) => setExpert(mode === 'expert')}
+                />
+              </div>
               <Section title='Bar' open={!mobile}>
-                <BarPanel grid={grid} setGrid={setGrid} />
+                <BarPanel grid={grid} setGrid={setGrid} expert={expert} />
               </Section>
               <Section title='Pattern' open>
                 <PatternPanel pattern={pattern} setPattern={(sdfSetting) => setGrid({ ...grid, sdfSetting })} selected={selected} setSelected={setSelected} />

@@ -9,6 +9,8 @@ import { ColumnEditor } from './ColumnEditor';
 import { FormulaPreview } from './FormulaPreview';
 import { OutlineEditor } from './OutlineEditor';
 import { EditorContext } from './editorContext';
+import { Picker } from '../Picker';
+import { PRESETS } from '../../geometry/sdf/presets';
 
 export const MOBILE = '(max-width: 720px)';
 
@@ -35,10 +37,7 @@ const SvgAssets: React.FC<{ pattern: IPattern; setPattern: (p: IPattern) => void
       {Object.entries(pattern.svgs).map(([asset, svg]) => (
         <div key={asset} className='row'>
           <input aria-label='name' value={svg.name} onChange={(e) => setSvgs({ ...pattern.svgs, [asset]: { ...svg, name: e.target.value } })} />
-          <button
-            aria-label={`remove ${svg.name}`}
-            onClick={() => setSvgs(Object.fromEntries(Object.entries(pattern.svgs).filter(([k]) => k !== asset)))}
-          >
+          <button aria-label={`remove ${svg.name}`} onClick={() => setSvgs(Object.fromEntries(Object.entries(pattern.svgs).filter(([k]) => k !== asset)))}>
             ✕
           </button>
           {errors[asset] && <span className='error'>{errors[asset]}</span>}
@@ -62,6 +61,7 @@ export const PatternPanel: React.FC<{ pattern: IPattern; setPattern: (p: IPatter
   setSelected,
 }) => {
   const mobile = useMediaQuery(MOBILE);
+  const { expert } = React.useContext(EditorContext);
   // the group the mobile editor shows
   const [focus, setFocus] = React.useState(pattern.root.id);
 
@@ -76,19 +76,43 @@ export const PatternPanel: React.FC<{ pattern: IPattern; setPattern: (p: IPatter
     <NumberField label={axis} value={pattern.center[axis]} step={1} onChange={(v) => setPattern({ ...pattern, center: { ...pattern.center, [axis]: v } })} />
   );
 
+  // a preset replaces the tree, undo brings it back
+  const pickPreset = (i: number) => {
+    const { root, svgs } = PRESETS[i].make();
+    setSelected(undefined);
+    setFocus(root.id);
+    setPattern({ ...pattern, root, svgs: { ...pattern.svgs, ...svgs } });
+  };
+
   const editorProps = { pattern, selected, onSelect: setSelected, onAction, onChange };
   return (
     <>
-      <FormulaPreview pattern={pattern} selected={selected} />
+      {expert ? (
+        <FormulaPreview pattern={pattern} selected={selected} />
+      ) : (
+        <Picker<number>
+          label='start from a pattern'
+          trigger={
+            <>
+              <span className='picker-label'>Start from a pattern…</span>
+              <span className='picker-caret'>▾</span>
+            </>
+          }
+          sections={[{ items: PRESETS.map((p, i) => ({ value: i, label: p.name })) }]}
+          onPick={pickPreset}
+        />
+      )}
       {mobile ? <ColumnEditor {...editorProps} focus={focus} setFocus={setFocus} /> : <OutlineEditor {...editorProps} />}
       <Section title='Placement' className='subsection'>
-        <Field label='Centre'>
-          <div className='row'>
-            {center('x')}
-            {center('y')}
-            {center('z')}
-          </div>
-        </Field>
+        {expert && (
+          <Field label='Centre'>
+            <div className='row'>
+              {center('x')}
+              {center('y')}
+              {center('z')}
+            </div>
+          </Field>
+        )}
         <Field label='Rotation °'>
           <NumberField value={pattern.rotation} step={5} onChange={(rotation) => setPattern({ ...pattern, rotation })} />
         </Field>

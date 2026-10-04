@@ -79,3 +79,16 @@ export function Select<T extends string>({ value, options, onChange, label }: { 
     </select>
   );
 }
+
+/** one of a few options as a row of buttons */
+export function Segmented<T extends string>({ value, options, onChange, label }: { value: T; options: readonly [T, string][]; onChange: (v: T) => void; label: string }) {
+  return (
+    <div className='segmented' role='radiogroup' aria-label={label}>
+      {options.map(([v, text]) => (
+        <button key={v} role='radio' aria-checked={v === value} className={v === value ? 'on' : ''} onClick={() => onChange(v)}>
+          {text}
+        </button>
+      ))}
+    </div>
+  );
+}
