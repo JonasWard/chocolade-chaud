@@ -1,7 +1,8 @@
 import { DefaultGridSettings, GridType, IEditableGrid, ISimpleGrid, ISingleGrid } from '../geometry/grid';
 import { DistanceMethodType } from '../geometry/sdMethods';
-import { IBooleanNode, IPattern, SdfNode, constantNode, defaultPattern, groupNode, methodNode, sineNode, svgKey, svgNode, textNode } from '../geometry/sdf/tree';
+import { IBooleanNode, IPattern, IProfile, SdfNode, constantNode, defaultPattern, groupNode, methodNode, sineNode, svgKey, svgNode, textNode } from '../geometry/sdf/tree';
 import { decodeState, encodeState } from './schema';
+import { profile } from '../geometry/sdf/evaluate';
 
 const single = () => DefaultGridSettings(GridType.Single) as ISingleGrid;
 
@@ -38,7 +39,7 @@ test('a tree with every kind of node survives a round trip', () => {
     { ...groupNode('intersection', [svgNode(star)]), gain: -2 },
     groupNode('add', [methodNode(DistanceMethodType.SDTorus, 1e-3)]),
     groupNode('subtract', [
-      { ...textNode('Ça ¡chaud! 🍫'), font: 'Playfair Display', fontSource: 'google', bold: false, size: 9.5, offsetX: -3, angle: 30, inside: 'constant', depth: 1.25, bevel: 0, cutoff: 3.5 },
+      { ...textNode('Ça ¡chaud! 🍫'), font: 'Playfair Display', fontSource: 'google', bold: false, size: 9.5, offsetX: -3, angle: 30, inner: 1.25, outer: 3.5, beveled: true, innerBevel: 0, outerBevel: 2 },
       {
         ...textNode('on a curve'),
         curve: { mode: 'spline', points: [{ x: -20, z: 0 }, { x: -10, z: -8.25 }, { x: 10, z: 8 }, { x: 20, z: 0.5 }] },
@@ -72,4 +73,24 @@ test('anything else is not a state', () => {
   expect(decodeState('!!!', library)).toBeUndefined();
   // a state of another version
   expect(decodeState('_' + encodeState(single()).slice(1), library)).toBeUndefined();
+});
+
+// written by version 4: a union of a gyroid, the text 'flat' with a plateau 1.25 deep, a bevel of 0.5 and a cutoff of 3.5, the text 'step'
+// with a plateau 2 deep without a bevel, the star with a cutoff of 2 and the text 'curve' on a spline
+const V4 =
+  'BB5GBtYAD6ElxO6BdwU50EMNQMNQMNQIygBX7JiYlTiGKiAAAoIvrFRAJOIYqIBABmAGwAYQB0FADmAMIA3ADmAFoA5gDKAOQA0gDMhH4AMK6MQYPPKeNAMgCvEnEMVEAgA5gDoAMoA4CgBzAGEAbgBzAC0AcwBlAHIAaQBmQj8AGGoGGoHCFPsAAAAABTiGKiAAZCcQTiAAATugBkAMgk4hiogFAGMAdQByAHYAZRQA5gDCANwA5gBaAOYAygDkANIAzIR-gi_aDDUDBXDBwDFRDE4DHODDUDDUDDUDhAndADIAAA';
+
+test('a state of version 4 still reads, its profiles shaped the same', () => {
+  const grid = decodeState(V4, library) as ISingleGrid;
+  const [gyroid, flat, step, star, curve] = (grid.sdfSetting.root as { children: SdfNode[] }).children;
+  expect(gyroid).toMatchObject({ kind: 'method', method: DistanceMethodType.SDGyroid });
+  expect(flat).toMatchObject({ kind: 'text', text: 'flat', offsetX: -3, offsetZ: 4, angle: 30, inner: 1.25, outer: 3.5, beveled: true, innerBevel: 0.5, outerBevel: 3.5 });
+  expect(step).toMatchObject({ text: 'step', inner: 2, outer: 0, beveled: true, innerBevel: 0 });
+  expect(star).toMatchObject({ kind: 'svg', width: 20, inner: 0, outer: 2, beveled: false });
+  expect(curve).toMatchObject({ text: 'curve', curve: { mode: 'spline' }, inner: 0, outer: 0, beveled: false });
+  // the plateau of the old profile: -depth * min(-d / bevel, 1) inside, min(d, cutoff) outside
+  const old = (d: number) => (d >= 0 ? Math.min(d, 3.5) : -1.25 * Math.min(-d / 0.5, 1));
+  for (const d of [-3, -0.4, -0.1, 0, 0.2, 2, 9]) expect(profile(d, flat as IProfile)).toBeCloseTo(old(d), 12);
+  // and it is written as the current version
+  expectClose(decodeState(encodeState(grid), library), grid);
 });

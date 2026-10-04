@@ -5,7 +5,7 @@ import { IPattern, IProfile, SdfNode, SvgFields, textFieldKey } from './tree';
 // the pattern compiled into closures, evaluated per vertex. three/shaders/sdfCodegen.ts generates the same in glsl.
 // every node is evaluated at a scale s: s' = s * node.scale is what the node works with, its output is multiplied by node.gain.
 // A text or an svg shape divides its distance by its frame, the static part of that scale (see nodeFrame in treeOps.ts), so a scale
-// only changes its size: its distances, depth, bevel and cutoff stay in mm on the bars
+// only changes its size: its distances, limits and bevels stay in mm on the bars
 
 /** polynomial smooth minimum, k is the radius of the blend, 0 is the plain minimum */
 export const smoothMin = (a: number, b: number, k: number): number => {
@@ -23,10 +23,14 @@ export const sdSine = (x: number, z: number, amplitude: number, period: number):
 };
 
 /** the distance d (in mm, negative inside) to an svg shape or a text, shaped by its profile, see profile in three/shaders/sdfCodegen.ts */
-export const profile = (d: number, { inside, depth, bevel, cutoff }: IProfile): number => {
-  if (d >= 0) return cutoff > 0 ? Math.min(d, cutoff) : d;
-  if (inside === 'distance') return d;
-  return bevel > 0 ? -depth * Math.min(-d / bevel, 1) : -depth;
+export const profile = (d: number, { inner, outer, beveled, innerBevel, outerBevel }: IProfile): number => {
+  // the distance up to the limit of its side, s is 1 outside and -1 inside
+  const limited = (v: number, limit: number, bevel: number, s: number) => {
+    if (limit <= 0) return v;
+    if (!beveled) return s * Math.min(s * v, limit);
+    return bevel > 0 ? s * limit * Math.min((s * v) / bevel, 1) : s * limit;
+  };
+  return d >= 0 ? limited(d, outer, outerBevel, 1) : limited(d, inner, innerBevel, -1);
 };
 
 /** centred tiling, positive for negative coordinates too (unlike %) */

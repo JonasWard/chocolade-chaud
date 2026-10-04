@@ -24,18 +24,19 @@ export interface IMethodNode extends INodeBase {
   method: DistanceMethodType;
 }
 
-/** how the distance to an svg shape or a text is shaped, in mm */
+/**
+ * how the distance to an svg shape or a text is shaped, in mm: it stops at -inner inside and at outer outside (0 is no limit).
+ * With bevels, it reaches a limit over the width of its bevel (0 is a step) instead of with a slope of 1
+ */
 export interface IProfile {
-  /** inside: the distance, or a constant plateau at -depth */
-  inside: 'distance' | 'constant';
-  depth: number;
-  /** of the rim of the plateau, 0 is a sharp step */
-  bevel: number;
-  /** outside, the distance stays flat beyond it, 0 is no cutoff */
-  cutoff: number;
+  inner: number;
+  outer: number;
+  beveled: boolean;
+  innerBevel: number;
+  outerBevel: number;
 }
 
-export const DEFAULT_PROFILE: IProfile = { inside: 'distance', depth: 1, bevel: 0.5, cutoff: 0 };
+export const DEFAULT_PROFILE: IProfile = { inner: 0, outer: 0, beveled: false, innerBevel: 0, outerBevel: 0 };
 
 /** an svg shape in the xz plane, distances in mm */
 export interface ISvgNode extends INodeBase, IProfile {
