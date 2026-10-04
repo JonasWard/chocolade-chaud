@@ -43,9 +43,38 @@ body {
 .status {
   position: absolute;
   top: var(--gap);
-  left: var(--gap);
+  left: calc(2 * var(--gap) + var(--control));
   display: flex;
   gap: var(--gap);
+}
+
+/* the switch to expert mode, barely there until it is on */
+.expert-toggle {
+  position: absolute;
+  top: var(--gap);
+  left: var(--gap);
+  width: var(--control);
+  padding: 0;
+  font-size: 16px;
+  line-height: 1;
+  background: none;
+  border-color: transparent;
+  opacity: 0.25;
+  transition: opacity 0.2s;
+}
+
+.expert-toggle:hover,
+.expert-toggle:focus-visible,
+.expert-toggle.on {
+  opacity: 1;
+  background: var(--panel);
+  border-color: var(--line);
+}
+
+.expert-toggle.on {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--accent);
 }
 
 .toolbar {
@@ -204,12 +233,6 @@ summary,
   flex: 1;
   width: 0;
   min-width: 3em;
-}
-
-/* simple or expert, on top of the settings */
-
-.mode-switch {
-  padding: var(--gap) var(--gap) 0;
 }
 
 /* two numbers side by side, each with a caption */
