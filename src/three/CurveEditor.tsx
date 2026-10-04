@@ -11,6 +11,8 @@ import { fromNode, toPattern, toWorld } from '../geometry/sdf/evaluate';
 /** the curve of the selected text node */
 export interface ICurveEditing {
   curve: ICurve;
+  /** where the placement moved the text to, in its plane (see placePattern) */
+  offset: IPoint2;
   /** the scale its text node is evaluated at, at a point of the plane of the pattern (see nodeScaleAt) */
   scaleAt: (x: number, z: number) => number;
   /** whether it is edited in the scene */
@@ -33,10 +35,11 @@ const overlay = { depthTest: false, depthWrite: false, transparent: true } as co
 
 const isTyping = (target: EventTarget | null) => target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement;
 
-/** where the points of the text node are on the bars, undefined where they are nowhere (see fromNode). Every point starts from the one before */
-export const curveToWorld = (pattern: IPattern, scaleAt: ICurveEditing['scaleAt'], points: IPoint2[]): (IPoint2 | undefined)[] => {
+/** where the points of the curve of a text node are on the bars, undefined where they are nowhere (see fromNode). Every point starts from the one before */
+export const curveToWorld = (pattern: IPattern, { scaleAt, offset }: Pick<ICurveEditing, 'scaleAt' | 'offset'>, points: IPoint2[]): (IPoint2 | undefined)[] => {
   let previous: IPoint2 | undefined;
-  return points.map((q) => {
+  return points.map(({ x, z }) => {
+    const q = { x: x + offset.x, z: z + offset.z };
     const p = fromNode(scaleAt, q, previous) ?? fromNode(scaleAt, q);
     previous = p;
     return p && toWorld(pattern, 1, p);
@@ -52,12 +55,12 @@ const runs = (points: (THREE.Vector3 | undefined)[]): THREE.Vector3[][] =>
     return all;
   }, []);
 
-export const CurveEditor: React.FC<ICurveEditing & { pattern: IPattern; y: number }> = ({ curve, scaleAt, point, onChange, onSelectPoint, pattern, y }) => {
+export const CurveEditor: React.FC<ICurveEditing & { pattern: IPattern; y: number }> = ({ curve, offset, scaleAt, point, onChange, onSelectPoint, pattern, y }) => {
   const get = useThree((state) => state.get);
   const handles = React.useRef<THREE.Group>(null);
 
   const vector = (w?: IPoint2) => w && new THREE.Vector3(w.x, y, w.z);
-  const toScene = (points: IPoint2[]) => curveToWorld(pattern, scaleAt, points).map(vector);
+  const toScene = (points: IPoint2[]) => curveToWorld(pattern, { scaleAt, offset }, points).map(vector);
 
   // a world unit per pixel, so the handles have the same size on screen at every zoom
   useFrame(({ camera, size }) => {
@@ -85,7 +88,7 @@ export const CurveEditor: React.FC<ICurveEditing & { pattern: IPattern; y: numbe
       if (!raycaster.ray.intersectPlane(plane, hit)) return;
       const p = toPattern(pattern, 1, { x: hit.x, z: hit.z });
       const s = scaleAt(p.x, p.z);
-      current = moveAt(current, index, { x: p.x * s, z: p.z * s });
+      current = moveAt(current, index, { x: p.x * s - offset.x, z: p.z * s - offset.z });
       onChange(current);
     };
     const end = () => {

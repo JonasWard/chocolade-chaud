@@ -15,6 +15,9 @@ import { loadState, saveState } from './state/persist';
 import { ICurve } from './geometry/curve';
 import { findNode, updateNode } from './geometry/sdf/treeOps';
 import { nodeScaleAt } from './geometry/sdf/evaluate';
+import { placePattern } from './geometry/sdf/placement';
+import { gridBox } from './geometry/grid';
+import { SdfNode } from './geometry/sdf/tree';
 import { ICurveEditing } from './three/CurveEditor';
 
 const SAVE_DELAY = 300;
@@ -38,20 +41,28 @@ function App() {
     setCurvePoint(undefined);
   };
 
-  const node = selected ? findNode(pattern.root, selected) : undefined;
+  // the svg shapes and texts where they go on the bars
+  const placed = React.useMemo(() => placePattern(pattern, gridBox(grid), fields), [pattern, grid, fields]);
+  const node = selected ? findNode(placed.root, selected) : undefined;
   const textNode = node?.kind === 'text' && node.curve ? node : undefined;
   // the scale the text is drawn at over the bars, it varies inside a chain
   const textId = textNode?.id;
-  const scaleAt = React.useMemo(() => textId && nodeScaleAt(pattern, textId, fields, grid.height - pattern.center.y), [pattern, textId, fields, grid.height]);
+  const scaleAt = React.useMemo(() => textId && nodeScaleAt(placed, textId, fields, grid.height - pattern.center.y), [placed, textId, fields, grid.height, pattern.center.y]);
   const editing = curveEdit && !!scaleAt;
   const curve: ICurveEditing | undefined =
     textNode?.curve && scaleAt
       ? {
           curve: textNode.curve,
+          offset: { x: textNode.offsetX, z: textNode.offsetZ },
           scaleAt,
           editing,
           point: curvePoint,
-          onChange: (c: ICurve) => setGrid({ ...grid, sdfSetting: { ...pattern, root: updateNode(pattern.root, textNode.id, (n) => ({ ...n, curve: c })) } }),
+          // a text against an edge stays where it is while its curve changes: centred, moved to where it is
+          onChange: (c: ICurve) => {
+            const { alignX, alignZ, offsetX, offsetZ } = textNode;
+            const stay = { ...(alignX === 'center' ? {} : { alignX: 'center', paddingX: offsetX }), ...(alignZ === 'middle' ? {} : { alignZ: 'middle', paddingZ: offsetZ }) };
+            setGrid({ ...grid, sdfSetting: { ...pattern, root: updateNode(pattern.root, textNode.id, (n) => ({ ...n, ...stay, curve: c }) as SdfNode) } });
+          },
           onSelectPoint: setCurvePoint,
         }
       : undefined;

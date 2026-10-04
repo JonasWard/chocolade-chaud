@@ -34,12 +34,12 @@ test('a tree with every kind of node survives a round trip', () => {
   const logo = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"><rect width="1" height="1"/></svg>';
   const star = Object.keys(library)[0];
   const root = groupNode('union', [
-    groupNode('chain', [methodNode(DistanceMethodType.SDGyroid, 0.3), { ...svgNode(svgKey(logo), 25), offsetX: -4.5, repeat: 40 }]),
+    groupNode('chain', [methodNode(DistanceMethodType.SDGyroid, 0.3), { ...svgNode(svgKey(logo), 25), alignX: 'left', paddingX: 4.5, repeat: 40 }]),
     { ...(groupNode('difference', [sineNode(2.5, 17), constantNode(-0.75)]) as IBooleanNode), smooth: 1.5 },
     { ...groupNode('intersection', [svgNode(star)]), gain: -2 },
     groupNode('add', [methodNode(DistanceMethodType.SDTorus, 1e-3)]),
     groupNode('subtract', [
-      { ...textNode('Ça ¡chaud! 🍫'), font: 'Playfair Display', fontSource: 'google', bold: false, size: 9.5, offsetX: -3, angle: 30, inner: 1.25, outer: 3.5, beveled: true, innerBevel: 0, outerBevel: 2 },
+      { ...textNode('Ça ¡chaud! 🍫'), font: 'Playfair Display', fontSource: 'google', bold: false, size: 9.5, alignZ: 'bottom', paddingX: -3, paddingZ: 2, angle: 30, inner: 1.25, outer: 3.5, beveled: true, innerBevel: 0, outerBevel: 2 },
       {
         ...textNode('on a curve'),
         curve: { mode: 'spline', points: [{ x: -20, z: 0 }, { x: -10, z: -8.25 }, { x: 10, z: 8 }, { x: 20, z: 0.5 }] },
@@ -85,7 +85,7 @@ test('a state of version 4 still reads, its profiles shaped the same', () => {
   const grid = decodeState(V4, library) as ISingleGrid;
   const [gyroid, flat, step, star, curve] = (grid.sdfSetting.root as { children: SdfNode[] }).children;
   expect(gyroid).toMatchObject({ kind: 'method', method: DistanceMethodType.SDGyroid });
-  expect(flat).toMatchObject({ kind: 'text', text: 'flat', offsetX: -3, offsetZ: 4, angle: 30, inner: 1.25, outer: 3.5, beveled: true, innerBevel: 0.5, outerBevel: 3.5 });
+  expect(flat).toMatchObject({ kind: 'text', text: 'flat', alignX: 'center', alignZ: 'middle', paddingX: -3, paddingZ: 4, angle: 30, inner: 1.25, outer: 3.5, beveled: true, innerBevel: 0.5, outerBevel: 3.5 });
   expect(step).toMatchObject({ text: 'step', inner: 2, outer: 0, beveled: true, innerBevel: 0 });
   expect(star).toMatchObject({ kind: 'svg', width: 20, inner: 0, outer: 2, beveled: false });
   expect(curve).toMatchObject({ text: 'curve', curve: { mode: 'spline' }, inner: 0, outer: 0, beveled: false });
@@ -105,4 +105,17 @@ test('a state of version 5 still reads', () => {
   const [flat, curve] = (grid.sdfSetting.root as { children: SdfNode[] }).children;
   expect(flat).toMatchObject({ kind: 'text', text: 'flat', inner: 1.25, outer: 3.5, beveled: true, innerBevel: 0.5, outerBevel: 2 });
   expect(curve).toMatchObject({ text: 'curve', curve: { mode: 'spline', points: [{ x: -20, z: 0 }, { x: -10, z: -8 }, { x: 10, z: 8 }, { x: 20, z: 0 }] } });
+});
+
+// written by version 6: the text 'moved' at an offset of (-12.5, 6), the text 'curve' on a smooth curve with an offset it ignored,
+// the star at an offset of (4.5, -3)
+const V6 =
+  'Bh5GBtYAD6ElxO6BdwU50EMNQMNQMNQIygBX7JiYlTiGKiAAAZJxDFRAKANoA3gDsAMoAyCgBzAGEAbgBzAC0AcwBlAHIAaQBmQj8AGBvmI-HCAAAAAAAAAAAAJOIYqIBQBjAHUAcgB2AGUUAOYAwgDcAOYAWgDmAMoA5ADSAMyEfsGv2gw1Aw1AxEoxzgw1AySwwlY4QAAAAAAAAAAAApxDFRAAMhOepvIAAAAAAAAAAAAAA';
+
+test('a state of version 6 keeps where its texts and svgs were', () => {
+  const grid = decodeState(V6, library) as ISingleGrid;
+  const [moved, curve, star] = (grid.sdfSetting.root as { children: SdfNode[] }).children;
+  expect(moved).toMatchObject({ text: 'moved', alignX: 'center', alignZ: 'middle', paddingX: -12.5, paddingZ: 6 });
+  expect(curve).toMatchObject({ text: 'curve', alignX: 'center', alignZ: 'middle', paddingX: 0, paddingZ: 0, curve: { mode: 'smooth' } });
+  expect(star).toMatchObject({ kind: 'svg', alignX: 'center', alignZ: 'middle', paddingX: 4.5, paddingZ: -3 });
 });

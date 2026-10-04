@@ -218,7 +218,8 @@ const buildPlan = (root: SdfNode): ISdfShaderPlan => {
         // in mm around the centre of its field, see the text case in geometry/sdf/evaluate.ts
         const key = textFieldKey(node);
         const field = slot(key);
-        const center = `vec2(${param((fields) => fields.get(key)?.center?.x ?? 0)}, ${param((fields) => fields.get(key)?.center?.z ?? 0)})`;
+        // the centre of its field where the text is moved to
+        const center = `vec2(${param((fields) => (fields.get(key)?.center?.x ?? 0) + node.offsetX)}, ${param((fields) => (fields.get(key)?.center?.z ?? 0) + node.offsetZ)})`;
         d = shaped(`svgDistance(${field}, p.xz * ${sk}, 1.0, ${center}, 0.0, ${levels(key)}) / ${param(frame)}`, node);
         break;
       }

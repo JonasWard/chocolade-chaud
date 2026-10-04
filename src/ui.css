@@ -231,6 +231,48 @@ summary,
   align-items: center;
 }
 
+/* the nine places of an svg or a text on the bars */
+
+.anchor {
+  display: grid;
+  grid-template-columns: repeat(3, var(--control));
+  gap: 2px;
+  justify-self: start;
+}
+
+.anchor button {
+  position: relative;
+  width: var(--control);
+  min-height: 0;
+  height: calc(var(--control) * 0.75);
+  padding: 0;
+  background: var(--bg);
+  border-color: var(--line);
+}
+
+.anchor button::after {
+  content: '';
+  position: absolute;
+  inset: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px;
+  background: var(--line);
+  border-radius: 50%;
+}
+
+.anchor button.on {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.anchor button.on::after {
+  width: 10px;
+  height: 10px;
+  margin: -5px;
+  background: var(--accent);
+}
+
 /* controls */
 
 .field {

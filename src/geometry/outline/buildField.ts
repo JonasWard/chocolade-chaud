@@ -1,6 +1,6 @@
 import { IDistanceField } from '../field';
 import type { OutlineMessage, OutlineResponse } from './outlineWorker';
-import { IOutlineRequest, buildPiecesField } from './pieces';
+import { IOutlineRequest, buildPiecesField, piecesBounds } from './pieces';
 
 // builds the distance field of drawn pieces in a worker, one for the whole page, or here where there are no workers
 
@@ -21,12 +21,15 @@ const outlineWorker = () => {
   return worker;
 };
 
-/** the distance field of the pieces, undefined when nothing is drawn. The coverages are handed over, not copied */
+/** the distance field of the pieces with the box around them, undefined when nothing is drawn. The coverages are handed over, not copied */
 export const buildField = (request: IOutlineRequest): Promise<IDistanceField | undefined> => {
-  if (typeof Worker === 'undefined') return Promise.resolve(buildPiecesField(request));
+  // before the coverages are handed over
+  const bounds = piecesBounds(request.pieces);
+  const withBounds = (field?: IDistanceField) => field && { ...field, bounds };
+  if (typeof Worker === 'undefined') return Promise.resolve(withBounds(buildPiecesField(request)));
   const id = ++lastId;
   return new Promise((resolve, reject) => {
-    waiting.set(id, { resolve, reject });
+    waiting.set(id, { resolve: (field) => resolve(withBounds(field)), reject });
     const transfer = request.pieces.map((p) => p.coverage.buffer);
     outlineWorker().postMessage({ id, request } as OutlineMessage, transfer);
   });

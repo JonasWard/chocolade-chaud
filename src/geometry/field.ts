@@ -24,6 +24,15 @@ export interface IDistanceField extends IFieldLevel {
   levels?: IFieldLevel[];
   /** where the centre of the field is, for one that is not centred on the origin (text) */
   center?: { x: number; z: number };
+  /** the box around what is drawn, in the unit and around the origin of the field */
+  bounds?: IBox;
+}
+
+export interface IBox {
+  minX: number;
+  minZ: number;
+  maxX: number;
+  maxZ: number;
 }
 
 /** the weights of the four samples around t (0 to 1 between the middle two) of a catmull-rom spline */

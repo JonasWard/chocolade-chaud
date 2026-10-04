@@ -4,6 +4,7 @@ import { nodeFrame } from '../../geometry/sdf/treeOps';
 import { Field, LogSlider, NumberField, Select } from '../ui';
 import { FontField } from './FontField';
 import { CurveFields } from './CurveFields';
+import { PlacementFields } from './PlacementFields';
 import { EditorContext } from './editorContext';
 
 const HINTS: Partial<Record<NodeKind, string>> = {
@@ -12,7 +13,7 @@ const HINTS: Partial<Record<NodeKind, string>> = {
   subtract: 'The first child minus the others.',
   sine: 'Distance in mm to a sine curve along x, turned by the angle. Union it with a constant to cap it, or use it to drive a chain.',
   text: 'Distance in mm to the outline of the letters, negative inside. The distance stops at its limits (0 is none), an inside limit gives flat letters. A bevel is how wide the slope to its limit is, 0 is a step. In mm on the bars.',
-  svg: 'Distance in mm to the shape, centred on the middle of the bar. Repeat tiles it, 0 shows it once. The distance stops at its limits (0 is none). A bevel is how wide the slope to its limit is, 0 is a step.',
+  svg: 'Distance in mm to the shape, placed against an edge of the bars or centred. Repeat tiles it, 0 shows it once. The distance stops at its limits (0 is none). A bevel is how wide the slope to its limit is, 0 is a step.',
 };
 
 /** the settings of one node, shared by both tree editors */
@@ -84,13 +85,8 @@ export const NodeInspector: React.FC<{ node: SdfNode; pattern: IPattern; onChang
           </Field>
           {number('Size mm', node.size, 'size', 0.5, 0.5)}
           {onBars(node.size)}
-          {!node.curve && (
-            <>
-              {number('Offset X', node.offsetX, 'offsetX', 1)}
-              {number('Offset Z', node.offsetZ, 'offsetZ', 1)}
-              {number('Angle °', node.angle, 'angle', 5)}
-            </>
-          )}
+          <PlacementFields placement={node} onChange={set} />
+          {!node.curve && number('Angle °', node.angle, 'angle', 5)}
           <CurveFields node={node} onChange={onChange} />
           {profileFields(node)}
         </>
@@ -110,8 +106,7 @@ export const NodeInspector: React.FC<{ node: SdfNode; pattern: IPattern; onChang
           </Field>
           {number('Width mm', node.width, 'width', 1, 0)}
           {onBars(node.width)}
-          {number('Offset X', node.offsetX, 'offsetX', 1)}
-          {number('Offset Z', node.offsetZ, 'offsetZ', 1)}
+          <PlacementFields placement={node} onChange={set} />
           {number('Repeat mm', node.repeat, 'repeat', 1, 0)}
           {profileFields(node)}
         </>

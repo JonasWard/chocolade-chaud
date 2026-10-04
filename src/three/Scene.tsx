@@ -95,9 +95,9 @@ const Meshes: React.FC<MeshesProps> = ({ grid, fields, meshes, fit }) => {
 };
 
 // the box around a curve on the bars, what the camera looks at while it is edited
-const curveFocus = (grid: IGridSettings, { curve, scaleAt }: ICurveEditing): IViewFocus => {
+const curveFocus = (grid: IGridSettings, { curve, scaleAt, offset }: ICurveEditing): IViewFocus => {
   const pattern = 'sdfSetting' in grid ? grid.sdfSetting : grid.sdfSettings[0];
-  const found = curveToWorld(pattern, scaleAt, curve.points).filter((p) => !!p);
+  const found = curveToWorld(pattern, { scaleAt, offset }, curve.points).filter((p) => !!p);
   const points = found.length ? found : [{ x: 0, z: 0 }];
   const [xs, zs] = [points.map((p) => p.x), points.map((p) => p.z)];
   const [x0, x1, z0, z1] = [Math.min(...xs), Math.max(...xs), Math.min(...zs), Math.max(...zs)];
