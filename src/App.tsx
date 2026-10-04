@@ -4,7 +4,7 @@ import { Export } from './Components/Export';
 import { BarPanel } from './Components/BarPanel';
 import { PatternPanel } from './Components/pattern/PatternPanel';
 import { EditorContext, IEditorContext } from './Components/pattern/editorContext';
-import { Section, Segmented } from './Components/ui';
+import { Section } from './Components/ui';
 import { useGridMeshes } from './hooks/useGridMeshes';
 import { usePatternFields } from './hooks/usePatternFields';
 import { useMediaQuery } from './hooks/useMediaQuery';
@@ -124,6 +124,16 @@ function App() {
               </button>
             )}
           </div>
+          {/* faint until it is on, simple mode is what most people need */}
+          <button
+            className={expert ? 'expert-toggle on' : 'expert-toggle'}
+            aria-pressed={expert}
+            aria-label='expert mode'
+            title={expert ? 'Expert mode: every setting (tap for simple)' : 'Expert mode: every setting'}
+            onClick={() => setExpert(!expert)}
+          >
+            ⚙
+          </button>
           <div className='status'>
             {pending && <span className='spinner' aria-label='generating' />}
             {error && <span className='error'>{error}</span>}
@@ -139,17 +149,6 @@ function App() {
           )}
           {!hidden && (
             <>
-              <div className='mode-switch'>
-                <Segmented
-                  label='mode'
-                  value={expert ? 'expert' : 'simple'}
-                  options={[
-                    ['simple', 'Simple'],
-                    ['expert', 'Expert'],
-                  ]}
-                  onChange={(mode) => setExpert(mode === 'expert')}
-                />
-              </div>
               <Section title='Bar' open={!mobile}>
                 <BarPanel grid={grid} setGrid={setGrid} expert={expert} />
               </Section>
