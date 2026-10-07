@@ -1,14 +1,16 @@
 import { DenseField, array, bool, densing, enumeration, fixed, int, meta, object, pointer, schema, undensing, union } from 'densing';
-import { BarKind, IBar, MAX_CUSTOM_SIZE, MAX_DIV_PER_MM, defaultBar } from '../geometry/grid';
+import { BarKind, IBar, defaultBar } from '../geometry/grid';
 import { DistanceMethodType } from '../geometry/sdMethods';
 import { IPattern, ISvgAsset, NodeKind, SdfNode, isGroup, newId, svgHash } from '../geometry/sdf/tree';
 import { CHOCOLATE_TYPES, nearestChocolate } from '../geometry/chocolates';
 import { COLUMNS, DEFAULT_PIECES, IPiece, PIECE_SIZES, ROWS, TABLET_SIZES, isLayout } from '../geometry/tablets';
+import { BAR, KIND, NODE, PATTERN, PLACEMENT, PROFILE, denseNumber, denseNumbers } from './settings';
 
 // the state of the app packed into a short url safe string with densing. Numbers are rounded to the precision of their field,
-// svg sources don't fit: an svg is stored as the hash of its source (see svgKey), its source comes from the svg library
+// svg sources don't fit: an svg is stored as the hash of its source (see svgKey), its source comes from the svg library.
+// The current version takes its numbers from the settings (settings.ts), the older ones are frozen as they were written
 
-export const STATE_VERSION = 8;
+export const STATE_VERSION = 9;
 // the oldest version a state can still be read from, see MIGRATIONS
 const OLDEST_VERSION = 4;
 
@@ -28,15 +30,68 @@ const NODE_KINDS: NodeKind[] = ['method', 'svg', 'text', 'sine', 'constant', 'un
 const chars = (name: string, max: number) => array(name, 0, max, int('char', 0, 0xffff));
 const toChars = (s: string) => s.split('').map((c) => c.charCodeAt(0));
 const fromChars = (codes: number[]) => String.fromCharCode(...codes);
-const coordinate = (name: string) => fixed(name, -1000, 1000, 0.01);
-
-// every node has a scale (as log10) and a gain, a node of the tree is a pointer to this union
-const variant = (...fields: DenseField[]) => [fixed('scale', -5, 5, 0.001), fixed('gain', -100, 100, 0.001), ...fields];
 const children = array('children', 0, MAX_CHILDREN, pointer('child', 'node'));
+const svgs = array('svgs', 0, MAX_SVGS, int('hash', 0, 0xffffffff));
+const placementAlign = [enumeration('alignX', ['center', 'left', 'right']), enumeration('alignZ', ['middle', 'top', 'bottom'])];
+const curveModes = ['none', 'polyline', 'spline', 'smooth'];
+const textOwn = [chars('text', MAX_TEXT), chars('font', MAX_FONT), enumeration('fontSource', ['local', 'google']), bool('bold')];
+const withField = (state: ReturnType<typeof schema>, node: DenseField) => ({ schema: state, node, field: { type: 'object', name: 'state', fields: state.fields } as DenseField });
+
+/** the schema of the state as it is now, its numbers are the settings */
+const currentSchema = () => {
+  // every node has a scale (as log10) and a gain, a node of the tree is a pointer to this union
+  const variant = (...fields: DenseField[]) => [...denseNumbers(NODE), ...fields];
+  const profile = [denseNumber('inner', PROFILE.inner), denseNumber('outer', PROFILE.outer), bool('beveled'), denseNumber('innerBevel', PROFILE.innerBevel), denseNumber('outerBevel', PROFILE.outerBevel)];
+  const placement = [...placementAlign, ...denseNumbers(PLACEMENT)];
+  const smooth = denseNumbers(KIND.boolean);
+  const node = union('node', enumeration('kind', NODE_KINDS), {
+    method: variant(enumeration('method', Object.values(DistanceMethodType))),
+    svg: variant(int('asset', 0, MAX_SVGS - 1), denseNumber('width', KIND.svg.width), ...placement, denseNumber('repeat', KIND.svg.repeat), ...profile),
+    text: variant(
+      ...textOwn,
+      denseNumber('size', KIND.text.size),
+      // the mode of the base curve, the points are its points
+      enumeration('curve', curveModes),
+      array('points', 0, MAX_POINTS, object('point', denseNumber('x', PATTERN.point), denseNumber('z', PATTERN.point))),
+      ...placement,
+      denseNumber('angle', KIND.text.angle),
+      ...profile
+    ),
+    sine: variant(...denseNumbers(KIND.sine), children),
+    constant: variant(...denseNumbers(KIND.constant)),
+    union: variant(...smooth, children),
+    difference: variant(...smooth, children),
+    intersection: variant(...smooth, children),
+    add: variant(children),
+    subtract: variant(children),
+    chain: variant(children),
+  });
+  const state = schema(
+    meta(node),
+    int('version', 0, 255),
+    enumeration('kind', Object.values(BarKind)),
+    enumeration('tablet', TABLET_SIZES),
+    array('pieces', 1, MAX_PIECES, object('piece', enumeration('size', PIECE_SIZES), int('u', 0, COLUMNS - 1), int('v', 0, ROWS - 1))),
+    ...denseNumbers(BAR),
+    bool('displayWireframe'),
+    array('chocolates', 1, MAX_PIECES, enumeration('chocolate', CHOCOLATE_TYPES)),
+    bool('sameChocolate'),
+    object('center', ...(['x', 'y', 'z'] as const).map((axis) => denseNumber(axis, PATTERN.center))),
+    denseNumber('rotation', PATTERN.rotation),
+    svgs,
+    pointer('root', 'node')
+  );
+  return withField(state, node);
+};
+
+// up to version 8, as they were written: never change these
+
+const coordinate = (name: string) => fixed(name, -1000, 1000, 0.01);
+const variant = (...fields: DenseField[]) => [fixed('scale', -5, 5, 0.001), fixed('gain', -100, 100, 0.001), ...fields];
 const smooth = fixed('smooth', 0, 100, 0.01);
 // how an svg or a text distance is shaped, see IProfile. Up to version 4 it was a distance or a plateau inside and a cutoff outside
 const PROFILE_V4 = [enumeration('inside', ['distance', 'constant']), fixed('depth', -100, 100, 0.01), fixed('bevel', 0, 100, 0.01), fixed('cutoff', 0, 1000, 0.01)];
-const PROFILE = [
+const PROFILE_V5 = [
   fixed('inner', 0, 1000, 0.01),
   fixed('outer', 0, 1000, 0.01),
   bool('beveled'),
@@ -46,11 +101,11 @@ const PROFILE = [
 
 const size = (name: string, min: number, max: number) => fixed(name, min, max, 0.01);
 
-/** the schema of the state of a version, see STATE_VERSION */
-const stateSchema = (version: number) => {
-  const profile = version >= 5 ? PROFILE : PROFILE_V4;
+/** the schema of the state of a version up to 8 */
+const legacySchema = (version: number) => {
+  const profile = version >= 5 ? PROFILE_V5 : PROFILE_V4;
   // up to version 6 an svg or a text had an offset, a curved text ignored it
-  const placement = [enumeration('alignX', ['center', 'left', 'right']), enumeration('alignZ', ['middle', 'top', 'bottom']), coordinate('paddingX'), coordinate('paddingZ')];
+  const placement = [...placementAlign, coordinate('paddingX'), coordinate('paddingZ')];
   const node = union('node', enumeration('kind', NODE_KINDS), {
     method: variant(enumeration('method', Object.values(DistanceMethodType))),
     svg: variant(
@@ -61,13 +116,10 @@ const stateSchema = (version: number) => {
       ...profile
     ),
     text: variant(
-      chars('text', MAX_TEXT),
-      chars('font', MAX_FONT),
-      enumeration('fontSource', ['local', 'google']),
-      bool('bold'),
+      ...textOwn,
       fixed('size', 0.5, 200, 0.01),
-      // the mode of the base curve, the points are its points. Smooth curves came in version 6
-      enumeration('curve', version >= 6 ? ['none', 'polyline', 'spline', 'smooth'] : ['none', 'polyline', 'spline']),
+      // smooth curves came in version 6
+      enumeration('curve', version >= 6 ? curveModes : curveModes.slice(0, 3)),
       array('points', 0, MAX_POINTS, object('point', coordinate('x'), coordinate('z'))),
       ...(version >= 7 ? placement : [coordinate('offsetX'), coordinate('offsetZ')]),
       fixed('angle', -360, 360, 0.1),
@@ -91,11 +143,11 @@ const stateSchema = (version: number) => {
           enumeration('kind', Object.values(BarKind)),
           enumeration('tablet', TABLET_SIZES),
           array('pieces', 1, MAX_PIECES, object('piece', enumeration('size', PIECE_SIZES), int('u', 0, COLUMNS - 1), int('v', 0, ROWS - 1))),
-          size('width', 5, MAX_CUSTOM_SIZE),
-          size('length', 5, MAX_CUSTOM_SIZE),
+          size('width', 5, 400),
+          size('length', 5, 400),
           size('height', 0, 50),
           size('inset', -50, 50),
-          size('divPerMM', 0.25, MAX_DIV_PER_MM),
+          size('divPerMM', 0.25, 32),
           bool('wireframe'),
           array('chocolates', 1, MAX_PIECES, enumeration('chocolate', CHOCOLATE_TYPES)),
           bool('sameChocolate'),
@@ -109,7 +161,7 @@ const stateSchema = (version: number) => {
           size('height', 0, 50),
           size('inset', -50, 50),
           fixed('amplitude', -20, 20, 0.001),
-          size('divPerMM', 0.25, MAX_DIV_PER_MM),
+          size('divPerMM', 0.25, 32),
           bool('wireframe'),
           array('colors', 1, 16, int('color', 0, 0xffffff)),
         ];
@@ -120,13 +172,20 @@ const stateSchema = (version: number) => {
     ...bars,
     object('center', size('x', -1000, 1000), size('y', -1000, 1000), size('z', -1000, 1000)),
     size('rotation', -360, 360),
-    array('svgs', 0, MAX_SVGS, int('hash', 0, 0xffffffff)),
+    svgs,
     pointer('root', 'node')
   );
-  return { schema: state, node, field: { type: 'object', name: 'state', fields: state.fields } as DenseField };
+  return withField(state, node);
 };
 
-const SCHEMAS = new Map([...Array(STATE_VERSION - OLDEST_VERSION + 1).keys()].map((i) => [OLDEST_VERSION + i, stateSchema(OLDEST_VERSION + i)]));
+/** a hash of the schema of a version, it changes with any of its fields */
+export const schemaFingerprint = (version: number): string | undefined => {
+  const s = SCHEMAS.get(version);
+  return s && svgHash(JSON.stringify(s.schema)).toString(16).padStart(8, '0');
+};
+
+const SCHEMAS = new Map([...Array(STATE_VERSION - OLDEST_VERSION).keys()].map((i) => [OLDEST_VERSION + i, legacySchema(OLDEST_VERSION + i)]));
+SCHEMAS.set(STATE_VERSION, currentSchema());
 const CURRENT = SCHEMAS.get(STATE_VERSION)!;
 export const StateSchema = CURRENT.schema;
 
@@ -191,6 +250,8 @@ const MIGRATIONS: Record<number, (n: NodeData) => NodeData> = {
       : n,
   // a sine curve has no equivalent in a modifier, it keeps its numbers and has nothing to modify
   7: (n) => (n.kind === 'sine' ? { kind: 'sine', scale: n.scale, gain: n.gain, amplitude: n.amplitude, period: n.period, children: [] } : n),
+  // only the ranges changed, its numbers are clamped into them
+  8: (n) => n,
 };
 
 const migrate = (data: NodeData, from: number): NodeData => {
@@ -200,17 +261,18 @@ const migrate = (data: NodeData, from: number): NodeData => {
 };
 
 /**
- * the bars of a state of an older version as they are now. A single bar or one bar of a grid becomes a custom bar with its top where
- * it was (the size is of the base now), the amplitude is in the gain of the pattern, the colour the chocolate that looks most like it
+ * the bars of a state of an older version as they are now, the fields of the older version that are gone are left out by fit. Up to
+ * version 7 a single bar or one bar of a grid becomes a custom bar with its top where it was (the size is of the base now), the
+ * amplitude is in the gain of the pattern, the colour the chocolate that looks most like it
  */
 const upgradeBars = (data: Record<string, unknown>, version: number): Record<string, unknown> => {
-  if (version >= 8) return data;
-  // the fields of the older version that are gone are left out by fit
+  if (version >= STATE_VERSION) return data;
+  const upgraded = { ...data, version: STATE_VERSION, displayWireframe: data.wireframe };
+  if (version >= 8) return upgraded;
   const { cellWidth, cellLength, inset, amplitude, colors } = data as Record<string, number> & { colors: number[] };
   const root = data.root as NodeData;
   return {
-    ...data,
-    version: STATE_VERSION,
+    ...upgraded,
     kind: BarKind.Custom,
     tablet: '6x2',
     pieces: DEFAULT_PIECES,
@@ -259,6 +321,9 @@ const nodeFrom = (data: NodeData, assets: string[]): SdfNode => {
   return n as unknown as SdfNode;
 };
 
+/** the numbers of the bars, the ones of the settings */
+const barNumbers = (data: Record<keyof typeof BAR, number>) => Object.fromEntries(Object.keys(BAR).map((key) => [key, data[key as keyof typeof BAR]]));
+
 const svgNodes = (n: SdfNode): string[] => (n.kind === 'svg' ? [n.asset] : isGroup(n) ? n.children.flatMap(svgNodes) : []);
 
 /** the state as a short url safe string */
@@ -270,12 +335,8 @@ export const encodeState = (bar: IBar): string => {
     kind: bar.kind,
     tablet: bar.tablet,
     pieces: bar.pieces,
-    width: bar.width,
-    length: bar.length,
-    height: bar.height,
-    inset: bar.inset,
-    divPerMM: bar.divPerMM,
-    wireframe: bar.displayWireframe,
+    ...barNumbers(bar),
+    displayWireframe: bar.displayWireframe,
     // only as many as it needs
     chocolates: bar.sameChocolate ? bar.chocolates.slice(0, 1) : bar.chocolates.slice(0, Math.max(bar.pieces.length, 1)),
     sameChocolate: bar.sameChocolate,
@@ -296,10 +357,10 @@ export const decodeState = (encoded: string, library: Record<string, ISvgAsset>)
     const assets = (data.svgs as number[]).map(keyOf);
     const svgs: IPattern['svgs'] = Object.fromEntries(assets.flatMap((key) => (library[key] ? [[key, library[key]]] : [])));
     const sdfSetting: IPattern = { root: nodeFrom(data.root, assets), center: data.center, rotation: data.rotation, svgs };
-    const { kind, tablet, width, length, height, inset, divPerMM, chocolates, sameChocolate } = data;
+    const { kind, tablet, displayWireframe, chocolates, sameChocolate } = data;
     // pieces that don't fill the tablet are not a layout
     const pieces = isLayout(data.pieces as IPiece[]) ? data.pieces : defaultBar().pieces;
-    return { ...defaultBar(), kind, tablet, pieces, width, length, height, inset, divPerMM, displayWireframe: data.wireframe, chocolates, sameChocolate, sdfSetting };
+    return { ...defaultBar(), kind, tablet, pieces, ...barNumbers(data), displayWireframe, chocolates, sameChocolate, sdfSetting };
   } catch {
     return undefined;
   }

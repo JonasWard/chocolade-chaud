@@ -1,7 +1,7 @@
 import { BarKind, IBar, defaultBar } from '../geometry/grid';
 import { DistanceMethodType } from '../geometry/sdMethods';
 import { IBooleanNode, IPattern, IProfile, SdfNode, constantNode, defaultPattern, groupNode, methodNode, sineNode, svgKey, svgNode, textNode } from '../geometry/sdf/tree';
-import { decodeState, encodeState } from './schema';
+import { STATE_VERSION, decodeState, encodeState, schemaFingerprint } from './schema';
 import { profile } from '../geometry/sdf/evaluate';
 import { ChocolateType } from '../geometry/chocolates';
 import { DEFAULT_PIECES, TABLET_LAYOUTS } from '../geometry/tablets';
@@ -146,4 +146,34 @@ test('a bar of version 7 is a custom bar with its top where it was, the amplitud
   expect(grid).toMatchObject({ kind: BarKind.Custom, width: 46, length: 36, chocolates: [ChocolateType.Dark85] });
   expect(grid.sdfSetting.root.gain).toBeCloseTo(0.2, 10);
   expectClose(decodeState(encodeState(grid), library), grid);
+});
+
+// written by version 8: a combined tablet of milk and white pieces, 20 mm high, wireframe on, a union with a gain of 50 of a gyroid, a
+// sine of the text 'v8' padded 600 mm and a constant
+const V8 = 'CHNCGRk8jA2sPoJYAu800zDUDDUDDUCSfAV-yYmJU4iSfAAAGCOAxUQDTiGKiE6EAZAJJxDFRAEAOwAcCgBzAGEAbgBzAC0AcwBlAHIAaQBmQj8AAnEAYagcIAAAAAAAAAAABE4hioh6b8A';
+
+test('a state of version 8 still reads, its numbers clamped into the ranges of the settings', () => {
+  const bar = decodeState(V8, library)!;
+  expect(bar).toMatchObject({ kind: BarKind.Combined, pieces: TABLET_LAYOUTS[3], sameChocolate: false, displayWireframe: true, inset: -2, height: 10 });
+  expect(bar.chocolates).toEqual(TABLET_LAYOUTS[3].map((_, i) => (i % 2 ? ChocolateType.White : ChocolateType.Milk)));
+  expect(bar.sdfSetting.rotation).toBe(15);
+  const root = bar.sdfSetting.root as { gain: number; children: SdfNode[] };
+  expect(root.gain).toBe(20);
+  expect((root.children[1] as { children: SdfNode[] }).children[0]).toMatchObject({ kind: 'text', text: 'v8', paddingX: 400 });
+  expectClose(decodeState(encodeState(bar), library), bar);
+});
+
+// how every version is written: a version that is out can never change, a change of the current one needs a new version
+const FINGERPRINTS: Record<number, string> = {
+  4: 'd631f808',
+  5: '3d15e018',
+  6: '5f3645f4',
+  7: '28de8f8e',
+  8: 'c9da390d',
+  9: 'd992ded3',
+};
+
+test('the schema of every version is as it was written', () => {
+  expect(Math.max(...Object.keys(FINGERPRINTS).map(Number))).toBe(STATE_VERSION);
+  Object.entries(FINGERPRINTS).forEach(([version, fingerprint]) => expect([version, schemaFingerprint(Number(version))]).toEqual([version, fingerprint]));
 });
