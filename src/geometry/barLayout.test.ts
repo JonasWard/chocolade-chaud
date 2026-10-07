@@ -104,7 +104,7 @@ test('the side walls are planes with the shared side normal', () => {
     for (const inset of [-3, 0, 2]) {
       const [hd, vd] = [9, 6];
       const cellData: Parameters<typeof GridParser>[1] = [];
-      const [{ vertices, faces }] = GridParser({ ...singleGrid(hd, vd, 1), inset, amplitude: 0.7 }, cellData, withSupports);
+      const [{ vertices, faces }] = GridParser(singleGrid(hd, vd, 1, inset), cellData, withSupports);
       const normals = sideNormals(cellData[0].geometrySettings);
       normals.forEach((n) => expect(Math.hypot(...n)).toBeCloseTo(1));
 

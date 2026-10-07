@@ -1,4 +1,5 @@
 import { ITriangularMesh } from './createMesh';
+import { ChocolateType } from './chocolates';
 import { meshToOBJ, meshToSTL } from './exportGeometry';
 import { readSTL } from './testUtils';
 
@@ -7,7 +8,7 @@ const triangle: ITriangularMesh = {
   vertices: new Float32Array([0, 0, 0, 1, 0, 0, 0, 0, 1]),
   faces: new Uint32Array([0, 1, 2]),
   normals: new Float32Array([0, -1, 0, 0, -1, 0, 0, -1, 0]),
-  color: '#000000',
+  chocolate: ChocolateType.Dark85,
 };
 
 test('obj faces reference vertex and normal, not texture coordinates', () => {

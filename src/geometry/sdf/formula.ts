@@ -57,7 +57,11 @@ export const nodeLabel = (node: SdfNode, svgs: IPattern['svgs']): string => {
  */
 export const formula = (node: SdfNode, svgs: IPattern['svgs'], wrap: (node: SdfNode, text: string) => string = (_, t) => t, nested = false): string => {
   let text: string;
-  if (isGroup(node)) {
+  if (node.kind === 'sine') {
+    // a function of the sum of its children
+    const parts = node.children.map((c) => formula(c, svgs, wrap, true));
+    text = `${nodeLabel(node, svgs)}(${parts.length === 0 ? '∅' : parts.join(' + ')})`;
+  } else if (isGroup(node)) {
     const parts = node.children.map((c) => formula(c, svgs, wrap, true));
     text = parts.length === 0 ? '∅' : parts.join(` ${KIND_GLYPH[node.kind]} `);
     if (parts.length > 1 && (nested || node.scale !== 1 || node.gain !== 1)) text = `(${text})`;

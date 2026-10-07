@@ -30,13 +30,12 @@ uniform vec2 uStep;
 uniform vec2 uDivisions;
 uniform float uHeight;
 uniform float uInset;
-uniform float uAmplitude;
 
 void main() {
   vec2 ij = floor(gl_FragCoord.xy);
   vec2 local = ij * uStep;
   vec2 d = fanOffset(ij, uDivisions, uInset);
-  float s = sdf(vec3(uOrigin.x + local.x, uHeight, uOrigin.y + local.y)) * uAmplitude / uHeight;
+  float s = sdf(vec3(uOrigin.x + local.x, uHeight, uOrigin.y + local.y)) / uHeight;
   gl_FragColor = vec4(local.x + d.x * s, uHeight + uHeight * s, local.y + d.y * s, 1.0);
 }
 `;
@@ -94,7 +93,6 @@ const createPositionMaterial = (sdfGLSL: string) =>
       uDivisions: { value: new THREE.Vector2() },
       uHeight: { value: 1 },
       uInset: { value: 0 },
-      uAmplitude: { value: 0 },
     },
   });
 
@@ -163,7 +161,7 @@ export const bakeTopSurface = (
 ) => {
   baker ??= createBaker();
   const { scene, mesh, camera, normalMaterial } = baker;
-  const { innerWidth, innerLength, height, inset, amplitude, horizontalDivisions, verticalDivisions, basePosition } = geometrySettings;
+  const { innerWidth, innerLength, height, inset, horizontalDivisions, verticalDivisions, basePosition } = geometrySettings;
 
   const plan = sdfShaderPlan(sdfSettings);
   const material = positionMaterial(plan.glsl);
@@ -175,7 +173,6 @@ export const bakeTopSurface = (
   uniforms.uDivisions.value.set(horizontalDivisions, verticalDivisions);
   uniforms.uHeight.value = height;
   uniforms.uInset.value = inset;
-  uniforms.uAmplitude.value = amplitude;
 
   const previousTarget = gl.getRenderTarget();
 

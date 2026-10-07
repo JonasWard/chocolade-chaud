@@ -126,14 +126,6 @@ float centredFieldDistance(sampler2D field, vec2 v, vec3 l0, vec4 l1) {
   return levelDistance(field, origin, size, clamped, pixelSize) + length(local - clamped);
 }
 
-// see sdSine in geometry/sdf/evaluate.ts
-float sdSine(vec2 q, float amplitude, float period) {
-  if (period <= 0.0) return 0.0;
-  float k = 6.283185307179586 / period;
-  float slope = amplitude * k * cos(k * q.x);
-  return abs(q.y - amplitude * sin(k * q.x)) / sqrt(1.0 + slope * slope);
-}
-
 // see profile in geometry/sdf/evaluate.ts, s is 1 outside and -1 inside
 float limited(float v, float limit, float beveled, float bevel, float s) {
   if (limit <= 0.0) return v;
@@ -223,13 +215,6 @@ const buildPlan = (root: SdfNode): ISdfShaderPlan => {
         d = shaped(`svgDistance(${field}, p.xz * ${sk}, 1.0, ${center}, 0.0, ${levels(key)}) / ${param(frame)}`, node);
         break;
       }
-      case 'sine': {
-        const turn = (f: (a: number) => number) => param(() => f((node.angle * Math.PI) / 180));
-        const [c, sn] = [turn(Math.cos), turn(Math.sin)];
-        const q = `vec2(${c} * p.x + ${sn} * p.z, ${c} * p.z - ${sn} * p.x) * ${sk}`;
-        d = `sdSine(${q}, ${param(() => node.amplitude)}, ${param(() => node.period)})`;
-        break;
-      }
       case 'chain': {
         d = '0.0';
         const last = node.children.length - 1;
@@ -249,6 +234,14 @@ const buildPlan = (root: SdfNode): ISdfShaderPlan => {
       case 'subtract': {
         const ds = node.children.map((c) => generate(c, sk, frame));
         d = ds.length ? ds.join(node.kind === 'add' ? ' + ' : ' - ') : '0.0';
+        break;
+      }
+      // ripples along the distance of its children, k is 2 pi / period (0 without a period, as is the amplitude then)
+      case 'sine': {
+        const ds = node.children.map((c) => generate(c, sk, frame));
+        const amplitude = param(() => (node.period > 0 ? node.amplitude : 0));
+        const k = param(() => (node.period > 0 ? (2 * Math.PI) / node.period : 0));
+        d = ds.length ? `${amplitude} * sin(${k} * (${ds.join(' + ')}))` : '0.0';
         break;
       }
     }

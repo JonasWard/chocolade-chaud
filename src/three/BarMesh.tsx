@@ -2,7 +2,8 @@ import React from 'react';
 import * as THREE from 'three';
 import { useThree } from '@react-three/fiber';
 import { CellData } from '../geometry/grid';
-import { DEFAULT_COLOR, IGeometrySettings, ITriangularMesh } from '../geometry/createMesh';
+import { IGeometrySettings, ITriangularMesh } from '../geometry/createMesh';
+import { CHOCOLATES, DEFAULT_CHOCOLATE } from '../geometry/chocolates';
 import { BarPart, REF_SIZE, createBarLayout, createSupportRaise } from '../geometry/barLayout';
 import { INSET, START_LENGTH, GRADIENT, fanOffset, sideNormals, supportColumns } from '../geometry/barMath';
 import { bakeTopSurface, createTopSurface, disposeTopSurface, fanGLSL, readTopSurface } from './shaders/bake';
@@ -94,7 +95,7 @@ const createBarMaterial = () => {
     uInset: { value: 0 },
   };
 
-  const material = new THREE.MeshStandardMaterial({ roughness: 0.55, metalness: 0 });
+  const material = new THREE.MeshPhysicalMaterial({ metalness: 0, clearcoatRoughness: 0.4 });
   material.onBeforeCompile = (shader) => {
     Object.assign(shader.uniforms, uniforms);
     shader.vertexShader = shader.vertexShader
@@ -166,10 +167,13 @@ export const BarMesh: React.FC<{
   }, [gl, surface, cell, fieldTextures, uniforms, invalidate]);
 
   React.useLayoutEffect(() => {
-    material.color.set(geometrySettings.color ?? DEFAULT_COLOR);
+    const { color, roughness, clearcoat } = CHOCOLATES[geometrySettings.chocolate ?? DEFAULT_CHOCOLATE];
+    material.color.set(color);
+    material.roughness = roughness;
+    material.clearcoat = clearcoat;
     material.wireframe = !!geometrySettings.displayWireframe;
     invalidate();
-  }, [material, geometrySettings.color, geometrySettings.displayWireframe, invalidate]);
+  }, [material, geometrySettings.chocolate, geometrySettings.displayWireframe, invalidate]);
 
   React.useEffect(() => {
     if (import.meta.env.DEV && reference) logParity(gl, surface, reference, cell.geometrySettings);

@@ -1,4 +1,6 @@
-import { DefaultGridSettings, GridType, ISimpleGrid, MAX_DIVS_ONE_SIDE, MAX_DIV_PER_MM, MAX_VERTICES, effectiveDivPerMM, gridCells } from './grid';
+import { BarKind, IBar, MAX_DIVS_ONE_SIDE, MAX_DIV_PER_MM, MAX_VERTICES, barBases, defaultBar, effectiveDivPerMM, gridBox, gridCells } from './grid';
+import { ChocolateType } from './chocolates';
+import { TABLET_LAYOUTS } from './tablets';
 import { singleGrid } from './testUtils';
 
 // the budget is in divisions, a bar has one more row and column of vertices
@@ -27,10 +29,32 @@ test('large bars and grids stay within the vertex budget', () => {
   expect([g.horizontalDivisions, g.verticalDivisions]).toEqual([8192, 546]);
   expect(topVertices(large)).toBeLessThanOrEqual(MAX_VERTICES * 1.01);
 
-  const grid: ISimpleGrid = { ...(DefaultGridSettings(GridType.Simple) as ISimpleGrid), uCount: 10, vCount: 10, divPerMM: 32 };
-  expect(effectiveDivPerMM(grid)).toBeLessThan(6);
-  // a little over for the rounding and that extra row and column of every bar
-  expect(topVertices(grid)).toBeLessThanOrEqual(MAX_VERTICES * 1.05);
+  // a whole tablet is a little too large for the budget at the finest
+  const tablet = { ...defaultBar(), divPerMM: 32 };
+  expect(effectiveDivPerMM(tablet)).toBeLessThan(32);
+  expect(topVertices(tablet)).toBeLessThanOrEqual(MAX_VERTICES * 1.01);
+  // the pieces of a combined tablet count together, a little over for the rounding and that extra row and column of every bar
+  const combined: IBar = { ...tablet, kind: BarKind.Combined, pieces: TABLET_LAYOUTS.at(-1)!, inset: 0 };
+  expect(effectiveDivPerMM(combined)).toBeLessThan(32);
+  expect(topVertices(combined)).toBeLessThanOrEqual(MAX_VERTICES * 1.05);
   // within the budget the density is as asked
-  expect(effectiveDivPerMM({ ...grid, uCount: 2, vCount: 2, divPerMM: 4 })).toBe(4);
+  expect(effectiveDivPerMM({ ...combined, divPerMM: 4 })).toBe(4);
+});
+
+test('a whole tablet is 150 by 70 mm at its base, its top smaller by the inset', () => {
+  const bar = defaultBar();
+  expect(barBases(bar)).toEqual([{ minX: -75, minZ: -35, maxX: 75, maxZ: 35 }]);
+  const [{ geometrySettings: g }] = gridCells(bar);
+  expect([g.innerWidth, g.innerLength, g.basePosition.x, g.basePosition.z]).toEqual([144, 64, -72, -32]);
+  expect(gridBox({ ...bar, tablet: '1x2' })).toEqual({ minX: -9.5, minZ: -32, maxX: 9.5, maxZ: 32 });
+});
+
+test('the pieces of a combined tablet have their own chocolate, or all the first one', () => {
+  const pieces = TABLET_LAYOUTS[0];
+  const bar: IBar = { ...defaultBar(), kind: BarKind.Combined, pieces, chocolates: [ChocolateType.Milk, ChocolateType.White], sameChocolate: false };
+  const chocolates = (b: IBar) => gridCells(b).map((c) => c.geometrySettings.chocolate);
+  expect(chocolates(bar)).toEqual([ChocolateType.Milk, ChocolateType.White, ...pieces.slice(2).map(() => ChocolateType.Milk)]);
+  expect(chocolates({ ...bar, sameChocolate: true })).toEqual(pieces.map(() => ChocolateType.Milk));
+  // the pattern is placed on all of them together
+  expect(gridBox(bar)).toEqual({ minX: -72, minZ: -32, maxX: 72, maxZ: 32 });
 });

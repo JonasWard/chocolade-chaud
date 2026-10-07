@@ -1,9 +1,12 @@
-import { DefaultGridSettings, GridType, ISingleGrid } from './grid';
+import { BarKind, IBar, defaultBar } from './grid';
 
-export const singleGrid = (cellWidth: number, cellLength: number, divPerMM = 1): ISingleGrid => ({
-  ...(DefaultGridSettings(GridType.Single) as ISingleGrid),
-  cellWidth,
-  cellLength,
+/** a custom bar whose top is width by length mm */
+export const singleGrid = (width: number, length: number, divPerMM = 1, inset = -3): IBar => ({
+  ...defaultBar(),
+  kind: BarKind.Custom,
+  width: width - 2 * inset,
+  length: length - 2 * inset,
+  inset,
   divPerMM,
 });
 

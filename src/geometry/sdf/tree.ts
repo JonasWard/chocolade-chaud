@@ -7,8 +7,8 @@ import { DistanceMethodType } from '../sdMethods';
 
 export type BooleanKind = 'union' | 'difference' | 'intersection';
 export type ArithmeticKind = 'add' | 'subtract';
-export type GroupKind = BooleanKind | ArithmeticKind | 'chain';
-export type LeafKind = 'method' | 'svg' | 'text' | 'sine' | 'constant';
+export type GroupKind = BooleanKind | ArithmeticKind | 'chain' | 'sine';
+export type LeafKind = 'method' | 'svg' | 'text' | 'constant';
 export type NodeKind = GroupKind | LeafKind;
 
 interface INodeBase {
@@ -85,13 +85,12 @@ export interface ITextNode extends INodeBase, IProfile, IPlacement {
   angle: number;
 }
 
-/** unsigned distance to the curve z = amplitude * sin(2 pi x / period) in the xz plane, turned by angle, in mm */
+/** a modifier: the distance d of its children (their sum) as amplitude * sin(2 pi d / period), ripples along it, in mm */
 export interface ISineNode extends INodeBase {
   kind: 'sine';
   amplitude: number;
   period: number;
-  /** in degrees */
-  angle: number;
+  children: SdfNode[];
 }
 
 /** a number, regardless of the scale */
@@ -118,8 +117,8 @@ export interface IChainNode extends INodeBase {
   children: SdfNode[];
 }
 
-export type LeafNode = IMethodNode | ISvgNode | ITextNode | ISineNode | IConstantNode;
-export type GroupNode = IBooleanNode | IArithmeticNode | IChainNode;
+export type LeafNode = IMethodNode | ISvgNode | ITextNode | IConstantNode;
+export type GroupNode = IBooleanNode | IArithmeticNode | IChainNode | ISineNode;
 export type SdfNode = LeafNode | GroupNode;
 
 export interface ISvgAsset {
@@ -138,7 +137,7 @@ export interface IPattern {
 /** the distance fields of the svg assets and the text nodes of a pattern, by field key (see fieldKey) */
 export type SvgFields = ReadonlyMap<string, IDistanceField>;
 
-export const GROUP_KINDS: GroupKind[] = ['union', 'difference', 'intersection', 'add', 'subtract', 'chain'];
+export const GROUP_KINDS: GroupKind[] = ['union', 'difference', 'intersection', 'add', 'subtract', 'chain', 'sine'];
 
 export const isGroup = (node: SdfNode): node is GroupNode => 'children' in node;
 
@@ -162,7 +161,7 @@ export const textNode = (text = 'Chaud'): ITextNode => ({
   curve: null,
   angle: 0,
 });
-export const sineNode = (amplitude = 5, period = 20): ISineNode => ({ ...base(), kind: 'sine', amplitude, period, angle: 0 });
+export const sineNode = (amplitude = 0.5, period = 4, children: SdfNode[] = []): ISineNode => ({ ...base(), kind: 'sine', amplitude, period, children });
 export const constantNode = (value = 0): IConstantNode => ({ ...base(), kind: 'constant', value });
 
 export const groupNode = (kind: GroupKind, children: SdfNode[] = []): GroupNode => {
@@ -175,6 +174,8 @@ export const groupNode = (kind: GroupKind, children: SdfNode[] = []): GroupNode 
     case 'subtract':
     case 'chain':
       return { ...base(), kind, children };
+    case 'sine':
+      return sineNode(undefined, undefined, children);
   }
 };
 
@@ -198,8 +199,8 @@ export const fieldKey = (node: SdfNode): string | undefined => (node.kind === 's
 export const STAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 4l13.5 30.5 33 3.5-24.8 22.2 7 32.6L50 76.2 21.3 92.8l7-32.6L3.5 38l33-3.5z"/></svg>`;
 
 export const defaultPattern = (): IPattern => ({
-  // the same as the old method chain of neovius 0.004 and schwarz d 8.5
-  root: groupNode('chain', [methodNode(DistanceMethodType.SDNeovius), methodNode(DistanceMethodType.SDSchwarzD, 0.004 * 8.5)]),
+  // the same as the old method chain of neovius 0.004 and schwarz d 8.5, 0.2 mm deep per unit
+  root: { ...groupNode('chain', [methodNode(DistanceMethodType.SDNeovius), methodNode(DistanceMethodType.SDSchwarzD, 0.004 * 8.5)]), gain: 0.2 },
   center: { x: 0, y: 0, z: 0 },
   rotation: 0,
   svgs: { [svgKey(STAR_SVG)]: { name: 'star', source: STAR_SVG } },

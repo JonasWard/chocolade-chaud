@@ -1,4 +1,4 @@
-import { DefaultGridSettings, GridType, ISingleGrid } from '../grid';
+import { defaultBar } from '../grid';
 import { decodeState, encodeState } from '../../state/schema';
 import { compilePattern } from './evaluate';
 import { PRESETS } from './presets';
@@ -10,8 +10,8 @@ test.each(PRESETS.map((p) => [p.name, p] as const))('the preset %s has its svgs,
   const { root, svgs } = preset.make();
   svgAssets(root).forEach((asset) => expect(svgs[asset]).toBeDefined());
   const pattern = { ...defaultPattern(), root, svgs: { ...defaultPattern().svgs, ...svgs } };
-  const grid = { ...(DefaultGridSettings(GridType.Single) as ISingleGrid), sdfSetting: pattern };
-  expect((decodeState(encodeState(grid), pattern.svgs) as ISingleGrid).sdfSetting.root.kind).toBe(root.kind);
+  const grid = { ...defaultBar(), sdfSetting: pattern };
+  expect(decodeState(encodeState(grid), pattern.svgs)!.sdfSetting.root.kind).toBe(root.kind);
   expect(Number.isFinite(compilePattern(pattern)(3, 10, -2))).toBe(true);
 });
 

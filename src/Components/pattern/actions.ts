@@ -1,5 +1,5 @@
 import { DistanceMethodType } from '../../geometry/sdMethods';
-import { GroupKind, IPattern, NodeKind, SdfNode, constantNode, groupNode, isGroup, methodNode, sineNode, svgNode, textNode } from '../../geometry/sdf/tree';
+import { GroupKind, IPattern, NodeKind, SdfNode, constantNode, groupNode, isGroup, methodNode, svgNode, textNode } from '../../geometry/sdf/tree';
 import { duplicateNode, findNode, findParent, insertChild, moveInto, moveNode, moveOut, removeNode, unwrap, wrapNode } from '../../geometry/sdf/treeOps';
 import { formatNumber } from '../../geometry/sdf/formula';
 
@@ -26,8 +26,6 @@ export const newNode = (kind: NodeKind, pattern: IPattern, method = DistanceMeth
       return svgNode(firstAsset(pattern));
     case 'text':
       return textNode();
-    case 'sine':
-      return sineNode();
     case 'constant':
       return constantNode();
     default:
@@ -89,7 +87,7 @@ export const nodeDetails = (node: SdfNode): string => {
         return [node.font, `${f(node.size)} mm`, node.curve?.mode];
       case 'sine':
         // amplitude and period are in its name
-        return [node.angle !== 0 && `${f(node.angle)}°`];
+        return [`${node.children.length} ${node.children.length === 1 ? 'item' : 'items'}`];
       case 'method':
       case 'constant':
         return [];

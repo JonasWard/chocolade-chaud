@@ -12,7 +12,8 @@ export type KindChoice = DistanceMethodType | Exclude<NodeKind, 'method'>;
 
 const KIND_GROUPS: { title: string; kinds: KindChoice[] }[] = [
   { title: 'Methods', kinds: Object.values(DistanceMethodType) },
-  { title: 'Shapes', kinds: ['svg', 'text', 'sine', 'constant'] },
+  { title: 'Shapes', kinds: ['svg', 'text', 'constant'] },
+  { title: 'Modifiers', kinds: ['sine'] },
   { title: 'Booleans', kinds: ['union', 'difference', 'intersection'] },
   { title: 'Arithmetic', kinds: ['add', 'subtract'] },
   { title: 'Chain', kinds: ['chain'] },
@@ -30,7 +31,7 @@ const kindSections = <T,>(value: (k: KindChoice) => T, only?: (k: KindChoice) =>
   }));
 
 export const KIND_SECTIONS = kindSections((k) => k);
-const isGroupKind = (k: KindChoice) => KIND_GROUPS.slice(2).some((g) => g.kinds.includes(k));
+const isGroupKind = (k: KindChoice) => (GROUP_KINDS as KindChoice[]).includes(k);
 const addAction = (k: KindChoice): NodeAction => (isMethod(k) ? `add:method:${k}` : `add:${k}`);
 export const ADD_SECTIONS = kindSections(addAction);
 export const WRAP_SECTIONS = kindSections((k) => `wrap:${k}` as NodeAction, isGroupKind);

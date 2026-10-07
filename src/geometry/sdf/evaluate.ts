@@ -16,13 +16,6 @@ export const smoothMin = (a: number, b: number, k: number): number => {
 };
 export const smoothMax = (a: number, b: number, k: number): number => -smoothMin(-a, -b, k);
 
-/** the first order distance to z = amplitude * sin(2 pi x / period), see sdSine in three/shaders/sdfCodegen.ts */
-export const sdSine = (x: number, z: number, amplitude: number, period: number): number => {
-  const k = (2 * Math.PI) / period;
-  const slope = amplitude * k * Math.cos(k * x);
-  return Math.abs(z - amplitude * Math.sin(k * x)) / Math.sqrt(1 + slope * slope);
-};
-
 /** the distance d (in mm, negative inside) to an svg shape or a text, shaped by its profile, see profile in three/shaders/sdfCodegen.ts */
 export const profile = (d: number, { inner, outer, beveled, innerBevel, outerBevel }: IProfile): number => {
   // the distance up to the limit of its side, s is 1 outside and -1 inside
@@ -63,15 +56,6 @@ const compileNode = (node: SdfNode, fields: SvgFields, parentFrame = 1): ScaledD
       const [ox, oz] = [cx + node.offsetX, cz + node.offsetZ];
       return (x, _y, z, s) => gain * profile(sampleCentredField(field, x * s * scale - ox, z * s * scale - oz) / frame, node);
     }
-    case 'sine': {
-      const { amplitude, period } = node;
-      if (!(period > 0)) return () => 0;
-      const angle = (node.angle * Math.PI) / 180;
-      const c = Math.cos(angle);
-      const sn = Math.sin(angle);
-      // turned back by the angle, so the curve runs along u
-      return (x, _y, z, s) => gain * sdSine((c * x + sn * z) * s * scale, (c * z - sn * x) * s * scale, amplitude, period);
-    }
     case 'chain': {
       // the last child works at the scale of the chain, the others at the output of the child after them
       const children = node.children.map((c, i) => compileNode(c, fields, i === node.children.length - 1 ? frame : 1));
@@ -105,6 +89,18 @@ const compileNode = (node: SdfNode, fields: SvgFields, parentFrame = 1): ScaledD
       return fold((a, b) => a + b);
     case 'subtract':
       return fold((a, b) => a - b);
+    // ripples along the distance of its children
+    case 'sine': {
+      const { amplitude, period } = node;
+      if (!(period > 0)) return () => 0;
+      const k = (2 * Math.PI) / period;
+      return (x, y, z, s) => {
+        const sc = s * scale;
+        let d = 0;
+        for (const child of children) d += child(x, y, z, sc);
+        return gain * amplitude * Math.sin(k * d);
+      };
+    }
   }
 };
 

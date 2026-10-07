@@ -1,4 +1,4 @@
-import { CellData, GridParser, IGridSettings } from './grid';
+import { CellData, GridParser, IBar } from './grid';
 import { ITriangularMesh } from './createMesh';
 import { IDistanceField } from './field';
 
@@ -7,7 +7,7 @@ import { IDistanceField } from './field';
  * Messages arrive in order, so a request always finds the fields that were sent before it
  */
 export type FieldMessage = { type: 'field'; asset: string; field?: IDistanceField };
-export type MeshRequest = { type: 'mesh'; id: number; grid: IGridSettings; withSupports: boolean; assets: string[] };
+export type MeshRequest = { type: 'mesh'; id: number; grid: IBar; withSupports: boolean; assets: string[] };
 export type MeshResponse = { id: number; meshes: ITriangularMesh[]; cellData: CellData[] } | { id: number; error: string };
 
 const ctx = self as unknown as Worker;

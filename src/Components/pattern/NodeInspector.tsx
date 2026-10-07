@@ -11,7 +11,7 @@ const HINTS: Partial<Record<NodeKind, string>> = {
   chain: 'The last child is evaluated first, its output is the scale of the child above it.',
   difference: 'The first child minus the others.',
   subtract: 'The first child minus the others.',
-  sine: 'Distance in mm to a sine curve along x, turned by the angle. Union it with a constant to cap it, or use it to drive a chain.',
+  sine: 'Ripples along the distance of what it holds: amplitude × sin(2π · distance / period), in mm. Wrap a text or a shape to echo its outline.',
   text: 'Distance in mm to the outline of the letters, negative inside. The distance stops at its limits (0 is none), an inside limit gives flat letters. In mm on the bars.',
   svg: 'Distance in mm to the shape, placed against an edge of the bars or centred. Repeat tiles it, 0 shows it once. The distance stops at its limits (0 is none).',
 };
@@ -130,9 +130,8 @@ export const NodeInspector: React.FC<{ node: SdfNode; pattern: IPattern; onChang
       )}
       {node.kind === 'sine' && (
         <>
-          {number('Amplitude mm', node.amplitude, 'amplitude', 0.5)}
-          {number('Period mm', node.period, 'period', 1, 0)}
-          {number('Angle °', node.angle, 'angle', 5)}
+          {number('Amplitude mm', node.amplitude, 'amplitude', 0.1)}
+          {number('Period mm', node.period, 'period', 0.5, 0)}
         </>
       )}
       {node.kind === 'constant' && number('Value', node.value, 'value')}

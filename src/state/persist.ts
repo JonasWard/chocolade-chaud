@@ -1,4 +1,4 @@
-import { DefaultGridSettings, GridType, IEditableGrid } from '../geometry/grid';
+import { IBar, defaultBar } from '../geometry/grid';
 import { ISvgAsset, defaultPattern } from '../geometry/sdf/tree';
 import { decodeState, encodeState } from './schema';
 
@@ -48,7 +48,7 @@ const addToLibrary = (svgs: Record<string, ISvgAsset>) => {
 };
 
 /** the state of a link, else the last one of this browser, else the default */
-export const loadState = (): IEditableGrid => {
+export const loadState = (): IBar => {
   const library = readLibrary();
   const fromUrl = new URLSearchParams(window.location.search).get(URL_PARAM);
   const stored = read(STATE_KEY);
@@ -57,14 +57,14 @@ export const loadState = (): IEditableGrid => {
     const grid = encoded && decodeState(encoded, library);
     if (grid) return grid;
   }
-  return DefaultGridSettings(GridType.Single) as IEditableGrid;
+  return defaultBar();
 };
 
 /**
  * Puts the state in local storage and, unless the page is being left (a reload would keep the url it had), in the url,
  * without a new entry in the browser history
  */
-export const saveState = (grid: IEditableGrid, leaving = false) => {
+export const saveState = (grid: IBar, leaving = false) => {
   const encoded = encodeState(grid);
   write(STATE_KEY, encoded);
   addToLibrary(grid.sdfSetting.svgs);

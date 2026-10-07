@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { Canvas, useThree } from '@react-three/fiber';
 import { Bounds, useBounds } from '@react-three/drei';
 import { GridMeshes } from '../hooks/useGridMeshes';
-import { IGridSettings, gridCells } from '../geometry/grid';
+import { IBar, barBases, gridCells } from '../geometry/grid';
 import { ChocolateMesh } from './ChocolateMesh';
 import { BarMesh, barGeometryKey, createBarGeometry } from './BarMesh';
 import { canBakeTopSurface, createFieldTexture, fieldTextureSize } from './shaders/bake';
@@ -13,11 +13,7 @@ import { CurveEditor, ICurveEditing, curveToWorld } from './CurveEditor';
 import { IViewFocus, ViewController } from './ViewController';
 
 // the part of the settings that changes the outline of the grid, the camera is only refitted when it changes
-const footprint = (grid: IGridSettings): string => {
-  const { type, uCount, vCount, spacing, inset } = grid;
-  const size = 'cellWidth' in grid ? [grid.cellWidth, grid.cellLength] : [grid.totalWidth, grid.totalLength];
-  return JSON.stringify([type, uCount, vCount, spacing, inset, size]);
-};
+const footprint = (grid: IBar): string => JSON.stringify([barBases(grid), grid.inset]);
 
 // only fits again for another outline, so coming back from editing a curve keeps the view
 const FitCamera: React.FC<{ fitKey?: string }> = ({ fitKey }) => {
@@ -37,7 +33,7 @@ const FitCamera: React.FC<{ fitKey?: string }> = ({ fitKey }) => {
 };
 
 // fields are the distance fields of the svg and text nodes, meshes what the worker made for the export
-type SceneProps = { grid: IGridSettings; fields: SvgFields; meshes?: GridMeshes };
+type SceneProps = { grid: IBar; fields: SvgFields; meshes?: GridMeshes };
 // the camera is not fitted while a curve is edited
 type MeshesProps = SceneProps & { fit: boolean };
 
@@ -95,8 +91,8 @@ const Meshes: React.FC<MeshesProps> = ({ grid, fields, meshes, fit }) => {
 };
 
 // the box around a curve on the bars, what the camera looks at while it is edited
-const curveFocus = (grid: IGridSettings, { curve, scaleAt, offset }: ICurveEditing): IViewFocus => {
-  const pattern = 'sdfSetting' in grid ? grid.sdfSetting : grid.sdfSettings[0];
+const curveFocus = (grid: IBar, { curve, scaleAt, offset }: ICurveEditing): IViewFocus => {
+  const pattern = grid.sdfSetting;
   const found = curveToWorld(pattern, { scaleAt, offset }, curve.points).filter((p) => !!p);
   const points = found.length ? found : [{ x: 0, z: 0 }];
   const [xs, zs] = [points.map((p) => p.x), points.map((p) => p.z)];
@@ -107,7 +103,7 @@ const curveFocus = (grid: IGridSettings, { curve, scaleAt, offset }: ICurveEditi
 /** curve is the base curve of the selected text node, when it has one: shown and edited from above in edit mode */
 export const Scene: React.FC<SceneProps & { curve?: ICurveEditing }> = ({ grid, fields, meshes, curve }) => {
   const editing = !!curve?.editing;
-  const pattern = 'sdfSetting' in grid ? grid.sdfSetting : grid.sdfSettings[0];
+  const pattern = grid.sdfSetting;
   return (
     <div className='scene'>
       {/* looking down on the bar, slightly off the pole so the orbit controls keep a stable up direction */}

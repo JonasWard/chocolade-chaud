@@ -3,8 +3,7 @@ import { compilePattern } from './sdf/evaluate';
 
 import { INSET, fanOffset, supportColumns, supportMaxHeight } from './barMath';
 import { createBarFaces, weldedWallVertex } from './barLayout';
-
-export const DEFAULT_COLOR = '#A73A08';
+import { ChocolateType, DEFAULT_CHOCOLATE } from './chocolates';
 
 export interface IVector {
   x: number;
@@ -16,32 +15,30 @@ export interface ITriangularMesh {
   vertices: Float32Array;
   faces: Uint32Array;
   normals: Float32Array;
-  color: string;
+  chocolate: ChocolateType;
 }
 
 export interface IGeometrySettings {
   innerWidth: number;
   innerLength: number;
   height: number;
-  amplitude: number;
   inset: number;
   horizontalDivisions: number;
   verticalDivisions: number;
   basePosition: IVector;
   displayWireframe?: boolean;
-  color?: string;
+  chocolate?: ChocolateType;
 }
 
 export const defaultGeometrySettings: IGeometrySettings = {
   innerWidth: 50,
   innerLength: 50,
   height: 10,
-  amplitude: 1,
   inset: -3,
   horizontalDivisions: 500,
   verticalDivisions: 500,
   basePosition: { x: -25, y: 0, z: -25 },
-  color: DEFAULT_COLOR,
+  chocolate: DEFAULT_CHOCOLATE,
 };
 
 /**
@@ -99,7 +96,7 @@ export const createIMesh = (
   fields?: SvgFields
 ): ITriangularMesh => {
   // set the geometry settings
-  const { innerWidth, innerLength, height, inset, amplitude, horizontalDivisions, verticalDivisions } = geometrySettings;
+  const { innerWidth, innerLength, height, inset, horizontalDivisions, verticalDivisions } = geometrySettings;
   const baseVector: IVector = geometrySettings.basePosition;
 
   // create the base grid
@@ -127,7 +124,8 @@ export const createIMesh = (
       const dy = height;
       const dz = fanOffset(j, verticalDivisions, inset);
 
-      const s = (sdf(x, y, z) * amplitude) / height;
+      // the pattern is how far the top moves, in mm
+      const s = sdf(x, y, z) / height;
       movedGrid[k] = x + dx * s;
       movedGrid[k + 1] = y + dy * s;
       movedGrid[k + 2] = z + dz * s;
@@ -173,7 +171,7 @@ export const createIMesh = (
     vertices,
     faces,
     normals: computeNormals(vertices, faces),
-    color: geometrySettings.color ?? DEFAULT_COLOR,
+    chocolate: geometrySettings.chocolate ?? DEFAULT_CHOCOLATE,
   };
 };
 

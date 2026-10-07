@@ -1,6 +1,6 @@
 import { DistanceMethodType, distanceMethods, sdGyroid, sdSchwarzD, sdSphere } from '../sdMethods';
 import { IDistanceField, sampleCentredField, sampleField } from '../field';
-import { compilePattern, fromNode, nodeScaleAt, profile, repeat, sdSine, smoothMin, toPattern, toWorld } from './evaluate';
+import { compilePattern, fromNode, nodeScaleAt, profile, repeat, smoothMin, toPattern, toWorld } from './evaluate';
 import { DEFAULT_PROFILE, IPattern, SdfNode, constantNode, defaultPattern, groupNode, isGroup, methodNode, sineNode, svgKey, svgNode, textNode } from './tree';
 import { canUnwrap, changeKind, duplicateNode, findPath, insertChild, moveInto, moveNode, moveOut, moveTargets, nodeFrame, removeNode, staticScale, unwrap, updateNode, wrapNode } from './treeOps';
 import { formula } from './formula';
@@ -17,13 +17,13 @@ const pattern = (root: SdfNode, extra: Partial<IPattern> = {}): IPattern => ({ r
 
 const points = [...Array(40).keys()].map((i) => [Math.sin(i * 1.3) * 80, 10, Math.cos(i * 0.7) * 30 + i] as const);
 
-test('the default pattern is the old method chain', () => {
+test('the default pattern is the old method chain, times the amplitude the bars had', () => {
   const old = oldChain([
     [DistanceMethodType.SDNeovius, 0.004],
     [DistanceMethodType.SDSchwarzD, 8.5],
   ]);
   const sdf = compilePattern(defaultPattern());
-  points.forEach(([x, y, z]) => expect(sdf(x, y, z)).toBeCloseTo(old(x, y, z), 10));
+  points.forEach(([x, y, z]) => expect(sdf(x, y, z)).toBeCloseTo(0.2 * old(x, y, z), 10));
 });
 
 test('a chain feeds the inner child into the scale of the outer one', () => {
@@ -74,17 +74,17 @@ test('the rotation turns the pattern around its centre', () => {
   expect(rotated(3, 0, 7)).toBeCloseTo(plain(-5, 0, 2), 12);
 });
 
-test('the sine is zero on its curve and turns with its angle', () => {
-  const sine = sineNode(5, 20);
-  const sdf = compilePattern(pattern(sine));
-  [-13, 0, 4.2, 31].forEach((x) => expect(sdf(x, 0, 5 * Math.sin((2 * Math.PI * x) / 20))).toBeCloseTo(0, 12));
-  // at a crest the curve is flat, the distance is vertical
-  expect(sdf(5, 0, 8)).toBeCloseTo(3, 12);
-  expect(sdf(5, 0, -2)).toBeCloseTo(7, 12);
-  expect(sdSine(0, 1, 0, 10)).toBe(1);
-  // turned by 90 degrees the curve runs along z
-  const turned = compilePattern(pattern({ ...sine, angle: 90 }));
-  expect(turned(-8, 0, 5)).toBeCloseTo(sdf(5, 0, 8), 12);
+test('a sine ripples along the distance of its children', () => {
+  const sphere = methodNode(DistanceMethodType.SDSphere, 0.1);
+  const sdf = compilePattern(pattern({ ...sineNode(2, 7, [sphere, constantNode(0.5)]), gain: 1.5 }));
+  const child = compilePattern(pattern(sphere));
+  points.forEach(([x, y, z]) => expect(sdf(x, y, z)).toBeCloseTo(1.5 * 2 * Math.sin((2 * Math.PI * (child(x, y, z) + 0.5)) / 7), 12));
+  // nothing to modify, or no period, is nothing
+  expect(compilePattern(pattern(sineNode(2, 7)))(1, 2, 3)).toBe(0);
+  expect(compilePattern(pattern(sineNode(2, 0, [constantNode(1)])))(1, 2, 3)).toBe(0);
+  // the scale of the sine is the scale of its children
+  const scaled = compilePattern(pattern({ ...sineNode(2, 7, [methodNode(DistanceMethodType.SDSphere)]), scale: 0.1 }));
+  points.forEach(([x, y, z]) => expect(scaled(x, y, z)).toBeCloseTo(2 * Math.sin((2 * Math.PI * child(x, y, z)) / 7), 12));
 });
 
 test('svg keys depend on the source only', () => {
@@ -187,7 +187,8 @@ describe('tree edits', () => {
 });
 
 test('formula', () => {
-  expect(formula(defaultPattern().root, {})).toBe('Neovius ∘ SchwarzD@0.034');
+  expect(formula(defaultPattern().root, {})).toBe('0.2×(Neovius ∘ SchwarzD@0.034)');
+  expect(formula(sineNode(0.5, 4, [textNode('a'), constantNode(1)]), {})).toBe('Sine(0.5, 4)("a" + 1)');
   const star = { ...svgNode('s'), gain: 2 };
   expect(formula(groupNode('union', [methodNode(DistanceMethodType.SDGyroid, 0.3), star]), { s: { name: 'star', source: '' } })).toBe('Gyroid@0.3 ∪ 2×star');
 });
@@ -207,13 +208,14 @@ describe('shader plan', () => {
   test('params hold scale and gain of every node, padded to vectors', () => {
     const params = sdfShaderPlan(defaultPattern()).params(new Map());
     // chain, schwarz d (the inner child is generated first), neovius
-    expect([...params]).toEqual([1, Math.fround(0.004 * 8.5), 1, 1, 1, 1, 0, 0]);
+    expect([...params]).toEqual([1, Math.fround(0.004 * 8.5), 1, 1, 1, Math.fround(0.2), 0, 0]);
   });
 
   test('a sine has its numbers as params', () => {
-    // scale, cos, sin, amplitude, period, gain, padded to 2 vectors
-    expect(sdfShaderPlan(pattern(sineNode())).params(new Map()).length).toBe(8);
-    expect([...sdfShaderPlan(pattern({ ...sineNode(2, 7), angle: 90 })).params(new Map())].slice(1, 5)).toEqual([Math.fround(Math.cos(Math.PI / 2)), 1, 2, 7]);
+    // scale, amplitude, 2 pi / period, gain
+    expect([...sdfShaderPlan(pattern(sineNode(2, 7))).params(new Map())]).toEqual([1, 2, Math.fround((2 * Math.PI) / 7), 1]);
+    // its child comes first, then its own; without a period it is 0
+    expect([...sdfShaderPlan(pattern(sineNode(2, 0, [constantNode(3)]))).params(new Map())]).toEqual([1, 1, 3, 1, 0, 0, 1, 0]);
   });
 
   test('an svg and a text node have their profile as params', () => {
@@ -343,7 +345,7 @@ describe('the scale a node is evaluated at', () => {
 
   test('inside a chain it is the output of the children after it, as the pattern evaluates it', () => {
     const gyroid = methodNode(DistanceMethodType.SDGyroid, 2);
-    const sine = { ...sineNode(0.5, 40), gain: 0.2 };
+    const sine = { ...sineNode(0.5, 40, [methodNode(DistanceMethodType.SDGyroid, 0.05)]), gain: 0.2 };
     const inner = groupNode('add', [sine, constantNode(1)]);
     const p = pattern({ ...groupNode('chain', [gyroid, inner]), scale: 1.5 });
     const scaleAt = nodeScaleAt(p, gyroid.id, new Map(), 2)!;

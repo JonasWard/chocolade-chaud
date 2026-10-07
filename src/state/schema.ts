@@ -1,12 +1,14 @@
 import { DenseField, array, bool, densing, enumeration, fixed, int, meta, object, pointer, schema, undensing, union } from 'densing';
-import { DefaultGridSettings, GridType, IEditableGrid, MAX_DIV_PER_MM, MAX_UV_COUNT } from '../geometry/grid';
+import { BarKind, IBar, MAX_CUSTOM_SIZE, MAX_DIV_PER_MM, defaultBar } from '../geometry/grid';
 import { DistanceMethodType } from '../geometry/sdMethods';
-import { GROUP_KINDS, IPattern, ISvgAsset, NodeKind, SdfNode, isGroup, newId, svgHash } from '../geometry/sdf/tree';
+import { IPattern, ISvgAsset, NodeKind, SdfNode, isGroup, newId, svgHash } from '../geometry/sdf/tree';
+import { CHOCOLATE_TYPES, nearestChocolate } from '../geometry/chocolates';
+import { COLUMNS, DEFAULT_PIECES, IPiece, PIECE_SIZES, ROWS, TABLET_SIZES, isLayout } from '../geometry/tablets';
 
 // the state of the app packed into a short url safe string with densing. Numbers are rounded to the precision of their field,
 // svg sources don't fit: an svg is stored as the hash of its source (see svgKey), its source comes from the svg library
 
-export const STATE_VERSION = 7;
+export const STATE_VERSION = 8;
 // the oldest version a state can still be read from, see MIGRATIONS
 const OLDEST_VERSION = 4;
 
@@ -15,8 +17,12 @@ const MAX_SVGS = 32;
 const MAX_TEXT = 128;
 const MAX_FONT = 64;
 const MAX_POINTS = 64;
+const MAX_PIECES = COLUMNS * ROWS;
+// up to version 7, a grid of bars
+const MAX_UV_COUNT = 10;
 
-const NODE_KINDS: NodeKind[] = ['method', 'svg', 'text', 'sine', 'constant', ...GROUP_KINDS];
+// in the order of version 4, a sine was a leaf up to version 7
+const NODE_KINDS: NodeKind[] = ['method', 'svg', 'text', 'sine', 'constant', 'union', 'difference', 'intersection', 'add', 'subtract', 'chain'];
 
 // a string as utf-16 code units, so any text fits
 const chars = (name: string, max: number) => array(name, 0, max, int('char', 0, 0xffff));
@@ -67,7 +73,8 @@ const stateSchema = (version: number) => {
       fixed('angle', -360, 360, 0.1),
       ...profile
     ),
-    sine: variant(fixed('amplitude', -100, 100, 0.01), fixed('period', 0, 1000, 0.01), fixed('angle', -360, 360, 0.1)),
+    // up to version 7 the distance to a sine curve, a modifier of the distance of its children since
+    sine: version >= 8 ? variant(fixed('amplitude', -100, 100, 0.01), fixed('period', 0, 1000, 0.01), children) : variant(fixed('amplitude', -100, 100, 0.01), fixed('period', 0, 1000, 0.01), fixed('angle', -360, 360, 0.1)),
     constant: variant(fixed('value', -1000, 1000, 0.001)),
     union: variant(smooth, children),
     difference: variant(smooth, children),
@@ -77,20 +84,40 @@ const stateSchema = (version: number) => {
     chain: variant(children),
   });
 
+  // up to version 7 a single bar or a grid of them, with an amplitude the pattern was multiplied by and a colour per bar
+  const bars =
+    version >= 8
+      ? [
+          enumeration('kind', Object.values(BarKind)),
+          enumeration('tablet', TABLET_SIZES),
+          array('pieces', 1, MAX_PIECES, object('piece', enumeration('size', PIECE_SIZES), int('u', 0, COLUMNS - 1), int('v', 0, ROWS - 1))),
+          size('width', 5, MAX_CUSTOM_SIZE),
+          size('length', 5, MAX_CUSTOM_SIZE),
+          size('height', 0, 50),
+          size('inset', -50, 50),
+          size('divPerMM', 0.25, MAX_DIV_PER_MM),
+          bool('wireframe'),
+          array('chocolates', 1, MAX_PIECES, enumeration('chocolate', CHOCOLATE_TYPES)),
+          bool('sameChocolate'),
+        ]
+      : [
+          enumeration('type', ['Single', 'Simple']),
+          size('cellWidth', 5, 400),
+          size('cellLength', 5, 400),
+          int('uCount', 1, MAX_UV_COUNT),
+          int('vCount', 1, MAX_UV_COUNT),
+          size('height', 0, 50),
+          size('inset', -50, 50),
+          fixed('amplitude', -20, 20, 0.001),
+          size('divPerMM', 0.25, MAX_DIV_PER_MM),
+          bool('wireframe'),
+          array('colors', 1, 16, int('color', 0, 0xffffff)),
+        ];
+
   const state = schema(
     meta(node),
     int('version', 0, 255),
-    enumeration('type', [GridType.Single, GridType.Simple]),
-    size('cellWidth', 5, 400),
-    size('cellLength', 5, 400),
-    int('uCount', 1, MAX_UV_COUNT),
-    int('vCount', 1, MAX_UV_COUNT),
-    size('height', 0, 50),
-    size('inset', -50, 50),
-    fixed('amplitude', -20, 20, 0.001),
-    size('divPerMM', 0.25, MAX_DIV_PER_MM),
-    bool('wireframe'),
-    array('colors', 1, 16, int('color', 0, 0xffffff)),
+    ...bars,
     object('center', size('x', -1000, 1000), size('y', -1000, 1000), size('z', -1000, 1000)),
     size('rotation', -360, 360),
     array('svgs', 0, MAX_SVGS, int('hash', 0, 0xffffffff)),
@@ -162,6 +189,8 @@ const MIGRATIONS: Record<number, (n: NodeData) => NodeData> = {
     n.kind === 'svg' || n.kind === 'text'
       ? { ...n, alignX: 'center', alignZ: 'middle', ...(n.kind === 'text' && n.curve !== 'none' ? { paddingX: 0, paddingZ: 0 } : { paddingX: offsetX, paddingZ: offsetZ }) }
       : n,
+  // a sine curve has no equivalent in a modifier, it keeps its numbers and has nothing to modify
+  7: (n) => (n.kind === 'sine' ? { kind: 'sine', scale: n.scale, gain: n.gain, amplitude: n.amplitude, period: n.period, children: [] } : n),
 };
 
 const migrate = (data: NodeData, from: number): NodeData => {
@@ -170,13 +199,36 @@ const migrate = (data: NodeData, from: number): NodeData => {
   return n.children ? { ...n, children: n.children.map((c) => migrate(c, from)) } : n;
 };
 
-/** the data of the state and the version it was written in, from the newest version that reads it */
+/**
+ * the bars of a state of an older version as they are now. A single bar or one bar of a grid becomes a custom bar with its top where
+ * it was (the size is of the base now), the amplitude is in the gain of the pattern, the colour the chocolate that looks most like it
+ */
+const upgradeBars = (data: Record<string, unknown>, version: number): Record<string, unknown> => {
+  if (version >= 8) return data;
+  // the fields of the older version that are gone are left out by fit
+  const { cellWidth, cellLength, inset, amplitude, colors } = data as Record<string, number> & { colors: number[] };
+  const root = data.root as NodeData;
+  return {
+    ...data,
+    version: STATE_VERSION,
+    kind: BarKind.Custom,
+    tablet: '6x2',
+    pieces: DEFAULT_PIECES,
+    width: cellWidth - 2 * inset,
+    length: cellLength - 2 * inset,
+    chocolates: [nearestChocolate(colorOf(colors[0]))],
+    sameChocolate: true,
+    root: { ...root, gain: root.gain * amplitude },
+  };
+};
+
+/** the data of the state as it is now, from the newest version that reads it */
 const readState = (encoded: string): Record<string, unknown> | undefined => {
   for (let version = STATE_VERSION; version >= OLDEST_VERSION; version--) {
     const { schema: s, node, field } = SCHEMAS.get(version)!;
     try {
       const data = fit(field, undensing(s, encoded), node) as Record<string, unknown>;
-      if (data.version === version) return { ...data, root: migrate(data.root as NodeData, version) };
+      if (data.version === version) return upgradeBars({ ...data, root: migrate(data.root as NodeData, version) }, version);
     } catch {
       // not this version
     }
@@ -210,22 +262,23 @@ const nodeFrom = (data: NodeData, assets: string[]): SdfNode => {
 const svgNodes = (n: SdfNode): string[] => (n.kind === 'svg' ? [n.asset] : isGroup(n) ? n.children.flatMap(svgNodes) : []);
 
 /** the state as a short url safe string */
-export const encodeState = (grid: IEditableGrid): string => {
-  const pattern = grid.sdfSetting;
+export const encodeState = (bar: IBar): string => {
+  const pattern = bar.sdfSetting;
   const assets = [...new Set([...Object.keys(pattern.svgs), ...svgNodes(pattern.root)])].slice(0, MAX_SVGS);
   const data = {
     version: STATE_VERSION,
-    type: grid.type,
-    cellWidth: grid.cellWidth,
-    cellLength: grid.cellLength,
-    uCount: grid.uCount,
-    vCount: grid.vCount,
-    height: grid.height,
-    inset: grid.inset,
-    amplitude: grid.amplitude,
-    divPerMM: grid.divPerMM,
-    wireframe: grid.displayWireframe,
-    colors: (grid.type === GridType.Single ? [grid.color] : grid.colors).map((c) => parseInt(c.slice(1), 16)),
+    kind: bar.kind,
+    tablet: bar.tablet,
+    pieces: bar.pieces,
+    width: bar.width,
+    length: bar.length,
+    height: bar.height,
+    inset: bar.inset,
+    divPerMM: bar.divPerMM,
+    wireframe: bar.displayWireframe,
+    // only as many as it needs
+    chocolates: bar.sameChocolate ? bar.chocolates.slice(0, 1) : bar.chocolates.slice(0, Math.max(bar.pieces.length, 1)),
+    sameChocolate: bar.sameChocolate,
     center: pattern.center,
     rotation: pattern.rotation,
     svgs: assets.map(hashOf),
@@ -235,7 +288,7 @@ export const encodeState = (grid: IEditableGrid): string => {
 };
 
 /** the state of the string, undefined when it isn't one. The svgs come from the library, the ones it doesn't have are missing */
-export const decodeState = (encoded: string, library: Record<string, ISvgAsset>): IEditableGrid | undefined => {
+export const decodeState = (encoded: string, library: Record<string, ISvgAsset>): IBar | undefined => {
   try {
     const read = readState(encoded);
     if (!read) return undefined;
@@ -243,11 +296,10 @@ export const decodeState = (encoded: string, library: Record<string, ISvgAsset>)
     const assets = (data.svgs as number[]).map(keyOf);
     const svgs: IPattern['svgs'] = Object.fromEntries(assets.flatMap((key) => (library[key] ? [[key, library[key]]] : [])));
     const sdfSetting: IPattern = { root: nodeFrom(data.root, assets), center: data.center, rotation: data.rotation, svgs };
-    const colors = (data.colors as number[]).map(colorOf);
-    const base = DefaultGridSettings(data.type) as IEditableGrid;
-    const { cellWidth, cellLength, uCount, vCount, height, inset, amplitude, divPerMM } = data;
-    const grid = { ...base, cellWidth, cellLength, uCount, vCount, height, inset, amplitude, divPerMM, displayWireframe: data.wireframe, sdfSetting };
-    return grid.type === GridType.Simple ? { ...grid, colors } : { ...grid, color: colors[0] };
+    const { kind, tablet, width, length, height, inset, divPerMM, chocolates, sameChocolate } = data;
+    // pieces that don't fill the tablet are not a layout
+    const pieces = isLayout(data.pieces as IPiece[]) ? data.pieces : defaultBar().pieces;
+    return { ...defaultBar(), kind, tablet, pieces, width, length, height, inset, divPerMM, displayWireframe: data.wireframe, chocolates, sameChocolate, sdfSetting };
   } catch {
     return undefined;
   }

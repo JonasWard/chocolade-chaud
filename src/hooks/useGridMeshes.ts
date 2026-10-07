@@ -1,12 +1,12 @@
 import React from 'react';
-import { CellData, IGridSettings } from '../geometry/grid';
+import { CellData, IBar } from '../geometry/grid';
 import { ITriangularMesh } from '../geometry/createMesh';
 import type { FieldMessage, MeshRequest, MeshResponse } from '../geometry/meshWorker';
 import { IDistanceField } from '../geometry/field';
 import { SvgFields } from '../geometry/sdf/tree';
 
 // id is unique per generated result
-export type GridMeshes = { id: number; grid: IGridSettings; fields: SvgFields; meshes: ITriangularMesh[]; cellData: CellData[] };
+export type GridMeshes = { id: number; grid: IBar; fields: SvgFields; meshes: ITriangularMesh[]; cellData: CellData[] };
 
 type Request = MeshRequest & { fields: SvgFields };
 
@@ -15,7 +15,7 @@ type Request = MeshRequest & { fields: SvgFields };
  * While the worker is busy only the latest request is kept, intermediate settings are skipped.
  */
 export const useGridMeshes = (
-  grid: IGridSettings,
+  grid: IBar,
   fields: SvgFields,
   withSupports = true
 ): { result?: GridMeshes; pending: boolean; error?: string } => {

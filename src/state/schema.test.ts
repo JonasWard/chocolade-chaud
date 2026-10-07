@@ -1,10 +1,12 @@
-import { DefaultGridSettings, GridType, IEditableGrid, ISimpleGrid, ISingleGrid } from '../geometry/grid';
+import { BarKind, IBar, defaultBar } from '../geometry/grid';
 import { DistanceMethodType } from '../geometry/sdMethods';
 import { IBooleanNode, IPattern, IProfile, SdfNode, constantNode, defaultPattern, groupNode, methodNode, sineNode, svgKey, svgNode, textNode } from '../geometry/sdf/tree';
 import { decodeState, encodeState } from './schema';
 import { profile } from '../geometry/sdf/evaluate';
+import { ChocolateType } from '../geometry/chocolates';
+import { DEFAULT_PIECES, TABLET_LAYOUTS } from '../geometry/tablets';
 
-const single = () => DefaultGridSettings(GridType.Single) as ISingleGrid;
+const single = defaultBar;
 
 // the same up to the precision of the fields, ids are new
 const expectClose = (actual: unknown, expected: unknown, path = ''): void => {
@@ -27,7 +29,7 @@ test('the default state survives a round trip and is short', () => {
   expect(encoded.length).toBeLessThanOrEqual(64);
   expectClose(decodeState(encoded, library), grid);
   // the numbers come back as they were typed, without the noise of their steps
-  expect(decodeState(encoded, library)?.amplitude).toBe(0.2);
+  expect(decodeState(encoded, library)?.sdfSetting.root.gain).toBe(0.2);
 });
 
 test('a tree with every kind of node survives a round trip', () => {
@@ -35,7 +37,7 @@ test('a tree with every kind of node survives a round trip', () => {
   const star = Object.keys(library)[0];
   const root = groupNode('union', [
     groupNode('chain', [methodNode(DistanceMethodType.SDGyroid, 0.3), { ...svgNode(svgKey(logo), 25), alignX: 'left', paddingX: 4.5, repeat: 40 }]),
-    { ...(groupNode('difference', [sineNode(2.5, 17), constantNode(-0.75)]) as IBooleanNode), smooth: 1.5 },
+    { ...(groupNode('difference', [sineNode(2.5, 17, [methodNode(DistanceMethodType.SDSphere, 0.5)]), constantNode(-0.75)]) as IBooleanNode), smooth: 1.5 },
     { ...groupNode('intersection', [svgNode(star)]), gain: -2 },
     groupNode('add', [methodNode(DistanceMethodType.SDTorus, 1e-3)]),
     groupNode('subtract', [
@@ -48,25 +50,29 @@ test('a tree with every kind of node survives a round trip', () => {
     ]),
   ]);
   const pattern: IPattern = { root, center: { x: 1.5, y: -2, z: 30 }, rotation: 45, svgs: { ...library, [svgKey(logo)]: { name: 'logo', source: logo } } };
-  const grid: IEditableGrid = { ...single(), cellWidth: 123.45, amplitude: -0.35, displayWireframe: true, color: '#12abef', sdfSetting: pattern };
+  const grid: IBar = { ...single(), kind: BarKind.Custom, width: 123.45, length: 32.5, displayWireframe: true, chocolates: [ChocolateType.Ruby], sdfSetting: pattern };
 
   const withLogo = { ...library, [svgKey(logo)]: { name: 'logo', source: logo } };
   const decoded = decodeState(encodeState(grid), withLogo);
   expectClose(decoded, grid);
 
   // without the logo in the library, the node keeps its key but the asset is missing
-  const missing = decodeState(encodeState(grid), library) as ISingleGrid;
+  const missing = decodeState(encodeState(grid), library)!;
   expect(Object.keys(missing.sdfSetting.svgs)).toEqual(Object.keys(library));
   const chain = (missing.sdfSetting.root as { children: SdfNode[] }).children[0] as { children: SdfNode[] };
   expect(chain.children[1]).toMatchObject({ kind: 'svg', asset: svgKey(logo) });
 });
 
-test('a grid keeps its colours, out of range values are clamped', () => {
-  const grid: ISimpleGrid = { ...(DefaultGridSettings(GridType.Simple) as ISimpleGrid), uCount: 3, colors: ['#000000', '#ffffff', '#a73a08'], cellWidth: 1e6 };
-  const decoded = decodeState(encodeState(grid), library) as ISimpleGrid;
-  expect(decoded.colors).toEqual(grid.colors);
-  expect(decoded.uCount).toBe(3);
-  expect(decoded.cellWidth).toBe(400);
+test('a combined tablet keeps its layout and the chocolate of every piece, out of range values are clamped', () => {
+  const pieces = TABLET_LAYOUTS[7];
+  const chocolates = pieces.map((_, i) => [ChocolateType.Dark85, ChocolateType.White, ChocolateType.Matcha][i % 3]);
+  const grid: IBar = { ...single(), kind: BarKind.Combined, pieces, chocolates, sameChocolate: false, width: 1e6 };
+  const decoded = decodeState(encodeState(grid), library)!;
+  expect(decoded).toMatchObject({ kind: BarKind.Combined, pieces, chocolates, sameChocolate: false, width: 400 });
+  // the same chocolate for every piece only keeps the first
+  expect(decodeState(encodeState({ ...grid, sameChocolate: true }), library)).toMatchObject({ chocolates: [ChocolateType.Dark85], sameChocolate: true });
+  // pieces that don't fill the tablet are the default layout
+  expect(decodeState(encodeState({ ...grid, pieces: pieces.slice(1) }), library)?.pieces).toEqual(DEFAULT_PIECES);
 });
 
 test('anything else is not a state', () => {
@@ -82,7 +88,7 @@ const V4 =
   'BB5GBtYAD6ElxO6BdwU50EMNQMNQMNQIygBX7JiYlTiGKiAAAoIvrFRAJOIYqIBABmAGwAYQB0FADmAMIA3ADmAFoA5gDKAOQA0gDMhH4AMK6MQYPPKeNAMgCvEnEMVEAgA5gDoAMoA4CgBzAGEAbgBzAC0AcwBlAHIAaQBmQj8AGGoGGoHCFPsAAAAABTiGKiAAZCcQTiAAATugBkAMgk4hiogFAGMAdQByAHYAZRQA5gDCANwA5gBaAOYAygDkANIAzIR-gi_aDDUDBXDBwDFRDE4DHODDUDDUDDUDhAndADIAAA';
 
 test('a state of version 4 still reads, its profiles shaped the same', () => {
-  const grid = decodeState(V4, library) as ISingleGrid;
+  const grid = decodeState(V4, library)!;
   const [gyroid, flat, step, star, curve] = (grid.sdfSetting.root as { children: SdfNode[] }).children;
   expect(gyroid).toMatchObject({ kind: 'method', method: DistanceMethodType.SDGyroid });
   expect(flat).toMatchObject({ kind: 'text', text: 'flat', alignX: 'center', alignZ: 'middle', paddingX: -3, paddingZ: 4, angle: 30, inner: 1.25, outer: 3.5, beveled: true, innerBevel: 0.5, outerBevel: 3.5 });
@@ -101,7 +107,7 @@ const V5 =
   'BR5GBtYAD6ElxO6BdwU50EMNQMNQMNQIygBX7JiYlTiGKiAAARJxDFRAIAMwA2ADCAOgoAcwBhAG4AcwAtAHMAZQByAGkAZkI_ABhqBhqBwgAH0Ar0AGQAyCTiGKiAUAYwB1AHIAdgBlFADmAMIA3ADmAFoA5gDKAOQA0gDMhH6CL9oMNQMFcMHAMVEMTgMc4MNQMNQMNQOEAAAAAAAAAAAA';
 
 test('a state of version 5 still reads', () => {
-  const grid = decodeState(V5, library) as ISingleGrid;
+  const grid = decodeState(V5, library)!;
   const [flat, curve] = (grid.sdfSetting.root as { children: SdfNode[] }).children;
   expect(flat).toMatchObject({ kind: 'text', text: 'flat', inner: 1.25, outer: 3.5, beveled: true, innerBevel: 0.5, outerBevel: 2 });
   expect(curve).toMatchObject({ text: 'curve', curve: { mode: 'spline', points: [{ x: -20, z: 0 }, { x: -10, z: -8 }, { x: 10, z: 8 }, { x: 20, z: 0 }] } });
@@ -113,9 +119,31 @@ const V6 =
   'Bh5GBtYAD6ElxO6BdwU50EMNQMNQMNQIygBX7JiYlTiGKiAAAZJxDFRAKANoA3gDsAMoAyCgBzAGEAbgBzAC0AcwBlAHIAaQBmQj8AGBvmI-HCAAAAAAAAAAAAJOIYqIBQBjAHUAcgB2AGUUAOYAwgDcAOYAWgDmAMoA5ADSAMyEfsGv2gw1Aw1AxEoxzgw1AySwwlY4QAAAAAAAAAAAApxDFRAAMhOepvIAAAAAAAAAAAAAA';
 
 test('a state of version 6 keeps where its texts and svgs were', () => {
-  const grid = decodeState(V6, library) as ISingleGrid;
+  const grid = decodeState(V6, library)!;
   const [moved, curve, star] = (grid.sdfSetting.root as { children: SdfNode[] }).children;
   expect(moved).toMatchObject({ text: 'moved', alignX: 'center', alignZ: 'middle', paddingX: -12.5, paddingZ: 6 });
   expect(curve).toMatchObject({ text: 'curve', alignX: 'center', alignZ: 'middle', paddingX: 0, paddingZ: 0, curve: { mode: 'smooth' } });
   expect(star).toMatchObject({ kind: 'svg', alignX: 'center', alignZ: 'middle', paddingX: 4.5, paddingZ: -3 });
+});
+
+// written by version 7: a single bar of 120 by 45 mm with an inset of -2.5, an amplitude of 0.35 and the colour #f2e6d0, a union of a
+// gyroid, a sine curve and a constant with a gain of 2
+const V7_SINGLE = 'BxZ2B9AAD6Eo5PfhdweXNoMNQMNQMNQIygBX7JiYlTiGOcAAAYI4DFRANOIYqIUBQGpHniJxDFRD034';
+// a grid of 3 by 2 bars of 40 by 30 mm, coloured #3b1f12 and #ffffff
+const V7_GRID = 'B4bWBOIQj6ElxO6BdwnY-Jf___sNQMNQMNQIygBX7JiYqTiGKiBAnEMVEMDctiohA';
+
+test('a bar of version 7 is a custom bar with its top where it was, the amplitude in the gain of its pattern', () => {
+  const bar = decodeState(V7_SINGLE, library)!;
+  expect(bar).toMatchObject({ kind: BarKind.Custom, width: 125, length: 50, inset: -2.5, chocolates: [ChocolateType.White], sameChocolate: true });
+  const root = bar.sdfSetting.root as { gain: number; children: SdfNode[] };
+  expect(root.gain).toBeCloseTo(0.7, 10);
+  // a sine curve has no equivalent, it is a sine of nothing
+  expect(root.children.map((c) => c.kind)).toEqual(['method', 'sine', 'constant']);
+  expect(root.children[1]).toMatchObject({ amplitude: 2.5, period: 17, children: [] });
+
+  // one bar of a grid
+  const grid = decodeState(V7_GRID, library)!;
+  expect(grid).toMatchObject({ kind: BarKind.Custom, width: 46, length: 36, chocolates: [ChocolateType.Dark85] });
+  expect(grid.sdfSetting.root.gain).toBeCloseTo(0.2, 10);
+  expectClose(decodeState(encodeState(grid), library), grid);
 });
