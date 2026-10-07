@@ -4,7 +4,8 @@ import { nodeLabel } from '../../geometry/sdf/formula';
 import { findNode } from '../../geometry/sdf/treeOps';
 import { NodeInspector } from './NodeInspector';
 import { KindPicker, NodeMenu } from './NodeMenu';
-import { TreeEditorProps, nodeSummary } from './actions';
+import { TreeEditorProps } from './actions';
+import { nodeSummary } from './kinds';
 import { Hint } from '../ui';
 
 /** desktop: the whole tree as an indented outline, the selected node is edited below it */

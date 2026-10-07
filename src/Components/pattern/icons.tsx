@@ -2,6 +2,7 @@ import React from 'react';
 import { DistanceMethodType } from '../../geometry/sdMethods';
 import { IPattern, NodeKind, SdfNode } from '../../geometry/sdf/tree';
 import { KIND_LABEL, methodLabel } from '../../geometry/sdf/formula';
+import { KINDS } from './kinds';
 
 // line icons on a 24 x 24 grid, drawn in the current colour
 
@@ -47,29 +48,6 @@ const METHOD_ICONS: Record<DistanceMethodType, React.ReactNode> = {
   ),
 };
 
-const KIND_ICONS: Record<Exclude<NodeKind, 'method' | 'svg'>, React.ReactNode> = {
-  text: <path d='M5 6V4.5h14V6M12 4.5v15M9 19.5h6' />,
-  sine: <path d='M2 12c2.5-8 5.5-8 8 0s5.5 8 8 0c1.2-4 2.7-6 4-6' />,
-  constant: <path d='M10 4L8 20M16 4l-2 16M4.5 9h15M4 15h15' />,
-  union: <path d='M6 4.5v7.5a6 6 0 0 0 12 0V4.5' />,
-  intersection: <path d='M6 19.5V12a6 6 0 0 1 12 0v7.5' />,
-  // a disc with the second one cut out of it
-  difference: (
-    <>
-      <path d='M13.5 6.2a7 7 0 1 0 0 11.6 6 6 0 0 1 0-11.6z' />
-      <circle cx='16' cy='12' r='6' strokeDasharray='2 2.5' />
-    </>
-  ),
-  add: <path d='M12 5v14M5 12h14' />,
-  subtract: <path d='M5 12h14' />,
-  // linked rings
-  chain: (
-    <>
-      <rect x='2' y='8' width='12' height='8' rx='4' />
-      <rect x='10' y='8' width='12' height='8' rx='4' />
-    </>
-  ),
-};
 
 const svgDataUrl = (source: string) => `data:image/svg+xml,${encodeURIComponent(source)}`;
 
@@ -108,7 +86,7 @@ const Icon: React.FC<{ title: string; large?: boolean; children: React.ReactNode
 /** the icon of a kind of node, a method has one of its own */
 export const KindIcon: React.FC<{ kind: NodeKind; method?: DistanceMethodType; large?: boolean }> = ({ kind, method, large }) => (
   <Icon title={kind === 'method' && method ? methodLabel(method) : KIND_LABEL[kind]} large={large}>
-    {kind === 'method' ? METHOD_ICONS[method ?? DistanceMethodType.SDGyroid] : kind === 'svg' ? <rect x='4' y='4' width='16' height='16' rx='2' strokeDasharray='3 3' /> : KIND_ICONS[kind]}
+    {kind === 'method' ? METHOD_ICONS[method ?? DistanceMethodType.SDGyroid] : KINDS[kind].icon}
   </Icon>
 );
 

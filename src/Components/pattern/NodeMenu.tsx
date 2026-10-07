@@ -4,20 +4,15 @@ import { GROUP_KINDS, IPattern, NodeKind, SdfNode, isGroup } from '../../geometr
 import { KIND_LABEL, methodLabel, nodeLabel } from '../../geometry/sdf/formula';
 import { canUnwrap, changeKind, findPath, moveTargets } from '../../geometry/sdf/treeOps';
 import { IPickerSection, Picker } from '../Picker';
-import { NodeAction, firstAsset } from './actions';
+import { NodeAction } from './actions';
+import { KIND_GROUPS, firstAsset, kindsIn } from './kinds';
 import { ActionIcon, KindIcon, NodeIcon } from './icons';
 
 /** a kind of node, a method is a kind of its own */
 export type KindChoice = DistanceMethodType | Exclude<NodeKind, 'method'>;
 
-const KIND_GROUPS: { title: string; kinds: KindChoice[] }[] = [
-  { title: 'Methods', kinds: Object.values(DistanceMethodType) },
-  { title: 'Shapes', kinds: ['svg', 'text', 'constant'] },
-  { title: 'Modifiers', kinds: ['sine'] },
-  { title: 'Booleans', kinds: ['union', 'difference', 'intersection'] },
-  { title: 'Arithmetic', kinds: ['add', 'subtract'] },
-  { title: 'Chain', kinds: ['chain'] },
-];
+// the sections of the menus, every method is a kind of its own
+const MENU = KIND_GROUPS.map((title) => ({ title, kinds: kindsIn(title).flatMap((k): KindChoice[] => (k === 'method' ? Object.values(DistanceMethodType) : [k])) }));
 
 const isMethod = (k: KindChoice): k is DistanceMethodType => k in DistanceMethodType;
 export const kindLabel = (k: KindChoice) => (isMethod(k) ? methodLabel(k) : KIND_LABEL[k]);
@@ -25,7 +20,7 @@ export const kindIcon = (k: KindChoice) => (isMethod(k) ? <KindIcon kind='method
 
 /** the kinds in their groups, as values made by value */
 const kindSections = <T,>(value: (k: KindChoice) => T, only?: (k: KindChoice) => boolean): IPickerSection<T>[] =>
-  KIND_GROUPS.map(({ title, kinds }) => ({
+  MENU.map(({ title, kinds }) => ({
     title,
     items: kinds.filter((k) => !only || only(k)).map((k) => ({ value: value(k), label: kindLabel(k), icon: kindIcon(k) })),
   }));

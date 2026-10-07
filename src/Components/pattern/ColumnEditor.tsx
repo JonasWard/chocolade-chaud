@@ -4,7 +4,8 @@ import { nodeLabel } from '../../geometry/sdf/formula';
 import { findPath } from '../../geometry/sdf/treeOps';
 import { NodeInspector } from './NodeInspector';
 import { ADD_SECTIONS, ActionPicker, KindPicker, NodeMenu, WRAP_SECTIONS } from './NodeMenu';
-import { TreeEditorProps, nodeDetails } from './actions';
+import { TreeEditorProps } from './actions';
+import { nodeDetails } from './kinds';
 
 const scrollBehavior = (): ScrollBehavior => (window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth');
 
