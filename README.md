@@ -37,7 +37,7 @@ This is a [bun](https://bun.sh) project built with [Vite](https://vite.dev).
 ```sh
 bun install        # install dependencies
 bun dev            # dev server at http://localhost:5173/chocolade-chaud/
-bun run test       # unit tests (vitest)
+bun run test       # unit and component tests (vitest, components in jsdom)
 bun run typecheck  # tsc
 bun run lint       # eslint
 bun run build      # production build into build/
@@ -64,5 +64,5 @@ So merging into `main` is all it takes to release. To redeploy `main` without a 
 - `src/geometry/meshWorker.ts` and `src/hooks/useGridMeshes.ts` generate the meshes in a web worker, so editing settings never blocks the UI. The scene and the exports share the generated meshes.
 - `src/three` renders the meshes with three.js via react-three-fiber (drei for camera fitting and orbit controls). `CurveEditor.tsx` draws and edits the base curve of a text node, `ViewController.tsx` switches between the orbiting view and the orthographic edit view. `shaders/sdfCodegen.ts` generates the GLSL of the pattern tree: its structure is compiled into the shader and its numbers are uniforms, so only structural edits compile a new shader.
 - `src/export` downloads the exported files, several bars are zipped into one download.
-- `src/state` packs the state for the url and local storage (`schema.ts`, `persist.ts`) and holds the undo / redo stack (`history.ts`).
-- `src/Components` holds the panels in plain HTML (`ui.tsx`, styled by `src/ui.css`), with the pattern tree editors in `pattern/`.
+- `src/state` packs the state for the url and local storage (`schema.ts`, `persist.ts`) and holds the undo / redo stack (`history.ts`). `settings.ts` defines every number of the state once: its label, unit, range and step in the panels and its precision in a link. The current link version is built from it, older versions are frozen as they were written; a test pins a fingerprint of every version, so a changed range needs a new version.
+- `src/Components` holds the panels in plain HTML, styled by `src/ui.css`: the form primitives in `ui.tsx` (fields that take their numbers from the settings, `Choices` for every group of buttons), simple and expert mode in `mode.tsx` (`<Expert>` and `<Simple>`, and `<ExpertNotice>`, which lists the changed settings simple mode hides), the folding panels in `panels.tsx`, and the toolbar and settings sheet in `Toolbar.tsx`. The pattern editors are in `pattern/`: every kind of node in one registry (`kinds.tsx`) with its own inspector (`inspectors.tsx`), and the state of the editing in `patternEditor.ts`.
