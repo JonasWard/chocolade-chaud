@@ -3,13 +3,6 @@ import type { INumberSetting } from '../state/settings';
 
 // the few form controls of the app, plain html styled by ui.css
 
-export const Section: React.FC<{ title: string; open?: boolean; className?: string; children: React.ReactNode }> = ({ title, open, className = 'section', children }) => (
-  <details className={className} open={open}>
-    <summary>{title}</summary>
-    <div className='stack'>{children}</div>
-  </details>
-);
-
 /**
  * a caption and its control. A group of buttons is a group, not a label: a label passes a click on its caption to its first button
  */

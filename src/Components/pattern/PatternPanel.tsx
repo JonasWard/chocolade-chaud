@@ -3,7 +3,8 @@ import { IPattern, SdfNode, svgKey } from '../../geometry/sdf/tree';
 import { updateNode } from '../../geometry/sdf/treeOps';
 import { MAX_SVG_BYTES } from '../../geometry/svg/rasterizeSvg';
 import { PATTERN } from '../../state/settings';
-import { ErrorText, Field, Hint, NumberField, NumberSetting, Section } from '../ui';
+import { ErrorText, Field, Hint, NumberField, NumberSetting } from '../ui';
+import { SubPanel } from '../panels';
 import { NodeAction, applyAction } from './actions';
 import { ColumnEditor } from './ColumnEditor';
 import { FormulaPreview } from './FormulaPreview';
@@ -108,7 +109,7 @@ export const PatternPanel: React.FC<{ pattern: IPattern; setPattern: (p: IPatter
         <FormulaPreview pattern={pattern} selected={selected} />
       </Expert>
       {mobile ? <ColumnEditor {...editorProps} focus={focus} setFocus={setFocus} /> : <OutlineEditor {...editorProps} />}
-      <Section title='Placement' className='subsection'>
+      <SubPanel id='placement' title='Placement'>
         <Expert>
           <Field label={`${PATTERN.center.label} ${PATTERN.center.unit}`} group>
             <div className='row'>
@@ -119,10 +120,10 @@ export const PatternPanel: React.FC<{ pattern: IPattern; setPattern: (p: IPatter
           </Field>
         </Expert>
         <NumberSetting setting={PATTERN.rotation} value={pattern.rotation} onChange={(rotation) => setPattern({ ...pattern, rotation })} />
-      </Section>
-      <Section title='SVG shapes' className='subsection'>
+      </SubPanel>
+      <SubPanel id='svgs' title='SVG shapes'>
         <SvgAssets pattern={pattern} setPattern={setPattern} />
-      </Section>
+      </SubPanel>
     </>
   );
 };

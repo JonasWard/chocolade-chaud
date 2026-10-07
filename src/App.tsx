@@ -4,7 +4,8 @@ import { Export } from './Components/Export';
 import { BarPanel } from './Components/BarPanel';
 import { PatternPanel } from './Components/pattern/PatternPanel';
 import { EditorContext, IEditorContext } from './Components/pattern/editorContext';
-import { ErrorText, Section } from './Components/ui';
+import { ErrorText } from './Components/ui';
+import { SettingsPanel } from './Components/panels';
 import { useGridMeshes } from './hooks/useGridMeshes';
 import { usePatternFields } from './hooks/usePatternFields';
 import { useHistory } from './hooks/useHistory';
@@ -158,15 +159,15 @@ function App() {
             )}
             {!hidden && (
               <>
-                <Section title='Bar' open={!mobile}>
+                <SettingsPanel id='bar' title='Bar'>
                   <BarPanel grid={grid} setGrid={setGrid} />
-                </Section>
-                <Section title='Pattern' open>
+                </SettingsPanel>
+                <SettingsPanel id='pattern' title='Pattern' defaultOpen='always'>
                   <PatternPanel pattern={pattern} setPattern={(sdfSetting) => setGrid({ ...grid, sdfSetting })} selected={selected} setSelected={setSelected} />
-                </Section>
-                <Section title='Export' open={!mobile}>
+                </SettingsPanel>
+                <SettingsPanel id='export' title='Export'>
                   <Export meshes={pending ? undefined : result} />
-                </Section>
+                </SettingsPanel>
               </>
             )}
           </aside>
