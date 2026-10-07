@@ -4,12 +4,13 @@ import { nodeLabel } from '../../geometry/sdf/formula';
 import { findNode } from '../../geometry/sdf/treeOps';
 import { NodeInspector } from './NodeInspector';
 import { KindPicker, NodeMenu } from './NodeMenu';
-import { TreeEditorProps } from './actions';
+import { usePatternEditorContext } from './patternEditor';
 import { nodeSummary } from './kinds';
 import { Hint } from '../ui';
 
 /** desktop: the whole tree as an indented outline, the selected node is edited below it */
-export const OutlineEditor: React.FC<TreeEditorProps> = ({ pattern, selected, onSelect, onAction, onChange }) => {
+export const OutlineEditor: React.FC = () => {
+  const { pattern, selected, select: onSelect, onAction, onChange } = usePatternEditorContext();
   const [collapsed, setCollapsed] = React.useState<ReadonlySet<string>>(new Set());
   const toggle = (id: string) => setCollapsed((c) => (c.has(id) ? new Set([...c].filter((i) => i !== id)) : new Set([...c, id])));
 

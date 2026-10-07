@@ -53,33 +53,33 @@ const ChocolatePicker: React.FC<{ value: ChocolateType; onChange: (c: ChocolateT
 );
 
 /** the size and the chocolate of the bars, expert adds a custom size and shows how finely they are made and their wireframe */
-export const BarPanel: React.FC<{ grid: IBar; setGrid: (g: IBar) => void }> = ({ grid, setGrid }) => {
+export const BarPanel: React.FC<{ bar: IBar; setBar: (bar: IBar) => void }> = ({ bar, setBar }) => {
   const { expert } = useMode();
-  const set = (patch: Partial<IBar>) => setGrid({ ...grid, ...patch });
-  const bind = binder(grid, setGrid);
+  const set = (patch: Partial<IBar>) => setBar({ ...bar, ...patch });
+  const bind = binder(bar, setBar);
   // the piece of a combined tablet whose chocolate is picked
   const [piece, setPiece] = React.useState(0);
-  const combined = grid.kind === BarKind.Combined;
-  const perPiece = combined && !grid.sameChocolate;
-  const current = Math.min(piece, grid.pieces.length - 1);
+  const combined = bar.kind === BarKind.Combined;
+  const perPiece = combined && !bar.sameChocolate;
+  const current = Math.min(piece, bar.pieces.length - 1);
 
   // a custom bar stays one in simple mode until another size is picked
-  const kinds = [BarKind.Tablet, BarKind.Combined, ...(expert || grid.kind === BarKind.Custom ? [BarKind.Custom] : [])];
-  const { width, length } = tabletSize(grid.tablet);
+  const kinds = [BarKind.Tablet, BarKind.Combined, ...(expert || bar.kind === BarKind.Custom ? [BarKind.Custom] : [])];
+  const { width, length } = tabletSize(bar.tablet);
 
   const setChocolate = (chocolate: ChocolateType) => {
-    if (!perPiece) return set({ chocolates: [chocolate, ...grid.chocolates.slice(1)] });
-    const chocolates = grid.pieces.map((_, i) => chocolateOf(grid, i));
+    if (!perPiece) return set({ chocolates: [chocolate, ...bar.chocolates.slice(1)] });
+    const chocolates = bar.pieces.map((_, i) => chocolateOf(bar, i));
     chocolates[current] = chocolate;
     set({ chocolates });
   };
 
   return (
     <>
-      <Segmented<BarKind> label='size' value={grid.kind} options={kinds.map((k) => [k, KIND_LABEL[k]])} onChange={(kind) => set({ kind })} />
-      {grid.kind === BarKind.Tablet && (
+      <Segmented<BarKind> label='size' value={bar.kind} options={kinds.map((k) => [k, KIND_LABEL[k]])} onChange={(kind) => set({ kind })} />
+      {bar.kind === BarKind.Tablet && (
         <>
-          <Segmented<TabletSize> label='tablet' value={grid.tablet} options={TABLET_SIZES.map((s) => [s, sizeLabel(s)])} onChange={(tablet) => set({ tablet })} />
+          <Segmented<TabletSize> label='tablet' value={bar.tablet} options={TABLET_SIZES.map((s) => [s, sizeLabel(s)])} onChange={(tablet) => set({ tablet })} />
           <Hint>
             {width} × {length} mm
           </Hint>
@@ -90,7 +90,7 @@ export const BarPanel: React.FC<{ grid: IBar; setGrid: (g: IBar) => void }> = ({
           label='layout'
           className='layouts'
           itemClassName='layout'
-          value={TABLET_LAYOUTS.findIndex((layout) => sameLayout(layout, grid.pieces))}
+          value={TABLET_LAYOUTS.findIndex((layout) => sameLayout(layout, bar.pieces))}
           options={TABLET_LAYOUTS.map((_, i) => i)}
           onChange={(i) => set({ pieces: TABLET_LAYOUTS[i] })}
           name={(i) => `layout ${i + 1}`}
@@ -98,27 +98,27 @@ export const BarPanel: React.FC<{ grid: IBar; setGrid: (g: IBar) => void }> = ({
           {(i) => <LayoutDrawing className='layout-drawing' pieces={TABLET_LAYOUTS[i]} fill={() => 'currentColor'} />}
         </Choices>
       )}
-      {grid.kind === BarKind.Custom && (
+      {bar.kind === BarKind.Custom && (
         <>
           <NumberSetting setting={BAR.width} {...bind('width')} />
           <NumberSetting setting={BAR.length} {...bind('length')} />
         </>
       )}
-      {(grid.kind === BarKind.Combined || grid.kind === BarKind.Custom) && <Hint>Sizes are of the base, the top is smaller by the inset.</Hint>}
+      {(bar.kind === BarKind.Combined || bar.kind === BarKind.Custom) && <Hint>Sizes are of the base, the top is smaller by the inset.</Hint>}
       {combined && (
         <>
           <LayoutDrawing
             className='pieces'
-            pieces={grid.pieces}
-            fill={(i) => CHOCOLATES[chocolateOf(grid, i)].color}
+            pieces={bar.pieces}
+            fill={(i) => CHOCOLATES[chocolateOf(bar, i)].color}
             selected={perPiece ? current : undefined}
             onPick={perPiece ? setPiece : undefined}
           />
           <label className='check'>
             <input
               type='checkbox'
-              checked={grid.sameChocolate}
-              onChange={(e) => set({ sameChocolate: e.target.checked, chocolates: grid.pieces.map((_, i) => chocolateOf(grid, i)) })}
+              checked={bar.sameChocolate}
+              onChange={(e) => set({ sameChocolate: e.target.checked, chocolates: bar.pieces.map((_, i) => chocolateOf(bar, i)) })}
             />
             Same chocolate for every piece
           </label>
@@ -127,22 +127,22 @@ export const BarPanel: React.FC<{ grid: IBar; setGrid: (g: IBar) => void }> = ({
       )}
       <Field label='Chocolate' group>
         <div>
-          <ChocolatePicker value={chocolateOf(grid, perPiece ? current : 0)} onChange={setChocolate} />
-          <Hint inline>{CHOCOLATES[chocolateOf(grid, perPiece ? current : 0)].name}</Hint>
+          <ChocolatePicker value={chocolateOf(bar, perPiece ? current : 0)} onChange={setChocolate} />
+          <Hint inline>{CHOCOLATES[chocolateOf(bar, perPiece ? current : 0)].name}</Hint>
         </div>
       </Field>
       <NumberSetting setting={BAR.height} {...bind('height')} />
       <NumberSetting setting={BAR.inset} {...bind('inset')} />
       <Expert>
         <NumberSetting setting={BAR.divPerMM} {...bind('divPerMM')} />
-        {effectiveDivPerMM(grid) < grid.divPerMM && (
+        {effectiveDivPerMM(bar) < bar.divPerMM && (
           <Hint>
-            Limited to {effectiveDivPerMM(grid).toFixed(2)}/mm here: a side has at most {MAX_DIVS_ONE_SIDE} divisions, all bars together {(MAX_VERTICES / 1e6).toFixed(1)}{' '}
+            Limited to {effectiveDivPerMM(bar).toFixed(2)}/mm here: a side has at most {MAX_DIVS_ONE_SIDE} divisions, all bars together {(MAX_VERTICES / 1e6).toFixed(1)}{' '}
             million vertices.
           </Hint>
         )}
         <Field label='Wireframe'>
-          <input type='checkbox' checked={grid.displayWireframe} onChange={(e) => set({ displayWireframe: e.target.checked })} />
+          <input type='checkbox' checked={bar.displayWireframe} onChange={(e) => set({ displayWireframe: e.target.checked })} />
         </Field>
       </Expert>
     </>

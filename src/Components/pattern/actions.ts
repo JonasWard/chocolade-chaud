@@ -51,13 +51,3 @@ export const applyAction = (pattern: IPattern, id: string, action: NodeAction): 
   }
   return { root };
 };
-
-
-export interface TreeEditorProps {
-  pattern: IPattern;
-  selected?: string;
-  onSelect: (id: string) => void;
-  onAction: (id: string, action: NodeAction) => void;
-  /** replaces the node with the same id */
-  onChange: (node: SdfNode) => void;
-}

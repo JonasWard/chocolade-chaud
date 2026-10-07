@@ -4,7 +4,7 @@ import { nodeLabel } from '../../geometry/sdf/formula';
 import { findPath } from '../../geometry/sdf/treeOps';
 import { NodeInspector } from './NodeInspector';
 import { ADD_SECTIONS, ActionPicker, KindPicker, NodeMenu, WRAP_SECTIONS } from './NodeMenu';
-import { TreeEditorProps } from './actions';
+import { usePatternEditorContext } from './patternEditor';
 import { nodeDetails } from './kinds';
 
 const scrollBehavior = (): ScrollBehavior => (window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth');
@@ -14,15 +14,8 @@ const scrollBehavior = (): ScrollBehavior => (window.matchMedia('(prefers-reduce
  * › opens a group in a column after it, swiping back shows its parents, the column it came from marked.
  * A card holds the key attributes of its node, its settings fold open below it
  */
-export const ColumnEditor: React.FC<TreeEditorProps & { focus: string; setFocus: (id: string) => void }> = ({
-  pattern,
-  selected,
-  onSelect,
-  onAction,
-  onChange,
-  focus,
-  setFocus,
-}) => {
+export const ColumnEditor: React.FC = () => {
+  const { pattern, selected, select: onSelect, onAction, onChange, focus, setFocus } = usePatternEditorContext();
   const { root, svgs } = pattern;
   // the groups from the root down to the opened one
   const path = findPath(root, focus) ?? [root];

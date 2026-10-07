@@ -1,15 +1,14 @@
 import React from 'react';
-import { IPattern, SdfNode, svgKey } from '../../geometry/sdf/tree';
-import { updateNode } from '../../geometry/sdf/treeOps';
+import { IPattern, svgKey } from '../../geometry/sdf/tree';
 import { MAX_SVG_BYTES } from '../../geometry/svg/rasterizeSvg';
 import { PATTERN } from '../../state/settings';
 import { ErrorText, Field, Hint, NumberField, NumberSetting } from '../ui';
 import { SubPanel } from '../panels';
-import { NodeAction, applyAction } from './actions';
 import { ColumnEditor } from './ColumnEditor';
 import { FormulaPreview } from './FormulaPreview';
 import { OutlineEditor } from './OutlineEditor';
 import { EditorContext } from './editorContext';
+import { usePatternEditorContext } from './patternEditor';
 import { Picker } from '../Picker';
 import { PRESETS } from '../../geometry/sdf/presets';
 import { Expert, useMode } from '../mode';
@@ -53,24 +52,10 @@ const SvgAssets: React.FC<{ pattern: IPattern; setPattern: (p: IPattern) => void
   );
 };
 
-/** the pattern of the bars: its tree of distance functions, its placement and the svg shapes it can use. selected is the selected node */
-export const PatternPanel: React.FC<{ pattern: IPattern; setPattern: (p: IPattern) => void; selected?: string; setSelected: (id?: string) => void }> = ({
-  pattern,
-  setPattern,
-  selected,
-  setSelected,
-}) => {
+/** the pattern of the bars: its tree of distance functions, its placement and the svg shapes it can use */
+export const PatternPanel: React.FC = () => {
   const { mobile } = useMode();
-  // the group the mobile editor shows
-  const [focus, setFocus] = React.useState(pattern.root.id);
-
-  const setRoot = (root: SdfNode) => setPattern({ ...pattern, root });
-  const onChange = (node: SdfNode) => setRoot(updateNode(pattern.root, node.id, () => node));
-  const onAction = (id: string, action: NodeAction) => {
-    const { root, select } = applyAction(pattern, id, action);
-    setRoot(root);
-    if (select) setSelected(select);
-  };
+  const { pattern, setPattern, pickPreset } = usePatternEditorContext();
   const center = (axis: 'x' | 'y' | 'z') => (
     <NumberField
       label={axis}
@@ -80,15 +65,6 @@ export const PatternPanel: React.FC<{ pattern: IPattern; setPattern: (p: IPatter
     />
   );
 
-  // a preset replaces the tree, undo brings it back
-  const pickPreset = (i: number) => {
-    const { root, svgs } = PRESETS[i].make();
-    setSelected(undefined);
-    setFocus(root.id);
-    setPattern({ ...pattern, root, svgs: { ...pattern.svgs, ...svgs } });
-  };
-
-  const editorProps = { pattern, selected, onSelect: setSelected, onAction, onChange };
   return (
     <>
       <Expert
@@ -106,9 +82,9 @@ export const PatternPanel: React.FC<{ pattern: IPattern; setPattern: (p: IPatter
           />
         }
       >
-        <FormulaPreview pattern={pattern} selected={selected} />
+        <FormulaPreview />
       </Expert>
-      {mobile ? <ColumnEditor {...editorProps} focus={focus} setFocus={setFocus} /> : <OutlineEditor {...editorProps} />}
+      {mobile ? <ColumnEditor /> : <OutlineEditor />}
       <SubPanel id='placement' title='Placement'>
         <Expert>
           <Field label={`${PATTERN.center.label} ${PATTERN.center.unit}`} group>
