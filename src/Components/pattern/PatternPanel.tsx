@@ -3,7 +3,8 @@ import { IPattern, SdfNode, svgKey } from '../../geometry/sdf/tree';
 import { updateNode } from '../../geometry/sdf/treeOps';
 import { MAX_SVG_BYTES } from '../../geometry/svg/rasterizeSvg';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
-import { Field, NumberField, Section } from '../ui';
+import { PATTERN } from '../../state/settings';
+import { ErrorText, Field, Hint, NumberField, NumberSetting, Section } from '../ui';
 import { NodeAction, applyAction } from './actions';
 import { ColumnEditor } from './ColumnEditor';
 import { FormulaPreview } from './FormulaPreview';
@@ -40,15 +41,15 @@ const SvgAssets: React.FC<{ pattern: IPattern; setPattern: (p: IPattern) => void
           <button aria-label={`remove ${svg.name}`} onClick={() => setSvgs(Object.fromEntries(Object.entries(pattern.svgs).filter(([k]) => k !== asset)))}>
             ✕
           </button>
-          {errors[asset] && <span className='error'>{errors[asset]}</span>}
+          {errors[asset] && <ErrorText>{errors[asset]}</ErrorText>}
         </div>
       ))}
       <label className='upload'>
         Upload SVG…
         <input type='file' accept='.svg,image/svg+xml' multiple onChange={(e) => upload(e.target.files)} hidden />
       </label>
-      {uploadError && <span className='error'>{uploadError}</span>}
-      <p className='hint'>Filled and stroked parts are inside the shape. Use it with ⋯ › Add › SVG.</p>
+      {uploadError && <ErrorText>{uploadError}</ErrorText>}
+      <Hint>Filled and stroked parts are inside the shape. Use it with ⋯ › Add › SVG.</Hint>
     </>
   );
 };
@@ -73,7 +74,12 @@ export const PatternPanel: React.FC<{ pattern: IPattern; setPattern: (p: IPatter
     if (select) setSelected(select);
   };
   const center = (axis: 'x' | 'y' | 'z') => (
-    <NumberField label={axis} value={pattern.center[axis]} step={1} onChange={(v) => setPattern({ ...pattern, center: { ...pattern.center, [axis]: v } })} />
+    <NumberField
+      label={axis}
+      value={pattern.center[axis]}
+      setting={PATTERN.center}
+      onChange={(v) => setPattern({ ...pattern, center: { ...pattern.center, [axis]: v } })}
+    />
   );
 
   // a preset replaces the tree, undo brings it back
@@ -105,7 +111,7 @@ export const PatternPanel: React.FC<{ pattern: IPattern; setPattern: (p: IPatter
       {mobile ? <ColumnEditor {...editorProps} focus={focus} setFocus={setFocus} /> : <OutlineEditor {...editorProps} />}
       <Section title='Placement' className='subsection'>
         {expert && (
-          <Field label='Centre'>
+          <Field label={`${PATTERN.center.label} ${PATTERN.center.unit}`} group>
             <div className='row'>
               {center('x')}
               {center('y')}
@@ -113,9 +119,7 @@ export const PatternPanel: React.FC<{ pattern: IPattern; setPattern: (p: IPatter
             </div>
           </Field>
         )}
-        <Field label='Rotation °'>
-          <NumberField value={pattern.rotation} step={5} onChange={(rotation) => setPattern({ ...pattern, rotation })} />
-        </Field>
+        <NumberSetting setting={PATTERN.rotation} value={pattern.rotation} onChange={(rotation) => setPattern({ ...pattern, rotation })} />
       </Section>
       <Section title='SVG shapes' className='subsection'>
         <SvgAssets pattern={pattern} setPattern={setPattern} />

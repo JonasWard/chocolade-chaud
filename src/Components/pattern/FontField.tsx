@@ -2,6 +2,7 @@ import React from 'react';
 import { FontSource } from '../../geometry/sdf/tree';
 import { GENERIC_FONTS, GOOGLE_FONTS, canListInstalledFonts, detectFonts, installedFonts } from '../../geometry/text/fonts';
 import { IPickerItem, IPickerSection, Picker } from '../Picker';
+import { ErrorText, Hint } from '../ui';
 
 // the installed fonts once listed, and the detected ones, for every font field
 let installed: string[] = [];
@@ -82,8 +83,8 @@ export const FontField: React.FC<{ font: string; source: FontSource; onChange: (
         value={`${source}:${font}`}
         onPick={onPick}
       />
-      {installed.length > 0 && <span className='hint'>{installed.length} installed fonts</span>}
-      {error && <span className='error'>{error}</span>}
+      {installed.length > 0 && <Hint inline>{installed.length} installed fonts</Hint>}
+      {error && <ErrorText>{error}</ErrorText>}
     </>
   );
 };

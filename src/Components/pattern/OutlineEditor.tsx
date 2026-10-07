@@ -5,6 +5,7 @@ import { findNode } from '../../geometry/sdf/treeOps';
 import { NodeInspector } from './NodeInspector';
 import { KindPicker, NodeMenu } from './NodeMenu';
 import { TreeEditorProps, nodeSummary } from './actions';
+import { Hint } from '../ui';
 
 /** desktop: the whole tree as an indented outline, the selected node is edited below it */
 export const OutlineEditor: React.FC<TreeEditorProps> = ({ pattern, selected, onSelect, onAction, onChange }) => {
@@ -49,7 +50,7 @@ export const OutlineEditor: React.FC<TreeEditorProps> = ({ pattern, selected, on
           <NodeInspector node={node} pattern={pattern} onChange={onChange} />
         </div>
       ) : (
-        <p className='hint'>Select a node to edit it, its icon to change its kind, ⋯ to add, wrap or remove.</p>
+        <Hint>Select a node to edit it, its icon to change its kind, ⋯ to add, wrap or remove.</Hint>
       )}
     </>
   );

@@ -4,7 +4,7 @@ import { Export } from './Components/Export';
 import { BarPanel } from './Components/BarPanel';
 import { PatternPanel } from './Components/pattern/PatternPanel';
 import { EditorContext, IEditorContext } from './Components/pattern/editorContext';
-import { Section } from './Components/ui';
+import { ErrorText, Section } from './Components/ui';
 import { useGridMeshes } from './hooks/useGridMeshes';
 import { usePatternFields } from './hooks/usePatternFields';
 import { useMediaQuery } from './hooks/useMediaQuery';
@@ -136,7 +136,7 @@ function App() {
           </button>
           <div className='status'>
             {pending && <span className='spinner' aria-label='generating' />}
-            {error && <span className='error'>{error}</span>}
+            {error && <ErrorText>{error}</ErrorText>}
           </div>
         </main>
         <aside className='panels'>

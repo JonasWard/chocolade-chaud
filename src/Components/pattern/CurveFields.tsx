@@ -1,7 +1,8 @@
 import React from 'react';
 import { CurveMode, ICurve, anchorSegment, canDelete, convert, deleteAt, insertAt, isAnchor, straightCurve } from '../../geometry/curve';
 import { ITextNode } from '../../geometry/sdf/tree';
-import { NumberField, Segmented, Select } from '../ui';
+import { PATTERN } from '../../state/settings';
+import { Field, Hint, NumberField, Segmented, Select } from '../ui';
 import { EditorContext } from './editorContext';
 
 type BaseLine = 'none' | CurveMode;
@@ -26,8 +27,7 @@ export const CurveFields: React.FC<{ node: ITextNode; onChange: (node: ITextNode
 
   return (
     <>
-      <label className='field'>
-        <span>Base curve</span>
+      <Field label='Base curve' group>
         {!expert ? (
           // a curve is smooth, one of another kind stays as it is
           <Segmented<'straight' | 'curved'>
@@ -52,7 +52,7 @@ export const CurveFields: React.FC<{ node: ITextNode; onChange: (node: ITextNode
             onChange={setMode}
           />
         )}
-      </label>
+      </Field>
       {curve && (
         <>
           <div className='row'>
@@ -70,10 +70,10 @@ export const CurveFields: React.FC<{ node: ITextNode; onChange: (node: ITextNode
               </button>
             )}
           </div>
-          <p className='hint'>
+          <Hint>
             In 3D: drag a point to move it, drag a small dot between two points to add one, tap a point and press Delete to remove it.
             {expert && ' A smooth curve runs through its points, a spline has handles.'}
-          </p>
+          </Hint>
           {expert && (
             <ol className='points'>
               {curve.points.map((p, i) => (
@@ -81,13 +81,13 @@ export const CurveFields: React.FC<{ node: ITextNode; onChange: (node: ITextNode
                   <NumberField
                     label={`x ${i}`}
                     value={+p.x.toFixed(2)}
-                    step={1}
+                    setting={PATTERN.point}
                     onChange={(x) => setCurve({ ...curve, points: curve.points.map((q, j) => (j === i ? { ...q, x } : q)) })}
                   />
                   <NumberField
                     label={`z ${i}`}
                     value={+p.z.toFixed(2)}
-                    step={1}
+                    setting={PATTERN.point}
                     onChange={(z) => setCurve({ ...curve, points: curve.points.map((q, j) => (j === i ? { ...q, z } : q)) })}
                   />
                   {isAnchor(curve, i) && i < curve.points.length - 1 && (

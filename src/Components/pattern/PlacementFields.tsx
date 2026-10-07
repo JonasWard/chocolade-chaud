@@ -1,10 +1,13 @@
 import React from 'react';
 import { AlignX, AlignZ, IPlacement } from '../../geometry/sdf/tree';
-import { Field, NumberField } from '../ui';
+import { PLACEMENT } from '../../state/settings';
+import { Choices, Field, NumberSetting, PairSetting } from '../ui';
 
 const ROWS: AlignZ[] = ['top', 'middle', 'bottom'];
 const COLUMNS: AlignX[] = ['left', 'center', 'right'];
 
+type Place = `${AlignZ}-${AlignX}`;
+const PLACES = ROWS.flatMap((z) => COLUMNS.map((x): Place => `${z}-${x}`));
 const label = (z: AlignZ, x: AlignX) => (z === 'middle' && x === 'center' ? 'centre' : `${z === 'middle' ? '' : z} ${x === 'center' ? '' : x}`.trim());
 
 /**
@@ -21,35 +24,39 @@ export const PlacementFields: React.FC<{ placement: IPlacement; onChange: (patch
   const caption = (align: string, axis: 'x' | 'z') => (align === 'center' || align === 'middle' ? `move ${axis}` : `from ${align}`);
   return (
     <>
-      <Field label='Position'>
-        <div className='anchor' role='radiogroup' aria-label='position'>
-          {ROWS.flatMap((z) =>
-            COLUMNS.map((x) => {
-              const on = x === alignX && z === alignZ;
-              return <button key={`${z}-${x}`} role='radio' aria-checked={on} aria-label={label(z, x)} title={label(z, x)} className={on ? 'on' : ''} onClick={() => pick(x, z)} />;
-            })
-          )}
-        </div>
+      <Field label='Position' group>
+        <Choices<Place>
+          label='position'
+          className='anchor'
+          value={`${alignZ}-${alignX}`}
+          options={PLACES}
+          onChange={(place) => {
+            const [z, x] = place.split('-') as [AlignZ, AlignX];
+            pick(x, z);
+          }}
+          name={(place) => {
+            const [z, x] = place.split('-') as [AlignZ, AlignX];
+            return label(z, x);
+          }}
+        />
       </Field>
       {simple ? (
         (edgeX || edgeZ) && (
-          <Field label='Padding mm'>
-            <NumberField label='padding' value={padding} step={1} onChange={(v) => onChange({ ...(edgeX ? { paddingX: v } : {}), ...(edgeZ ? { paddingZ: v } : {}) })} />
-          </Field>
+          <NumberSetting
+            setting={PLACEMENT.paddingX}
+            label='Padding mm'
+            value={padding}
+            onChange={(v) => onChange({ ...(edgeX ? { paddingX: v } : {}), ...(edgeZ ? { paddingZ: v } : {}) })}
+          />
         )
       ) : (
-        <Field label='Padding mm'>
-          <div className='pair'>
-            <label className='mini'>
-              <span>{caption(alignX, 'x')}</span>
-              <NumberField label='padding x' value={paddingX} step={1} onChange={(v) => onChange({ paddingX: v })} />
-            </label>
-            <label className='mini'>
-              <span>{caption(alignZ, 'z')}</span>
-              <NumberField label='padding z' value={paddingZ} step={1} onChange={(v) => onChange({ paddingZ: v })} />
-            </label>
-          </div>
-        </Field>
+        <PairSetting
+          label='Padding mm'
+          sides={[
+            { caption: caption(alignX, 'x'), setting: PLACEMENT.paddingX, bound: { value: paddingX, onChange: (v) => onChange({ paddingX: v }) } },
+            { caption: caption(alignZ, 'z'), setting: PLACEMENT.paddingZ, bound: { value: paddingZ, onChange: (v) => onChange({ paddingZ: v }) } },
+          ]}
+        />
       )}
     </>
   );
