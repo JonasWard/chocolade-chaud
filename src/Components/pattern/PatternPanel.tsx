@@ -2,7 +2,6 @@ import React from 'react';
 import { IPattern, SdfNode, svgKey } from '../../geometry/sdf/tree';
 import { updateNode } from '../../geometry/sdf/treeOps';
 import { MAX_SVG_BYTES } from '../../geometry/svg/rasterizeSvg';
-import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { PATTERN } from '../../state/settings';
 import { ErrorText, Field, Hint, NumberField, NumberSetting, Section } from '../ui';
 import { NodeAction, applyAction } from './actions';
@@ -12,8 +11,7 @@ import { OutlineEditor } from './OutlineEditor';
 import { EditorContext } from './editorContext';
 import { Picker } from '../Picker';
 import { PRESETS } from '../../geometry/sdf/presets';
-
-export const MOBILE = '(max-width: 720px)';
+import { Expert, useMode } from '../mode';
 
 const SvgAssets: React.FC<{ pattern: IPattern; setPattern: (p: IPattern) => void }> = ({ pattern, setPattern }) => {
   const { errors } = React.useContext(EditorContext);
@@ -61,8 +59,7 @@ export const PatternPanel: React.FC<{ pattern: IPattern; setPattern: (p: IPatter
   selected,
   setSelected,
 }) => {
-  const mobile = useMediaQuery(MOBILE);
-  const { expert } = React.useContext(EditorContext);
+  const { mobile } = useMode();
   // the group the mobile editor shows
   const [focus, setFocus] = React.useState(pattern.root.id);
 
@@ -93,24 +90,26 @@ export const PatternPanel: React.FC<{ pattern: IPattern; setPattern: (p: IPatter
   const editorProps = { pattern, selected, onSelect: setSelected, onAction, onChange };
   return (
     <>
-      {expert ? (
+      <Expert
+        fallback={
+          <Picker<number>
+            label='start from a pattern'
+            trigger={
+              <>
+                <span className='picker-label'>Start from a pattern…</span>
+                <span className='picker-caret'>▾</span>
+              </>
+            }
+            sections={[{ items: PRESETS.map((p, i) => ({ value: i, label: p.name })) }]}
+            onPick={pickPreset}
+          />
+        }
+      >
         <FormulaPreview pattern={pattern} selected={selected} />
-      ) : (
-        <Picker<number>
-          label='start from a pattern'
-          trigger={
-            <>
-              <span className='picker-label'>Start from a pattern…</span>
-              <span className='picker-caret'>▾</span>
-            </>
-          }
-          sections={[{ items: PRESETS.map((p, i) => ({ value: i, label: p.name })) }]}
-          onPick={pickPreset}
-        />
-      )}
+      </Expert>
       {mobile ? <ColumnEditor {...editorProps} focus={focus} setFocus={setFocus} /> : <OutlineEditor {...editorProps} />}
       <Section title='Placement' className='subsection'>
-        {expert && (
+        <Expert>
           <Field label={`${PATTERN.center.label} ${PATTERN.center.unit}`} group>
             <div className='row'>
               {center('x')}
@@ -118,7 +117,7 @@ export const PatternPanel: React.FC<{ pattern: IPattern; setPattern: (p: IPatter
               {center('z')}
             </div>
           </Field>
-        )}
+        </Expert>
         <NumberSetting setting={PATTERN.rotation} value={pattern.rotation} onChange={(rotation) => setPattern({ ...pattern, rotation })} />
       </Section>
       <Section title='SVG shapes' className='subsection'>

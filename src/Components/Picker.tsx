@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { useMediaQuery } from '../hooks/useMediaQuery';
+import { useMode } from './mode';
 
 // a list to pick from, in sections with lines between them: a popover under its button, on a phone a sheet from the bottom
 
@@ -18,7 +18,6 @@ export interface IPickerSection<T> {
   items: IPickerItem<T>[];
 }
 
-const PHONE = '(max-width: 720px)';
 const MIN_SPACE = 280;
 // see max-width of .picker in ui.css
 const MAX_WIDTH = 320;
@@ -43,7 +42,7 @@ export function Picker<T>({
   /** with a search field: the sections for what is typed */
   search?: (query: string) => IPickerSection<T>[];
 }) {
-  const sheet = useMediaQuery(PHONE);
+  const sheet = useMode().mobile;
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState('');
   const [active, setActive] = React.useState(0);

@@ -4,12 +4,13 @@ import { ITextNode } from '../../geometry/sdf/tree';
 import { PATTERN } from '../../state/settings';
 import { Field, Hint, NumberField, Segmented, Select } from '../ui';
 import { EditorContext } from './editorContext';
+import { Expert } from '../mode';
 
 type BaseLine = 'none' | CurveMode;
 
 /** the base curve of a text node: its kind and its points, edited here or in the scene */
 export const CurveFields: React.FC<{ node: ITextNode; onChange: (node: ITextNode) => void }> = ({ node, onChange }) => {
-  const { expert, curveEdit, setCurveEdit, curvePoint, setCurvePoint } = React.useContext(EditorContext);
+  const { curveEdit, setCurveEdit, curvePoint, setCurvePoint } = React.useContext(EditorContext);
   const { curve } = node;
   const setCurve = (next: ICurve | null) => onChange({ ...node, curve: next });
 
@@ -28,18 +29,22 @@ export const CurveFields: React.FC<{ node: ITextNode; onChange: (node: ITextNode
   return (
     <>
       <Field label='Base curve' group>
-        {!expert ? (
-          // a curve is smooth, one of another kind stays as it is
-          <Segmented<'straight' | 'curved'>
-            label='base curve'
-            value={curve ? 'curved' : 'straight'}
-            options={[
-              ['straight', 'Straight'],
-              ['curved', 'Curved'],
-            ]}
-            onChange={(v) => (v === 'straight' ? setMode('none') : !curve && setMode('smooth'))}
-          />
-        ) : (
+        <Expert
+          name='curve kind'
+          changed={!!curve && curve.mode !== 'smooth'}
+          fallback={
+            // a curve is smooth, one of another kind stays as it is
+            <Segmented<'straight' | 'curved'>
+              label='base curve'
+              value={curve ? 'curved' : 'straight'}
+              options={[
+                ['straight', 'Straight'],
+                ['curved', 'Curved'],
+              ]}
+              onChange={(v) => (v === 'straight' ? setMode('none') : !curve && setMode('smooth'))}
+            />
+          }
+        >
           <Select<BaseLine>
             label='base curve'
             value={curve?.mode ?? 'none'}
@@ -51,7 +56,7 @@ export const CurveFields: React.FC<{ node: ITextNode; onChange: (node: ITextNode
             ]}
             onChange={setMode}
           />
-        )}
+        </Expert>
       </Field>
       {curve && (
         <>
@@ -72,9 +77,9 @@ export const CurveFields: React.FC<{ node: ITextNode; onChange: (node: ITextNode
           </div>
           <Hint>
             In 3D: drag a point to move it, drag a small dot between two points to add one, tap a point and press Delete to remove it.
-            {expert && ' A smooth curve runs through its points, a spline has handles.'}
+            <Expert> A smooth curve runs through its points, a spline has handles.</Expert>
           </Hint>
-          {expert && (
+          <Expert>
             <ol className='points'>
               {curve.points.map((p, i) => (
                 <li key={i} className={[isAnchor(curve, i) ? 'anchor' : 'control', i === curvePoint ? 'selected' : ''].join(' ')}>
@@ -103,7 +108,7 @@ export const CurveFields: React.FC<{ node: ITextNode; onChange: (node: ITextNode
                 </li>
               ))}
             </ol>
-          )}
+          </Expert>
         </>
       )}
     </>

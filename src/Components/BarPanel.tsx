@@ -4,6 +4,7 @@ import { CHOCOLATES, CHOCOLATE_TYPES, ChocolateType } from '../geometry/chocolat
 import { COLUMNS, IPiece, ROWS, TABLET_LAYOUTS, TABLET_SIZES, TabletSize, sameLayout, tabletSize, units } from '../geometry/tablets';
 import { BAR } from '../state/settings';
 import { Choices, Field, Hint, NumberSetting, Segmented, binder } from './ui';
+import { Expert, useMode } from './mode';
 
 const KIND_LABEL: Record<BarKind, string> = { [BarKind.Tablet]: '1 tablet', [BarKind.Combined]: 'Combined', [BarKind.Custom]: 'Custom size' };
 const sizeLabel = (size: TabletSize) => size.replace('x', '×');
@@ -52,7 +53,8 @@ const ChocolatePicker: React.FC<{ value: ChocolateType; onChange: (c: ChocolateT
 );
 
 /** the size and the chocolate of the bars, expert adds a custom size and shows how finely they are made and their wireframe */
-export const BarPanel: React.FC<{ grid: IBar; setGrid: (g: IBar) => void; expert: boolean }> = ({ grid, setGrid, expert }) => {
+export const BarPanel: React.FC<{ grid: IBar; setGrid: (g: IBar) => void }> = ({ grid, setGrid }) => {
+  const { expert } = useMode();
   const set = (patch: Partial<IBar>) => setGrid({ ...grid, ...patch });
   const bind = binder(grid, setGrid);
   // the piece of a combined tablet whose chocolate is picked
@@ -113,7 +115,11 @@ export const BarPanel: React.FC<{ grid: IBar; setGrid: (g: IBar) => void; expert
             onPick={perPiece ? setPiece : undefined}
           />
           <label className='check'>
-            <input type='checkbox' checked={grid.sameChocolate} onChange={(e) => set({ sameChocolate: e.target.checked, chocolates: grid.pieces.map((_, i) => chocolateOf(grid, i)) })} />
+            <input
+              type='checkbox'
+              checked={grid.sameChocolate}
+              onChange={(e) => set({ sameChocolate: e.target.checked, chocolates: grid.pieces.map((_, i) => chocolateOf(grid, i)) })}
+            />
             Same chocolate for every piece
           </label>
           {perPiece && <Hint>Tap a piece to pick its chocolate.</Hint>}
@@ -127,18 +133,18 @@ export const BarPanel: React.FC<{ grid: IBar; setGrid: (g: IBar) => void; expert
       </Field>
       <NumberSetting setting={BAR.height} {...bind('height')} />
       <NumberSetting setting={BAR.inset} {...bind('inset')} />
-      {expert && <NumberSetting setting={BAR.divPerMM} {...bind('divPerMM')} />}
-      {expert && effectiveDivPerMM(grid) < grid.divPerMM && (
-        <Hint>
-          Limited to {effectiveDivPerMM(grid).toFixed(2)}/mm here: a side has at most {MAX_DIVS_ONE_SIDE} divisions, all bars together {(MAX_VERTICES / 1e6).toFixed(1)} million
-          vertices.
-        </Hint>
-      )}
-      {expert && (
+      <Expert>
+        <NumberSetting setting={BAR.divPerMM} {...bind('divPerMM')} />
+        {effectiveDivPerMM(grid) < grid.divPerMM && (
+          <Hint>
+            Limited to {effectiveDivPerMM(grid).toFixed(2)}/mm here: a side has at most {MAX_DIVS_ONE_SIDE} divisions, all bars together {(MAX_VERTICES / 1e6).toFixed(1)}{' '}
+            million vertices.
+          </Hint>
+        )}
         <Field label='Wireframe'>
           <input type='checkbox' checked={grid.displayWireframe} onChange={(e) => set({ displayWireframe: e.target.checked })} />
         </Field>
-      )}
+      </Expert>
     </>
   );
 };
