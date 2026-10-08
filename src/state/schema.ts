@@ -191,6 +191,10 @@ SCHEMAS.set(STATE_VERSION, currentSchema());
 const CURRENT = SCHEMAS.get(STATE_VERSION)!;
 export const StateSchema = CURRENT.schema;
 
+// densing before 0.4 can't look into the union of the nodes (and can't follow their pointers without meta): say so, rather than
+// failing at the first field of a node a panel looks up
+if (!getFieldByPath(StateSchema, 'root.gain')) throw new Error('densing 0.4 or later is needed to read the nodes of the state: run bun install');
+
 /**
  * a number of the current schema by its path, e.g. 'height', 'center.x', a field of a node 'root.size' or 'root.points[].point.x' (the
  * fields of the nodes are named the same in every kind they are in). The panels take their ranges from it

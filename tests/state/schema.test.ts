@@ -185,7 +185,8 @@ test('the default bar is written as it was by densing 0.3', () => {
 test('a number of the state is found by its path, with its range', () => {
   expect(numberField('height')).toMatchObject({ type: 'fixed', min: 2.5, max: 10 });
   expect(numberField('center.x')).toMatchObject({ min: -400, max: 400 });
-  // a field of a node, in the union that is the root
+  // a field of a node, in the union that is the root: densing 0.4 looks into it
+  expect(numberField('root.gain')).toMatchObject({ min: -20, max: 20 });
   expect(numberField('root.size')).toMatchObject({ min: 0.5, max: 200 });
   expect(numberField('root.points[].point.x')).toMatchObject({ min: -400, max: 400 });
   expect(() => numberField('hieght')).toThrow();
