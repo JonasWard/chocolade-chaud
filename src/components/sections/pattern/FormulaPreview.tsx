@@ -1,6 +1,6 @@
 import React from 'react';
-import { formula } from '../../geometry/sdf/formula';
-import { usePatternEditorContext } from './patternEditor';
+import { formula } from '../../../geometry/sdf/formula';
+import { usePatternEditorContext } from '../../../hooks/usePatternEditor';
 
 const [START, END] = ['\u0001', '\u0002'];
 

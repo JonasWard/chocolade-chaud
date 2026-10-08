@@ -1,11 +1,11 @@
 import React from 'react';
-import { GroupNode, SdfNode, isGroup } from '../../geometry/sdf/tree';
-import { nodeLabel } from '../../geometry/sdf/formula';
-import { findPath } from '../../geometry/sdf/treeOps';
-import { NodeInspector } from './NodeInspector';
-import { ADD_SECTIONS, ActionPicker, KindPicker, NodeMenu, WRAP_SECTIONS } from './NodeMenu';
-import { usePatternEditorContext } from './patternEditor';
-import { nodeDetails } from './kinds';
+import { GroupNode, SdfNode, isGroup } from '../../../geometry/sdf/tree';
+import { nodeLabel } from '../../../geometry/sdf/formula';
+import { findPath } from '../../../geometry/sdf/treeOps';
+import { NodeInspector } from '../../shared/pattern/NodeInspector';
+import { ADD_SECTIONS, ActionPicker, KindPicker, NodeMenu, WRAP_SECTIONS } from '../../shared/pattern/NodeMenu';
+import { usePatternEditorContext } from '../../../hooks/usePatternEditor';
+import { nodeDetails } from '../../shared/pattern/Kinds';
 
 const scrollBehavior = (): ScrollBehavior => (window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth');
 

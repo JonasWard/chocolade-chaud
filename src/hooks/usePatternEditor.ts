@@ -1,8 +1,8 @@
 import React from 'react';
-import { IPattern, SdfNode } from '../../geometry/sdf/tree';
-import { updateNode } from '../../geometry/sdf/treeOps';
-import { PRESETS } from '../../geometry/sdf/presets';
-import { NodeAction, applyAction } from './actions';
+import { IPattern, SdfNode } from '../geometry/sdf/tree';
+import { updateNode } from '../geometry/sdf/treeOps';
+import { PRESETS } from '../geometry/sdf/presets';
+import { NodeAction, applyAction } from '../components/shared/pattern/actions';
 
 /** the pattern being edited and what the editors do with it, shared by the panel, both tree editors and the scene */
 export interface IPatternEditor {
@@ -19,10 +19,17 @@ export interface IPatternEditor {
   /** the group the phone editor shows */
   focus: string;
   setFocus: (id: string) => void;
+  /** why the distance field of an svg or a text couldn't be made, by field key (see usePatternFields) */
+  errors: Record<string, string>;
 }
 
 /** the state of the editing of a pattern, onSelect is told when another node is selected */
-export const usePatternEditor = (pattern: IPattern, setPattern: (pattern: IPattern) => void, onSelect?: (id?: string) => void): IPatternEditor => {
+export const usePatternEditor = (
+  pattern: IPattern,
+  setPattern: (pattern: IPattern) => void,
+  errors: Record<string, string>,
+  onSelect?: (id?: string) => void
+): IPatternEditor => {
   const [selected, setSelected] = React.useState<string>();
   const [focus, setFocus] = React.useState(pattern.root.id);
 
@@ -51,6 +58,7 @@ export const usePatternEditor = (pattern: IPattern, setPattern: (pattern: IPatte
     },
     focus,
     setFocus,
+    errors,
   };
 };
 

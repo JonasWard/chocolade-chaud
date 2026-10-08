@@ -17,6 +17,9 @@ export interface ICurveEdit {
   reset: () => void;
 }
 
+/** the editing of the base curve for the fields of the selected text node: curveEdit is whether it is edited now */
+export const CurveEditContext = React.createContext<Omit<ICurveEdit, 'reset'>>({ curveEdit: false, setCurveEdit: () => {}, setCurvePoint: () => {} });
+
 export const useCurveEdit = (): ICurveEdit => {
   const [curveEdit, setCurveEdit] = React.useState(false);
   const [curvePoint, setCurvePoint] = React.useState<number>();

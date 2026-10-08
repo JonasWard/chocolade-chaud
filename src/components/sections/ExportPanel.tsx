@@ -1,8 +1,8 @@
-import { makeMeshTiltOnSide } from '../geometry/createMesh';
-import { meshToOBJ, meshToSTL } from '../geometry/exportGeometry';
+import { makeMeshTiltOnSide } from '../../geometry/createMesh';
+import { meshToOBJ, meshToSTL } from '../../geometry/exportGeometry';
 import React from 'react';
-import { GridMeshes } from '../hooks/useGridMeshes';
-import { downloadFiles, Files } from '../export/download';
+import { GridMeshes } from '../../hooks/useGridMeshes';
+import { downloadFiles, Files } from '../../export/download';
 
 type Format = 'stl' | 'obj';
 
@@ -12,7 +12,7 @@ const serialize: Record<Format, (mesh: ReturnType<typeof makeMeshTiltOnSide>) =>
 };
 
 // exports the meshes shown in the scene, those already contain the internal support structure
-export const Export: React.FC<{ meshes?: GridMeshes }> = ({ meshes }) => {
+export const ExportPanel: React.FC<{ meshes?: GridMeshes }> = ({ meshes }) => {
   const [busy, setBusy] = React.useState<Format>();
 
   const exportAs = async (format: Format) => {

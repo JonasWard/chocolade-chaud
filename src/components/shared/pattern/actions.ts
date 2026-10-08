@@ -1,7 +1,7 @@
-import { DistanceMethodType } from '../../geometry/sdMethods';
-import { GroupKind, IPattern, NodeKind, SdfNode, isGroup } from '../../geometry/sdf/tree';
-import { duplicateNode, findNode, findParent, insertChild, moveInto, moveNode, moveOut, removeNode, unwrap, wrapNode } from '../../geometry/sdf/treeOps';
-import { newNode } from './kinds';
+import { DistanceMethodType } from '../../../geometry/sdMethods';
+import { GroupKind, IPattern, NodeKind, SdfNode, isGroup } from '../../../geometry/sdf/tree';
+import { duplicateNode, findNode, findParent, insertChild, moveInto, moveNode, moveOut, removeNode, unwrap, wrapNode } from '../../../geometry/sdf/treeOps';
+import { newNode } from './Kinds';
 
 // what the menu of a node can do, as the value of an option: 'add:union', 'wrap:chain', 'delete', ...
 export type NodeAction =

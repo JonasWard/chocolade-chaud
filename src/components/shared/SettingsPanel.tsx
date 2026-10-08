@@ -1,6 +1,6 @@
 import React from 'react';
-import { useStoredFlag } from '../hooks/useStoredFlag';
-import { useMode } from './mode';
+import { useStoredFlag } from '../../hooks/useStoredFlag';
+import { useMode } from './Mode';
 
 /** when a panel starts open, until it is opened or closed: always, on a desktop only, or never */
 export type DefaultOpen = 'always' | 'desktop' | 'never';

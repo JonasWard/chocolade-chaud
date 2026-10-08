@@ -1,8 +1,8 @@
 import React from 'react';
-import { FontSource } from '../../geometry/sdf/tree';
-import { GENERIC_FONTS, GOOGLE_FONTS, canListInstalledFonts, detectFonts, installedFonts } from '../../geometry/text/fonts';
+import { FontSource } from '../../../geometry/sdf/tree';
+import { GENERIC_FONTS, GOOGLE_FONTS, canListInstalledFonts, detectFonts, installedFonts } from '../../../geometry/text/fonts';
 import { IPickerItem, IPickerSection, Picker } from '../Picker';
-import { ErrorText, Hint } from '../ui';
+import { ErrorText, Hint } from '../Hint';
 
 // the installed fonts once listed, and the detected ones, for every font field
 let installed: string[] = [];

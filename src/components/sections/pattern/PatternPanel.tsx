@@ -1,23 +1,23 @@
 import React from 'react';
-import { IPattern, svgKey } from '../../geometry/sdf/tree';
-import { MAX_SVG_BYTES } from '../../geometry/svg/rasterizeSvg';
-import { numberField } from '../../state/schema';
-import { ErrorText, Field, Hint, NumberField, NumberSetting } from '../ui';
-import { SubPanel } from '../panels';
+import { IPattern, svgKey } from '../../../geometry/sdf/tree';
+import { MAX_SVG_BYTES } from '../../../geometry/svg/rasterizeSvg';
+import { numberField } from '../../../state/schema';
+import { Field, NumberField, NumberSetting } from '../../shared/Fields';
+import { ErrorText, Hint } from '../../shared/Hint';
+import { SubPanel } from '../../shared/SettingsPanel';
 import { ColumnEditor } from './ColumnEditor';
 import { FormulaPreview } from './FormulaPreview';
 import { OutlineEditor } from './OutlineEditor';
-import { EditorContext } from './editorContext';
-import { usePatternEditorContext } from './patternEditor';
-import { Picker } from '../Picker';
-import { PRESETS } from '../../geometry/sdf/presets';
-import { Expert, useMode } from '../mode';
+import { usePatternEditorContext } from '../../../hooks/usePatternEditor';
+import { Picker } from '../../shared/Picker';
+import { PRESETS } from '../../../geometry/sdf/presets';
+import { Expert, useMode } from '../../shared/Mode';
 
 // x, y and z have the same range
 const [CENTER, ROTATION] = ['center.x', 'rotation'].map(numberField);
 
 const SvgAssets: React.FC<{ pattern: IPattern; setPattern: (p: IPattern) => void }> = ({ pattern, setPattern }) => {
-  const { errors } = React.useContext(EditorContext);
+  const { errors } = usePatternEditorContext();
   const [uploadError, setUploadError] = React.useState<string>();
   const setSvgs = (svgs: IPattern['svgs']) => setPattern({ ...pattern, svgs });
 

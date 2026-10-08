@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { useMode } from './mode';
+import { useMode } from './Mode';
 
 // a list to pick from, in sections with lines between them: a popover under its button, on a phone a sheet from the bottom
 

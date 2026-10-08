@@ -1,10 +1,12 @@
 import React from 'react';
-import { CurveMode, ICurve, anchorSegment, canDelete, convert, deleteAt, insertAt, isAnchor, straightCurve } from '../../geometry/curve';
-import { ITextNode } from '../../geometry/sdf/tree';
-import { numberField } from '../../state/schema';
-import { Field, Hint, NumberField, Segmented, Select } from '../ui';
-import { EditorContext } from './editorContext';
-import { Expert } from '../mode';
+import { CurveMode, ICurve, anchorSegment, canDelete, convert, deleteAt, insertAt, isAnchor, straightCurve } from '../../../geometry/curve';
+import { ITextNode } from '../../../geometry/sdf/tree';
+import { numberField } from '../../../state/schema';
+import { Field, NumberField, Select } from '../Fields';
+import { Hint } from '../Hint';
+import { Segmented } from '../Choices';
+import { CurveEditContext } from '../../../hooks/useCurveEditing';
+import { Expert } from '../Mode';
 
 // x and z have the same range
 const POINT = numberField('root.points[].point.x');
@@ -13,7 +15,7 @@ type BaseLine = 'none' | CurveMode;
 
 /** the base curve of a text node: its kind and its points, edited here or in the scene */
 export const CurveFields: React.FC<{ node: ITextNode; onChange: (node: ITextNode) => void }> = ({ node, onChange }) => {
-  const { curveEdit, setCurveEdit, curvePoint, setCurvePoint } = React.useContext(EditorContext);
+  const { curveEdit, setCurveEdit, curvePoint, setCurvePoint } = React.useContext(CurveEditContext);
   const { curve } = node;
   const setCurve = (next: ICurve | null) => onChange({ ...node, curve: next });
 

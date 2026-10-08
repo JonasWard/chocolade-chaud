@@ -1,9 +1,10 @@
 import React from 'react';
-import { IPattern, SdfNode } from '../../geometry/sdf/tree';
-import { numberField } from '../../state/schema';
-import { Hint, NumberSetting, binder } from '../ui';
-import { Expert, ExpertNotice } from '../mode';
-import { kindOf } from './kinds';
+import { IPattern, SdfNode } from '../../../geometry/sdf/tree';
+import { numberField } from '../../../state/schema';
+import { NumberSetting, binder } from '../Fields';
+import { Hint } from '../Hint';
+import { Expert, ExpertNotice } from '../Mode';
+import { kindOf } from './Kinds';
 
 // scale and gain are in every kind of node, the scale is stored as its log10
 const [SCALE, GAIN] = ['root.scale', 'root.gain'].map(numberField);

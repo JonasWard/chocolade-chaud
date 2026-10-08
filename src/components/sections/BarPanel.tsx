@@ -1,10 +1,12 @@
 import React from 'react';
-import { BarKind, IBar, MAX_DIVS_ONE_SIDE, MAX_VERTICES, chocolateOf, effectiveDivPerMM } from '../geometry/grid';
-import { CHOCOLATES, CHOCOLATE_TYPES, ChocolateType } from '../geometry/chocolates';
-import { COLUMNS, IPiece, ROWS, TABLET_LAYOUTS, TABLET_SIZES, TabletSize, sameLayout, tabletSize, units } from '../geometry/tablets';
-import { numberField } from '../state/schema';
-import { Choices, Field, Hint, NumberSetting, Segmented, binder } from './ui';
-import { Expert, useMode } from './mode';
+import { BarKind, IBar, MAX_DIVS_ONE_SIDE, MAX_VERTICES, chocolateOf, effectiveDivPerMM } from '../../geometry/grid';
+import { CHOCOLATES, CHOCOLATE_TYPES, ChocolateType } from '../../geometry/chocolates';
+import { COLUMNS, IPiece, ROWS, TABLET_LAYOUTS, TABLET_SIZES, TabletSize, sameLayout, tabletSize, units } from '../../geometry/tablets';
+import { numberField } from '../../state/schema';
+import { Field, NumberSetting, binder } from '../shared/Fields';
+import { Choices, Segmented } from '../shared/Choices';
+import { Hint } from '../shared/Hint';
+import { Expert, useMode } from '../shared/Mode';
 
 const [WIDTH, LENGTH, HEIGHT, INSET, DIV_PER_MM] = ['width', 'length', 'height', 'inset', 'divPerMM'].map(numberField);
 

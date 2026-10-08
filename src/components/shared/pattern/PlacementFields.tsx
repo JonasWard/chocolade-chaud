@@ -1,8 +1,9 @@
 import React from 'react';
-import { AlignX, AlignZ, IPlacement } from '../../geometry/sdf/tree';
-import { numberField } from '../../state/schema';
-import { Choices, Field, NumberSetting, PairSetting } from '../ui';
-import { Expert, useMode } from '../mode';
+import { AlignX, AlignZ, IPlacement } from '../../../geometry/sdf/tree';
+import { numberField } from '../../../state/schema';
+import { Field, NumberSetting, PairSetting } from '../Fields';
+import { Choices } from '../Choices';
+import { Expert, useMode } from '../Mode';
 
 const ROWS: AlignZ[] = ['top', 'middle', 'bottom'];
 const COLUMNS: AlignX[] = ['left', 'center', 'right'];

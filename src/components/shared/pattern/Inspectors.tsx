@@ -1,13 +1,14 @@
 import React from 'react';
-import { IBooleanNode, IConstantNode, IPattern, ISineNode, ISvgNode, ITextNode, SdfNode, textFieldKey } from '../../geometry/sdf/tree';
-import { nodeFrame } from '../../geometry/sdf/treeOps';
-import { numberField } from '../../state/schema';
-import { Field, Hint, NumberSetting, PairSetting, Select, binder } from '../ui';
+import { IBooleanNode, IConstantNode, IPattern, ISineNode, ISvgNode, ITextNode, SdfNode, textFieldKey } from '../../../geometry/sdf/tree';
+import { nodeFrame } from '../../../geometry/sdf/treeOps';
+import { numberField } from '../../../state/schema';
+import { Field, NumberSetting, PairSetting, Select, binder } from '../Fields';
+import { Hint } from '../Hint';
 import { FontField } from './FontField';
 import { CurveFields } from './CurveFields';
 import { PlacementFields } from './PlacementFields';
-import { EditorContext } from './editorContext';
-import { Expert, useMode } from '../mode';
+import { usePatternEditorContext } from '../../../hooks/usePatternEditor';
+import { Expert, useMode } from '../Mode';
 
 // the settings of every kind of node, see NodeInspector
 
@@ -79,7 +80,7 @@ const ProfileFields: React.FC<IInspectorProps<ISvgNode | ITextNode>> = ({ node, 
 
 export const TextInspector: React.FC<IInspectorProps<ITextNode>> = (props) => {
   const { node, pattern, onChange } = props;
-  const { errors } = React.useContext(EditorContext);
+  const { errors } = usePatternEditorContext();
   const bind = binder(node, onChange);
   return (
     <>

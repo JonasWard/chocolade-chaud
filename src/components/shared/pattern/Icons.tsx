@@ -1,8 +1,8 @@
 import React from 'react';
-import { DistanceMethodType } from '../../geometry/sdMethods';
-import { IPattern, NodeKind, SdfNode } from '../../geometry/sdf/tree';
-import { KIND_LABEL, methodLabel } from '../../geometry/sdf/formula';
-import { KINDS } from './kinds';
+import { DistanceMethodType } from '../../../geometry/sdMethods';
+import { IPattern, NodeKind, SdfNode } from '../../../geometry/sdf/tree';
+import { KIND_LABEL, methodLabel } from '../../../geometry/sdf/formula';
+import { KINDS } from './Kinds';
 
 // line icons on a 24 x 24 grid, drawn in the current colour
 

@@ -1,8 +1,8 @@
 import React from 'react';
-import { DistanceMethodType } from '../../geometry/sdMethods';
-import { GroupKind, IPattern, NodeKind, SdfNode, constantNode, groupNode, methodNode, sineNode, svgNode, textNode } from '../../geometry/sdf/tree';
-import { formatNumber } from '../../geometry/sdf/formula';
-import { BooleanInspector, ConstantInspector, IInspectorProps, SineInspector, SvgInspector, TextInspector } from './inspectors';
+import { DistanceMethodType } from '../../../geometry/sdMethods';
+import { GroupKind, IPattern, NodeKind, SdfNode, constantNode, groupNode, methodNode, sineNode, svgNode, textNode } from '../../../geometry/sdf/tree';
+import { formatNumber } from '../../../geometry/sdf/formula';
+import { BooleanInspector, ConstantInspector, IInspectorProps, SineInspector, SvgInspector, TextInspector } from './Inspectors';
 
 // everything the editors know about a kind of node, in one place: where it is in the menus, its icon, its hint, what its card shows
 // and its settings. Its name and glyph are in geometry/sdf/formula.ts, it is made and changed into in geometry/sdf/tree(Ops).ts

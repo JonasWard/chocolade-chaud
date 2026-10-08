@@ -1,6 +1,5 @@
 import React from 'react';
-import { useMode } from './mode';
-import { ErrorText } from './ui';
+import { useMode } from '../shared/Mode';
 
 /** the buttons over the scene: editing the curve (when there is one), undo and redo, and hiding the settings on a desktop */
 export const Toolbar: React.FC<{
@@ -45,45 +44,5 @@ export const Toolbar: React.FC<{
         </button>
       )}
     </div>
-  );
-};
-
-/** the faint ⚙ at the top left of the scene, highlighted while expert mode is on: simple mode is what most people need */
-export const ExpertToggle: React.FC = () => {
-  const { expert, setExpert } = useMode();
-  return (
-    <button
-      className={expert ? 'expert-toggle on' : 'expert-toggle'}
-      aria-pressed={expert}
-      aria-label='expert mode'
-      title={expert ? 'Expert mode: every setting (tap for simple)' : 'Expert mode: every setting'}
-      onClick={() => setExpert(!expert)}
-    >
-      ⚙
-    </button>
-  );
-};
-
-/** whether the meshes are being generated, and why they couldn't be */
-export const SceneStatus: React.FC<{ pending: boolean; error?: string }> = ({ pending, error }) => (
-  <div className='status'>
-    {pending && <span className='spinner' aria-label='generating' />}
-    {error && <ErrorText>{error}</ErrorText>}
-  </div>
-);
-
-/** the settings next to the scene, on a phone a sheet under it with a handle that hides and shows them */
-export const SettingsSheet: React.FC<{ hidden: boolean; setHidden: (hidden: boolean) => void; children: React.ReactNode }> = ({ hidden, setHidden, children }) => {
-  const { mobile } = useMode();
-  return (
-    <aside className='panels'>
-      {mobile && (
-        <button className='sheet-handle' aria-expanded={!hidden} onClick={() => setHidden(!hidden)}>
-          <span className='grabber' />
-          {hidden ? 'Settings' : 'Hide'}
-        </button>
-      )}
-      {!hidden && children}
-    </aside>
   );
 };

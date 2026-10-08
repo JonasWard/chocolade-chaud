@@ -1,12 +1,12 @@
 import React from 'react';
-import { SdfNode, isGroup } from '../../geometry/sdf/tree';
-import { nodeLabel } from '../../geometry/sdf/formula';
-import { findNode } from '../../geometry/sdf/treeOps';
-import { NodeInspector } from './NodeInspector';
-import { KindPicker, NodeMenu } from './NodeMenu';
-import { usePatternEditorContext } from './patternEditor';
-import { nodeSummary } from './kinds';
-import { Hint } from '../ui';
+import { SdfNode, isGroup } from '../../../geometry/sdf/tree';
+import { nodeLabel } from '../../../geometry/sdf/formula';
+import { findNode } from '../../../geometry/sdf/treeOps';
+import { NodeInspector } from '../../shared/pattern/NodeInspector';
+import { KindPicker, NodeMenu } from '../../shared/pattern/NodeMenu';
+import { usePatternEditorContext } from '../../../hooks/usePatternEditor';
+import { nodeSummary } from '../../shared/pattern/Kinds';
+import { Hint } from '../../shared/Hint';
 
 /** desktop: the whole tree as an indented outline, the selected node is edited below it */
 export const OutlineEditor: React.FC = () => {

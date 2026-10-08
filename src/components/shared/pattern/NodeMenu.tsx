@@ -1,12 +1,12 @@
 import React from 'react';
-import { DistanceMethodType } from '../../geometry/sdMethods';
-import { GROUP_KINDS, IPattern, NodeKind, SdfNode, isGroup } from '../../geometry/sdf/tree';
-import { KIND_LABEL, methodLabel, nodeLabel } from '../../geometry/sdf/formula';
-import { canUnwrap, changeKind, findPath, moveTargets } from '../../geometry/sdf/treeOps';
+import { DistanceMethodType } from '../../../geometry/sdMethods';
+import { GROUP_KINDS, IPattern, NodeKind, SdfNode, isGroup } from '../../../geometry/sdf/tree';
+import { KIND_LABEL, methodLabel, nodeLabel } from '../../../geometry/sdf/formula';
+import { canUnwrap, changeKind, findPath, moveTargets } from '../../../geometry/sdf/treeOps';
 import { IPickerSection, Picker } from '../Picker';
 import { NodeAction } from './actions';
-import { KIND_GROUPS, firstAsset, kindsIn } from './kinds';
-import { ActionIcon, KindIcon, NodeIcon } from './icons';
+import { KIND_GROUPS, firstAsset, kindsIn } from './Kinds';
+import { ActionIcon, KindIcon, NodeIcon } from './Icons';
 
 /** a kind of node, a method is a kind of its own */
 export type KindChoice = DistanceMethodType | Exclude<NodeKind, 'method'>;

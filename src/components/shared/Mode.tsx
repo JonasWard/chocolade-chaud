@@ -1,7 +1,7 @@
 import React from 'react';
-import { useMediaQuery } from '../hooks/useMediaQuery';
-import { useStoredFlag } from '../hooks/useStoredFlag';
-import { Hint } from './ui';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
+import { useStoredFlag } from '../../hooks/useStoredFlag';
+import { Hint } from './Hint';
 
 // how the app is shown: simple or expert mode, a preference of this browser and not part of the link, and whether it is on a phone
 

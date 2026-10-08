@@ -1,9 +1,10 @@
 // @vitest-environment jsdom
 import React from 'react';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { Expert, ExpertNotice, IMode, ModeContext, Simple } from './mode';
-import { SettingsPanel } from './panels';
-import { Choices, Field } from './ui';
+import { Expert, ExpertNotice, IMode, ModeContext, Simple } from './shared/Mode';
+import { SettingsPanel } from './shared/SettingsPanel';
+import { Field } from './shared/Fields';
+import { Choices } from './shared/Choices';
 
 const mode = (expert: boolean, mobile = false): IMode => ({ expert, setExpert: () => {}, mobile });
 const inMode = (m: IMode, children: React.ReactNode) => <ModeContext.Provider value={m}>{children}</ModeContext.Provider>;
