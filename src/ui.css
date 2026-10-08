@@ -17,6 +17,11 @@
   box-sizing: border-box;
 }
 
+/* no pinch or double tap zoom of the page, the scene handles its own pinch */
+html {
+  touch-action: pan-x pan-y;
+}
+
 body {
   margin: 0;
   background: var(--bg);
@@ -846,4 +851,13 @@ input[type='range'] {
 
 .swatch.on {
   box-shadow: 0 0 0 2px var(--accent);
+}
+
+/* a phone or a tablet zooms in on a field with text under 16px when it is focused, there the fields are 16px */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
 }
