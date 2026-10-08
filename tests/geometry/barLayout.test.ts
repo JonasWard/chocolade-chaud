@@ -1,6 +1,6 @@
-import { BarPart, REF_SIZE, createBarLayout, createSupportRaise } from './barLayout';
-import { SPACING_LENGTH, START_LENGTH, fanOffset, sideNormals, supportColumns } from './barMath';
-import { GridParser } from './grid';
+import { BarPart, REF_SIZE, createBarLayout, createSupportRaise } from '../../src/geometry/barLayout';
+import { SPACING_LENGTH, START_LENGTH, fanOffset, sideNormals, supportColumns } from '../../src/geometry/barMath';
+import { GridParser } from '../../src/geometry/grid';
 import { singleGrid } from './testUtils';
 
 test('layout sizes', () => {

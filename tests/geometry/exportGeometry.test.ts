@@ -1,6 +1,6 @@
-import { ITriangularMesh } from './createMesh';
-import { ChocolateType } from './chocolates';
-import { meshToOBJ, meshToSTL } from './exportGeometry';
+import { ITriangularMesh } from '../../src/geometry/createMesh';
+import { ChocolateType } from '../../src/geometry/chocolates';
+import { meshToOBJ, meshToSTL } from '../../src/geometry/exportGeometry';
 import { readSTL } from './testUtils';
 
 // single triangle in the xz-plane, facing down (-y)

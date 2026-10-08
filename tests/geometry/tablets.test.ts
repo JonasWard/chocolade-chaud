@@ -1,4 +1,4 @@
-import { COLUMNS, DEFAULT_PIECES, TABLET_LAYOUTS, TABLET_SIZES, isLayout, pieceBoxes, sameLayout, tabletSize } from './tablets';
+import { COLUMNS, DEFAULT_PIECES, TABLET_LAYOUTS, TABLET_SIZES, isLayout, pieceBoxes, sameLayout, tabletSize } from '../../src/geometry/tablets';
 
 test('the tablets are measured from the whole one of 150 by 70 mm', () => {
   expect(TABLET_SIZES.map(tabletSize)).toEqual([

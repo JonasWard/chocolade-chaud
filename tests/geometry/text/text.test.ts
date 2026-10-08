@@ -1,7 +1,7 @@
-import { IDistanceField, fieldDetail, sampleField } from '../field';
-import { layoutGlyphs } from './layout';
-import { compilePattern } from '../sdf/evaluate';
-import { textFieldKey, textNode } from '../sdf/tree';
+import { IDistanceField, fieldDetail, sampleField } from '../../../src/geometry/field';
+import { layoutGlyphs } from '../../../src/geometry/text/layout';
+import { compilePattern } from '../../../src/geometry/sdf/evaluate';
+import { textFieldKey, textNode } from '../../../src/geometry/sdf/tree';
 
 // 4 x 2 pixels of 0.5 mm, the distance equals the pixel column
 const field: IDistanceField = { width: 4, height: 2, pixelSize: 0.5, distances: new Float32Array([0, 1, 2, 3, 0, 1, 2, 3]) };

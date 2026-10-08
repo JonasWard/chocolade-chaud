@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { placeContour, signedArea, simplifyContour, smoothContour, traceCoverage } from './trace';
+import { placeContour, signedArea, simplifyContour, smoothContour, traceCoverage } from '../../../src/geometry/outline/trace';
 
 /** the coverage of every pixel by a shape, supersampled 16 x 16 */
 export const coverageOf = (inside: (x: number, y: number) => boolean, width: number, height: number): Float32Array => {

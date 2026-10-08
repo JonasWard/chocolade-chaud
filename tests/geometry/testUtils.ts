@@ -1,4 +1,4 @@
-import { BarKind, IBar, defaultBar } from './grid';
+import { BarKind, IBar, defaultBar } from '../../src/geometry/grid';
 
 /** a custom bar whose top is width by length mm */
 export const singleGrid = (width: number, length: number, divPerMM = 1, inset = -3): IBar => ({

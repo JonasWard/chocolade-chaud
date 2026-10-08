@@ -1,4 +1,4 @@
-import { COALESCE_MS, MAX_STEPS, createHistory, historyReducer } from './history';
+import { COALESCE_MS, MAX_STEPS, createHistory, historyReducer } from '../../src/state/history';
 
 const set = (state: number, now: number) => ({ type: 'set' as const, state, now });
 

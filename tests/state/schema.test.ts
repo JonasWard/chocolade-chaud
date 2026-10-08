@@ -1,10 +1,10 @@
-import { BarKind, IBar, defaultBar } from '../geometry/grid';
-import { DistanceMethodType } from '../geometry/sdMethods';
-import { IBooleanNode, IPattern, IProfile, SdfNode, constantNode, defaultPattern, groupNode, methodNode, sineNode, svgKey, svgNode, textNode } from '../geometry/sdf/tree';
-import { STATE_VERSION, decodeState, encodeState, numberField, schemaFingerprint } from './schema';
-import { profile } from '../geometry/sdf/evaluate';
-import { ChocolateType } from '../geometry/chocolates';
-import { DEFAULT_PIECES, TABLET_LAYOUTS } from '../geometry/tablets';
+import { BarKind, IBar, defaultBar } from '../../src/geometry/grid';
+import { DistanceMethodType } from '../../src/geometry/sdMethods';
+import { IBooleanNode, IPattern, IProfile, SdfNode, constantNode, defaultPattern, groupNode, methodNode, sineNode, svgKey, svgNode, textNode } from '../../src/geometry/sdf/tree';
+import { STATE_VERSION, decodeState, encodeState, numberField, schemaFingerprint } from '../../src/state/schema';
+import { profile } from '../../src/geometry/sdf/evaluate';
+import { ChocolateType } from '../../src/geometry/chocolates';
+import { DEFAULT_PIECES, TABLET_LAYOUTS } from '../../src/geometry/tablets';
 
 const single = defaultBar;
 

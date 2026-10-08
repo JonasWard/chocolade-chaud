@@ -1,4 +1,4 @@
-import { ICurve, SAMPLES_PER_SEGMENT, arcLengths, canDelete, convert, cubicPoint, deleteAt, flatten, insertAt, isAnchor, moveAt, pointAt, segmentCount, segmentMidpoints, straightCurve } from './curve';
+import { ICurve, SAMPLES_PER_SEGMENT, arcLengths, canDelete, convert, cubicPoint, deleteAt, flatten, insertAt, isAnchor, moveAt, pointAt, segmentCount, segmentMidpoints, straightCurve } from '../../src/geometry/curve';
 
 const spline: ICurve = {
   mode: 'spline',

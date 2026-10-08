@@ -1,8 +1,8 @@
-import { defaultBar } from '../grid';
-import { decodeState, encodeState } from '../../state/schema';
-import { compilePattern } from './evaluate';
-import { PRESETS } from './presets';
-import { SdfNode, defaultPattern, isGroup } from './tree';
+import { defaultBar } from '../../../src/geometry/grid';
+import { decodeState, encodeState } from '../../../src/state/schema';
+import { compilePattern } from '../../../src/geometry/sdf/evaluate';
+import { PRESETS } from '../../../src/geometry/sdf/presets';
+import { SdfNode, defaultPattern, isGroup } from '../../../src/geometry/sdf/tree';
 
 const svgAssets = (n: SdfNode): string[] => (n.kind === 'svg' ? [n.asset] : isGroup(n) ? n.children.flatMap(svgAssets) : []);
 

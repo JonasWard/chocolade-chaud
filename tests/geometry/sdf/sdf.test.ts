@@ -1,10 +1,10 @@
-import { DistanceMethodType, distanceMethods, sdGyroid, sdSchwarzD, sdSphere } from '../sdMethods';
-import { IDistanceField, sampleCentredField, sampleField } from '../field';
-import { compilePattern, fromNode, nodeScaleAt, profile, repeat, smoothMin, toPattern, toWorld } from './evaluate';
-import { DEFAULT_PROFILE, IPattern, SdfNode, constantNode, defaultPattern, groupNode, isGroup, methodNode, sineNode, svgKey, svgNode, textNode } from './tree';
-import { canUnwrap, changeKind, duplicateNode, findPath, insertChild, moveInto, moveNode, moveOut, moveTargets, nodeFrame, removeNode, staticScale, unwrap, updateNode, wrapNode } from './treeOps';
-import { formula } from './formula';
-import { MAX_FIELD_SLOTS, sdfShaderPlan } from '../../three/shaders/sdfCodegen';
+import { DistanceMethodType, distanceMethods, sdGyroid, sdSchwarzD, sdSphere } from '../../../src/geometry/sdMethods';
+import { IDistanceField, sampleCentredField, sampleField } from '../../../src/geometry/field';
+import { compilePattern, fromNode, nodeScaleAt, profile, repeat, smoothMin, toPattern, toWorld } from '../../../src/geometry/sdf/evaluate';
+import { DEFAULT_PROFILE, IPattern, SdfNode, constantNode, defaultPattern, groupNode, isGroup, methodNode, sineNode, svgKey, svgNode, textNode } from '../../../src/geometry/sdf/tree';
+import { canUnwrap, changeKind, duplicateNode, findPath, insertChild, moveInto, moveNode, moveOut, moveTargets, nodeFrame, removeNode, staticScale, unwrap, updateNode, wrapNode } from '../../../src/geometry/sdf/treeOps';
+import { formula } from '../../../src/geometry/sdf/formula';
+import { MAX_FIELD_SLOTS, sdfShaderPlan } from '../../../src/three/shaders/sdfCodegen';
 
 // the method chain the tree replaced: every method's scale is the output of the one after it, the last gets the product of all the numbers
 const oldChain = (methods: [DistanceMethodType, number][]) => (x: number, y: number, z: number) => {

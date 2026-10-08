@@ -1,6 +1,6 @@
-import { DistanceMethodType } from '../../../geometry/sdMethods';
-import { IBooleanNode, NodeKind, defaultPattern, groupNode } from '../../../geometry/sdf/tree';
-import { KINDS, KIND_GROUPS, kindsIn, newNode, nodeDetails } from './Kinds';
+import { DistanceMethodType } from '../../src/geometry/sdMethods';
+import { IBooleanNode, NodeKind, defaultPattern, groupNode } from '../../src/geometry/sdf/tree';
+import { KINDS, KIND_GROUPS, kindsIn, newNode, nodeDetails } from '../../src/components/shared/pattern/Kinds';
 
 test('every kind is in one section of the menus and is made as itself', () => {
   const kinds = Object.keys(KINDS) as NodeKind[];

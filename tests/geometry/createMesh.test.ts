@@ -1,8 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { computeNormals, makeMeshTiltOnSide } from './createMesh';
-import { GridParser } from './grid';
-import { meshToSTL } from './exportGeometry';
+import { computeNormals, makeMeshTiltOnSide } from '../../src/geometry/createMesh';
+import { GridParser } from '../../src/geometry/grid';
+import { meshToSTL } from '../../src/geometry/exportGeometry';
 import { readSTL, singleGrid } from './testUtils';
 // normals babylon's VertexData.ComputeNormals computed for singleGrid(3, 2, 1) with supports, before babylon was replaced
 import babylonNormals from './fixtures/babylonNormals.json';
@@ -91,7 +91,7 @@ test('the geometry core does not depend on the render engine', () => {
   // it runs in a web worker, pulling the render engine in would bloat the worker bundle
   const walk = (dir: string): string[] =>
     fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(dir, e.name)) : [path.join(dir, e.name)]));
-  const sources = walk(__dirname).filter((f) => /\.ts$/.test(f) && !/test/i.test(path.basename(f)));
+  const sources = walk(path.resolve(__dirname, '../../src/geometry')).filter((f) => /\.ts$/.test(f) && !/test/i.test(path.basename(f)));
   expect(sources.length).toBeGreaterThan(0);
   sources.forEach((f) => expect([f, /from '(three|@react-three\/[^']+|@babylonjs\/[^']+)'/.test(fs.readFileSync(f, 'utf8'))]).toEqual([f, false]));
 });

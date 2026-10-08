@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest';
-import { buildOutlineField, levelField } from './outlineField';
-import { sampleCentredField } from '../field';
-import { Contour } from './trace';
+import { buildOutlineField, levelField } from '../../../src/geometry/outline/outlineField';
+import { sampleCentredField } from '../../../src/geometry/field';
+import { Contour } from '../../../src/geometry/outline/trace';
 
 /** a regular polygon close to a circle, counter clockwise or (hole) clockwise */
 const circle = (cx: number, cy: number, r: number, n = 720, hole = false): Contour =>

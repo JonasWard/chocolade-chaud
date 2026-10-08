@@ -1,5 +1,5 @@
 import { strFromU8, unzipSync } from 'fflate';
-import { packFiles } from './download';
+import { packFiles } from '../../src/export/download';
 
 test('packed files unzip to the same names and bytes', async () => {
   const files = {

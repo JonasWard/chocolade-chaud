@@ -1,6 +1,6 @@
-import { IDistanceField } from '../field';
-import { placePattern, placementOffset } from './placement';
-import { DEFAULT_PLACEMENT, IPattern, ITextNode, SdfNode, groupNode, svgNode, textFieldKey, textNode } from './tree';
+import { IDistanceField } from '../../../src/geometry/field';
+import { placePattern, placementOffset } from '../../../src/geometry/sdf/placement';
+import { DEFAULT_PLACEMENT, IPattern, ITextNode, SdfNode, groupNode, svgNode, textFieldKey, textNode } from '../../../src/geometry/sdf/tree';
 
 const bars = { minX: -80, minZ: -20, maxX: 80, maxZ: 20 };
 const pattern = (root: SdfNode, extra: Partial<IPattern> = {}): IPattern => ({ root, center: { x: 0, y: 0, z: 0 }, rotation: 0, svgs: {}, ...extra });

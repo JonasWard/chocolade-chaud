@@ -1,6 +1,6 @@
-import { BarKind, IBar, MAX_DIVS_ONE_SIDE, MAX_DIV_PER_MM, MAX_VERTICES, barBases, defaultBar, effectiveDivPerMM, gridBox, gridCells } from './grid';
-import { ChocolateType } from './chocolates';
-import { TABLET_LAYOUTS } from './tablets';
+import { BarKind, IBar, MAX_DIVS_ONE_SIDE, MAX_DIV_PER_MM, MAX_VERTICES, barBases, defaultBar, effectiveDivPerMM, gridBox, gridCells } from '../../src/geometry/grid';
+import { ChocolateType } from '../../src/geometry/chocolates';
+import { TABLET_LAYOUTS } from '../../src/geometry/tablets';
 import { singleGrid } from './testUtils';
 
 // the budget is in divisions, a bar has one more row and column of vertices

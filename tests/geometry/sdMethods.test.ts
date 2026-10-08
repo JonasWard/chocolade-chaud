@@ -8,8 +8,8 @@ import {
   sdLineParametric,
   sdTorus,
   vectorInPolygon,
-} from './sdMethods';
-import { Vec2 as Vector2 } from './vec2';
+} from '../../src/geometry/sdMethods';
+import { Vec2 as Vector2 } from '../../src/geometry/vec2';
 
 test('line and pyline distance', () => {
   expect(sdLine(new Vector2(0, 0), new Vector2(0, 0), new Vector2(1, 0))).toBe(0);
