@@ -1,10 +1,13 @@
 import React from 'react';
 import { CurveMode, ICurve, anchorSegment, canDelete, convert, deleteAt, insertAt, isAnchor, straightCurve } from '../../geometry/curve';
 import { ITextNode } from '../../geometry/sdf/tree';
-import { PATTERN } from '../../state/settings';
+import { numberField } from '../../state/schema';
 import { Field, Hint, NumberField, Segmented, Select } from '../ui';
 import { EditorContext } from './editorContext';
 import { Expert } from '../mode';
+
+// x and z have the same range
+const POINT = numberField('root.points[].point.x');
 
 type BaseLine = 'none' | CurveMode;
 
@@ -86,13 +89,15 @@ export const CurveFields: React.FC<{ node: ITextNode; onChange: (node: ITextNode
                   <NumberField
                     label={`x ${i}`}
                     value={+p.x.toFixed(2)}
-                    setting={PATTERN.point}
+                    field={POINT}
+                    step={1}
                     onChange={(x) => setCurve({ ...curve, points: curve.points.map((q, j) => (j === i ? { ...q, x } : q)) })}
                   />
                   <NumberField
                     label={`z ${i}`}
                     value={+p.z.toFixed(2)}
-                    setting={PATTERN.point}
+                    field={POINT}
+                    step={1}
                     onChange={(z) => setCurve({ ...curve, points: curve.points.map((q, j) => (j === i ? { ...q, z } : q)) })}
                   />
                   {isAnchor(curve, i) && i < curve.points.length - 1 && (

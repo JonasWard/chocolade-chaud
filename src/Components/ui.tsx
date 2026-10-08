@@ -1,5 +1,5 @@
 import React from 'react';
-import type { INumberSetting } from '../state/settings';
+import type { FixedPointField } from 'densing';
 
 // the few form controls of the app, plain html styled by ui.css
 
@@ -26,8 +26,8 @@ export const Hint: React.FC<{ children: React.ReactNode; inline?: boolean }> = (
 
 export const ErrorText: React.FC<{ children: React.ReactNode }> = ({ children }) => <span className='error'>{children}</span>;
 
-/** the caption of a setting, with its unit */
-export const settingLabel = ({ label, unit }: INumberSetting) => (unit ? `${label} ${unit}` : label);
+/** the range of a number, a field of the state (see numberField in state/schema.ts) has it */
+export type Range = Pick<FixedPointField, 'min' | 'max'>;
 
 /** the value of a property of an object and how to change it, see binder */
 export interface IBound<V> {
@@ -41,15 +41,15 @@ export const binder =
   <K extends keyof T>(key: K): IBound<T[K]> => ({ value: object[key], onChange: (value) => onChange({ ...object, [key]: value }) });
 
 /**
- * keeps what is typed until it is a number in range, so typing "-" or "0." doesn't reset the input. A setting gives its step and range
+ * keeps what is typed until it is a number in range, so typing "-" or "0." doesn't reset the input. A field gives its range
  */
-export const NumberField: React.FC<{ value: number; onChange: (v: number) => void; setting?: INumberSetting; step?: number | 'any'; min?: number; max?: number; label?: string }> = ({
+export const NumberField: React.FC<{ value: number; onChange: (v: number) => void; field?: Range; step?: number | 'any'; min?: number; max?: number; label?: string }> = ({
   value,
   onChange,
-  setting,
-  step = setting?.step ?? 'any',
-  min = setting?.min ?? -Infinity,
-  max = setting?.max ?? Infinity,
+  field,
+  step = 'any',
+  min = field?.min ?? -Infinity,
+  max = field?.max ?? Infinity,
   label,
 }) => {
   const [text, setText] = React.useState(String(value));
@@ -78,30 +78,36 @@ export const NumberField: React.FC<{ value: number; onChange: (v: number) => voi
   );
 };
 
-/** a number of the settings, with their caption, unit, range and step. label replaces the caption */
-export const NumberSetting: React.FC<IBound<number> & { setting: INumberSetting; label?: string }> = ({ setting, label, value, onChange }) => (
-  <Field label={label ?? settingLabel(setting)}>
-    {setting.log ? (
-      <LogSlider label={setting.label.toLowerCase()} value={value} min={Math.log10(setting.min)} max={Math.log10(setting.max)} onChange={onChange} />
+/** a number of the state with its caption, in the range of its field. A log one is on a slider, its field holds its log10 */
+export const NumberSetting: React.FC<IBound<number> & { label: string; field: Range; step: number; log?: boolean }> = ({ label, field, step, log, value, onChange }) => (
+  <Field label={label}>
+    {log ? (
+      <LogSlider label={label.toLowerCase()} value={value} min={field.min} max={field.max} onChange={onChange} />
     ) : (
       // named by the label around it
-      <NumberField value={value} setting={setting} onChange={onChange} />
+      <NumberField value={value} field={field} step={step} onChange={onChange} />
     )}
   </Field>
 );
 
-/** two numbers side by side under one caption, each with a caption of its own. A side without a setting shows its placeholder */
-export const PairSetting: React.FC<{
-  label: string;
-  sides: [{ caption: string; setting: INumberSetting; bound?: IBound<number>; placeholder?: string }, { caption: string; setting: INumberSetting; bound?: IBound<number>; placeholder?: string }];
-}> = ({ label, sides }) => (
+interface IPairSide {
+  caption: string;
+  field: Range;
+  step: number;
+  bound?: IBound<number>;
+  /** what a side without a bound shows */
+  placeholder?: string;
+}
+
+/** two numbers side by side under one caption, each with a caption of its own */
+export const PairSetting: React.FC<{ label: string; sides: [IPairSide, IPairSide] }> = ({ label, sides }) => (
   <Field label={label} group>
     <div className='pair'>
-      {sides.map(({ caption, setting, bound, placeholder }) => (
+      {sides.map(({ caption, field, step, bound, placeholder }) => (
         <label key={caption} className='mini'>
           <span>{caption}</span>
           {bound ? (
-            <NumberField label={`${label} ${caption}`} value={bound.value} setting={setting} onChange={bound.onChange} />
+            <NumberField label={`${label} ${caption}`} value={bound.value} field={field} step={step} onChange={bound.onChange} />
           ) : (
             <span className='meta'>{placeholder}</span>
           )}

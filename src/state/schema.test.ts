@@ -1,7 +1,7 @@
 import { BarKind, IBar, defaultBar } from '../geometry/grid';
 import { DistanceMethodType } from '../geometry/sdMethods';
 import { IBooleanNode, IPattern, IProfile, SdfNode, constantNode, defaultPattern, groupNode, methodNode, sineNode, svgKey, svgNode, textNode } from '../geometry/sdf/tree';
-import { STATE_VERSION, decodeState, encodeState, schemaFingerprint } from './schema';
+import { STATE_VERSION, decodeState, encodeState, numberField, schemaFingerprint } from './schema';
 import { profile } from '../geometry/sdf/evaluate';
 import { ChocolateType } from '../geometry/chocolates';
 import { DEFAULT_PIECES, TABLET_LAYOUTS } from '../geometry/tablets';
@@ -165,15 +165,30 @@ test('a state of version 8 still reads, its numbers clamped into the ranges of t
 
 // how every version is written: a version that is out can never change, a change of the current one needs a new version
 const FINGERPRINTS: Record<number, string> = {
-  4: 'd631f808',
-  5: '3d15e018',
-  6: '5f3645f4',
-  7: '28de8f8e',
-  8: 'c9da390d',
-  9: 'd992ded3',
+  4: '119400cc',
+  5: '77cb243c',
+  6: '33368f48',
+  7: '5e339f22',
+  8: '19cb9349',
+  9: 'eaad37f7',
 };
 
 test('the schema of every version is as it was written', () => {
   expect(Math.max(...Object.keys(FINGERPRINTS).map(Number))).toBe(STATE_VERSION);
   Object.entries(FINGERPRINTS).forEach(([version, fingerprint]) => expect([version, schemaFingerprint(Number(version))]).toEqual([version, fingerprint]));
+});
+
+test('the default bar is written as it was by densing 0.3', () => {
+  expect(encodeState(defaultBar())).toBe('CTOBhGU8jA2su5Xgu4DTiAnEBOICMoAV-yYmKk4hO6BAnEKQQwNy1IIQ');
+});
+
+test('a number of the state is found by its path, with its range', () => {
+  expect(numberField('height')).toMatchObject({ type: 'fixed', min: 2.5, max: 10 });
+  expect(numberField('center.x')).toMatchObject({ min: -400, max: 400 });
+  // a field of a node, in the union that is the root
+  expect(numberField('root.size')).toMatchObject({ min: 0.5, max: 200 });
+  expect(numberField('root.points[].point.x')).toMatchObject({ min: -400, max: 400 });
+  expect(() => numberField('hieght')).toThrow();
+  // not a number
+  expect(() => numberField('sameChocolate')).toThrow();
 });

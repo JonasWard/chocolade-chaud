@@ -1,7 +1,7 @@
 import React from 'react';
 import { IPattern, svgKey } from '../../geometry/sdf/tree';
 import { MAX_SVG_BYTES } from '../../geometry/svg/rasterizeSvg';
-import { PATTERN } from '../../state/settings';
+import { numberField } from '../../state/schema';
 import { ErrorText, Field, Hint, NumberField, NumberSetting } from '../ui';
 import { SubPanel } from '../panels';
 import { ColumnEditor } from './ColumnEditor';
@@ -12,6 +12,9 @@ import { usePatternEditorContext } from './patternEditor';
 import { Picker } from '../Picker';
 import { PRESETS } from '../../geometry/sdf/presets';
 import { Expert, useMode } from '../mode';
+
+// x, y and z have the same range
+const [CENTER, ROTATION] = ['center.x', 'rotation'].map(numberField);
 
 const SvgAssets: React.FC<{ pattern: IPattern; setPattern: (p: IPattern) => void }> = ({ pattern, setPattern }) => {
   const { errors } = React.useContext(EditorContext);
@@ -60,7 +63,8 @@ export const PatternPanel: React.FC = () => {
     <NumberField
       label={axis}
       value={pattern.center[axis]}
-      setting={PATTERN.center}
+      field={CENTER}
+      step={1}
       onChange={(v) => setPattern({ ...pattern, center: { ...pattern.center, [axis]: v } })}
     />
   );
@@ -87,7 +91,7 @@ export const PatternPanel: React.FC = () => {
       {mobile ? <ColumnEditor /> : <OutlineEditor />}
       <SubPanel id='placement' title='Placement'>
         <Expert>
-          <Field label={`${PATTERN.center.label} ${PATTERN.center.unit}`} group>
+          <Field label='Centre mm' group>
             <div className='row'>
               {center('x')}
               {center('y')}
@@ -95,7 +99,7 @@ export const PatternPanel: React.FC = () => {
             </div>
           </Field>
         </Expert>
-        <NumberSetting setting={PATTERN.rotation} value={pattern.rotation} onChange={(rotation) => setPattern({ ...pattern, rotation })} />
+        <NumberSetting label='Rotation °' field={ROTATION} step={5} value={pattern.rotation} onChange={(rotation) => setPattern({ ...pattern, rotation })} />
       </SubPanel>
       <SubPanel id='svgs' title='SVG shapes'>
         <SvgAssets pattern={pattern} setPattern={setPattern} />

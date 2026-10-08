@@ -1,11 +1,14 @@
 import React from 'react';
 import { AlignX, AlignZ, IPlacement } from '../../geometry/sdf/tree';
-import { PLACEMENT } from '../../state/settings';
+import { numberField } from '../../state/schema';
 import { Choices, Field, NumberSetting, PairSetting } from '../ui';
 import { Expert, useMode } from '../mode';
 
 const ROWS: AlignZ[] = ['top', 'middle', 'bottom'];
 const COLUMNS: AlignX[] = ['left', 'center', 'right'];
+
+// x and z have the same range
+const PADDING = numberField('root.paddingX');
 
 type Place = `${AlignZ}-${AlignX}`;
 const PLACES = ROWS.flatMap((z) => COLUMNS.map((x): Place => `${z}-${x}`));
@@ -50,8 +53,9 @@ export const PlacementFields: React.FC<{ placement: IPlacement; onChange: (patch
         fallback={
           (edgeX || edgeZ) && (
             <NumberSetting
-              setting={PLACEMENT.paddingX}
               label='Padding mm'
+              field={PADDING}
+              step={1}
               value={padding}
               onChange={(v) => onChange({ ...(edgeX ? { paddingX: v } : {}), ...(edgeZ ? { paddingZ: v } : {}) })}
             />
@@ -61,8 +65,8 @@ export const PlacementFields: React.FC<{ placement: IPlacement; onChange: (patch
         <PairSetting
           label='Padding mm'
           sides={[
-            { caption: caption(alignX, 'x'), setting: PLACEMENT.paddingX, bound: { value: paddingX, onChange: (v) => onChange({ paddingX: v }) } },
-            { caption: caption(alignZ, 'z'), setting: PLACEMENT.paddingZ, bound: { value: paddingZ, onChange: (v) => onChange({ paddingZ: v }) } },
+            { caption: caption(alignX, 'x'), field: PADDING, step: 1, bound: { value: paddingX, onChange: (v) => onChange({ paddingX: v }) } },
+            { caption: caption(alignZ, 'z'), field: PADDING, step: 1, bound: { value: paddingZ, onChange: (v) => onChange({ paddingZ: v }) } },
           ]}
         />
       </Expert>

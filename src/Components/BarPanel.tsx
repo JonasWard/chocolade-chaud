@@ -2,9 +2,11 @@ import React from 'react';
 import { BarKind, IBar, MAX_DIVS_ONE_SIDE, MAX_VERTICES, chocolateOf, effectiveDivPerMM } from '../geometry/grid';
 import { CHOCOLATES, CHOCOLATE_TYPES, ChocolateType } from '../geometry/chocolates';
 import { COLUMNS, IPiece, ROWS, TABLET_LAYOUTS, TABLET_SIZES, TabletSize, sameLayout, tabletSize, units } from '../geometry/tablets';
-import { BAR } from '../state/settings';
+import { numberField } from '../state/schema';
 import { Choices, Field, Hint, NumberSetting, Segmented, binder } from './ui';
 import { Expert, useMode } from './mode';
+
+const [WIDTH, LENGTH, HEIGHT, INSET, DIV_PER_MM] = ['width', 'length', 'height', 'inset', 'divPerMM'].map(numberField);
 
 const KIND_LABEL: Record<BarKind, string> = { [BarKind.Tablet]: '1 tablet', [BarKind.Combined]: 'Combined', [BarKind.Custom]: 'Custom size' };
 const sizeLabel = (size: TabletSize) => size.replace('x', '×');
@@ -100,8 +102,8 @@ export const BarPanel: React.FC<{ bar: IBar; setBar: (bar: IBar) => void }> = ({
       )}
       {bar.kind === BarKind.Custom && (
         <>
-          <NumberSetting setting={BAR.width} {...bind('width')} />
-          <NumberSetting setting={BAR.length} {...bind('length')} />
+          <NumberSetting label='Width mm' field={WIDTH} step={5} {...bind('width')} />
+          <NumberSetting label='Length mm' field={LENGTH} step={5} {...bind('length')} />
         </>
       )}
       {(bar.kind === BarKind.Combined || bar.kind === BarKind.Custom) && <Hint>Sizes are of the base, the top is smaller by the inset.</Hint>}
@@ -131,10 +133,10 @@ export const BarPanel: React.FC<{ bar: IBar; setBar: (bar: IBar) => void }> = ({
           <Hint inline>{CHOCOLATES[chocolateOf(bar, perPiece ? current : 0)].name}</Hint>
         </div>
       </Field>
-      <NumberSetting setting={BAR.height} {...bind('height')} />
-      <NumberSetting setting={BAR.inset} {...bind('inset')} />
+      <NumberSetting label='Height mm' field={HEIGHT} step={0.5} {...bind('height')} />
+      <NumberSetting label='Inset mm' field={INSET} step={0.5} {...bind('inset')} />
       <Expert>
-        <NumberSetting setting={BAR.divPerMM} {...bind('divPerMM')} />
+        <NumberSetting label='Divisions/mm' field={DIV_PER_MM} step={0.25} {...bind('divPerMM')} />
         {effectiveDivPerMM(bar) < bar.divPerMM && (
           <Hint>
             Limited to {effectiveDivPerMM(bar).toFixed(2)}/mm here: a side has at most {MAX_DIVS_ONE_SIDE} divisions, all bars together {(MAX_VERTICES / 1e6).toFixed(1)}{' '}

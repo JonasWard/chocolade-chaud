@@ -7,7 +7,7 @@
       "dependencies": {
         "@react-three/drei": "^10",
         "@react-three/fiber": "^9",
-        "densing": "^0.3.0",
+        "densing": "^0.4.0",
         "fflate": "^0.8.3",
         "react": "~19.3",
         "react-dom": "~19.3",
@@ -315,7 +315,7 @@
 
     "deep-is": ["deep-is@0.1.4", "", {}, "sha512-oIPzksmTg4/MriiaYGO+okXDT7ztn/w3Eptv/+gSIdMdKsJo0u4CfYNFJPy+4SKMuCqGw2wxnA+URMg3t8a/bQ=="],
 
-    "densing": ["densing@0.3.0", "", {}, "sha512-T608r42i4EHii/QxGlcStnfP/pbP7KONYkYlf/Zc3Cr1NyFnnTJ7vNryL1fCYbVd61/P162m2gkx4gkLHoUxPg=="],
+    "densing": ["densing@0.4.0", "", {}, "sha512-J52IPmsxFgVvJszcCZUdgPB1TNdbDPb1DYdgFcxuRyki0AoBwM6PIFAcpaA3flPDzmozFr4AtJBRaDNX2QkoSw=="],
 
     "dequal": ["dequal@2.0.3", "", {}, "sha512-0je+qPKHEMohvfRTCEo3CrPG6cAzAYgmzKyxRiYSSDkS6eGJdyVJm7WaYA5ECaAD9wLB2T4EEeymA5aFVcYXCA=="],
 
