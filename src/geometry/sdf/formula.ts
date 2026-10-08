@@ -1,5 +1,6 @@
 import { DistanceMethodType } from '../sdMethods';
 import { IPattern, NodeKind, SdfNode, isGroup } from './tree';
+import type { Layout, Wave } from './waves';
 
 export const KIND_GLYPH: Record<NodeKind, string> = {
   union: '∪',
@@ -25,9 +26,12 @@ export const KIND_LABEL: Record<NodeKind, string> = {
   method: 'Method',
   svg: 'SVG',
   text: 'Text',
-  sine: 'Sine',
+  sine: 'Wave',
   constant: 'Constant',
 };
+
+export const WAVE_LABEL: Record<Wave, string> = { sine: 'Sine', triangle: 'Triangle', sawtooth: 'Sawtooth' };
+export const LAYOUT_LABEL: Record<Layout, string> = { rings: 'Rings', spiral: 'Spiral', petals: 'Petals', weave: 'Weave' };
 
 export const methodLabel = (method: DistanceMethodType): string => method.slice(2);
 
@@ -42,8 +46,11 @@ export const nodeLabel = (node: SdfNode, svgs: IPattern['svgs']): string => {
       return svgs[node.asset]?.name ?? 'missing svg';
     case 'text':
       return `"${node.text.length > 14 ? `${node.text.slice(0, 13)}…` : node.text}"`;
+    // rings are named after their wave, the other layouts after themselves, with their count
     case 'sine':
-      return `Sine(${formatNumber(node.amplitude)}, ${formatNumber(node.period)})`;
+      return node.layout === 'rings'
+        ? `${WAVE_LABEL[node.wave]}(${formatNumber(node.amplitude)}, ${formatNumber(node.period)})`
+        : `${LAYOUT_LABEL[node.layout]}(${formatNumber(node.amplitude)}, ${formatNumber(node.period)}, ${formatNumber(node.count)})`;
     case 'constant':
       return formatNumber(node.value);
     default:

@@ -1,8 +1,11 @@
 import React from 'react';
 import { IBooleanNode, IConstantNode, IPattern, ISineNode, ISvgNode, ITextNode, SdfNode, textFieldKey } from '../../../geometry/sdf/tree';
 import { nodeFrame } from '../../../geometry/sdf/treeOps';
+import { LAYOUT_LABEL, WAVE_LABEL } from '../../../geometry/sdf/formula';
+import { AROUNDS, Around, LAYOUTS, Layout, WAVES, Wave } from '../../../geometry/sdf/waves';
 import { numberField } from '../../../state/schema';
 import { Field, NumberSetting, PairSetting, Select, binder } from '../Fields';
+import { Segmented } from '../Choices';
 import { Hint } from '../Hint';
 import { FontField } from './FontField';
 import { CurveFields } from './CurveFields';
@@ -13,7 +16,7 @@ import { Expert, useMode } from '../Mode';
 // the settings of every kind of node, see NodeInspector
 
 // the ranges of the numbers of the nodes, a bevel has the range of a limit
-const [LIMIT, BEVEL, SIZE, ANGLE, WIDTH, REPEAT, AMPLITUDE, PERIOD, VALUE, SMOOTH] = [
+const [LIMIT, BEVEL, SIZE, ANGLE, WIDTH, REPEAT, AMPLITUDE, PERIOD, COUNT, TWIST, DETAIL, VALUE, SMOOTH] = [
   'root.inner',
   'root.innerBevel',
   'root.size',
@@ -22,6 +25,9 @@ const [LIMIT, BEVEL, SIZE, ANGLE, WIDTH, REPEAT, AMPLITUDE, PERIOD, VALUE, SMOOT
   'root.repeat',
   'root.amplitude',
   'root.period',
+  'root.count',
+  'root.twist',
+  'root.detail',
   'root.value',
   'root.smooth',
 ].map(numberField);
@@ -137,12 +143,38 @@ export const SvgInspector: React.FC<IInspectorProps<ISvgNode>> = (props) => {
   );
 };
 
+const AROUND_LABEL: Record<Around, string> = { centre: 'Centre', outline: 'Outline' };
+
 export const SineInspector: React.FC<IInspectorProps<ISineNode>> = ({ node, onChange }) => {
   const bind = binder(node, onChange);
+  // rings have no angle
+  const polar = node.layout !== 'rings';
   return (
     <>
+      <Segmented<Layout> label='layout' value={node.layout} options={LAYOUTS.map((l) => [l, LAYOUT_LABEL[l]])} onChange={(layout) => onChange({ ...node, layout })} />
+      <Segmented<Wave> label='wave' value={node.wave} options={WAVES.map((w) => [w, WAVE_LABEL[w]])} onChange={(wave) => onChange({ ...node, wave })} />
       <NumberSetting label='Amplitude mm' field={AMPLITUDE} step={0.1} {...bind('amplitude')} />
       <NumberSetting label='Period mm' field={PERIOD} step={0.5} {...bind('period')} />
+      {polar && <NumberSetting label='Count' field={COUNT} step={1} {...bind('count')} />}
+      {polar && (
+        <Expert name='twist' changed={node.twist !== 0}>
+          <NumberSetting label='Twist °/mm' field={TWIST} step={1} {...bind('twist')} />
+        </Expert>
+      )}
+      {polar && (
+        <Expert name='angle' changed={node.around !== 'centre'}>
+          <Field label='Angle around'>
+            <Segmented<Around> label='angle around' value={node.around} options={AROUNDS.map((a) => [a, AROUND_LABEL[a]])} onChange={(around) => onChange({ ...node, around })} />
+          </Field>
+          <Hint>
+            {node.around === 'centre' ? 'Around the centre of the pattern.' : 'Along the outline of what it holds: the angle is the direction away from it, no centre needed.'}
+          </Hint>
+        </Expert>
+      )}
+      <Expert name='fade' changed={node.detail > 0}>
+        <NumberSetting label='Fade below mm' field={DETAIL} step={0.1} {...bind('detail')} />
+        <Hint>Flattens the wave where it gets finer than this, as it does towards the centre. 0 is no fade.</Hint>
+      </Expert>
     </>
   );
 };

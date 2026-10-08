@@ -2,6 +2,7 @@ import { sampleCentredField } from '../field';
 import { DistanceMethod, ScaledDistanceMethod, distanceMethods } from '../sdMethods';
 import { IPattern, IProfile, SdfNode, SvgFields, textFieldKey } from './tree';
 import { findPath, nodeFrame } from './treeOps';
+import { GRADIENT_STEP, TINY, angleOf, fade, layouts, waves } from './waves';
 
 // the pattern compiled into closures, evaluated per vertex. three/shaders/sdfCodegen.ts generates the same in glsl.
 // every node is evaluated at a scale s: s' = s * node.scale is what the node works with, its output is multiplied by node.gain.
@@ -89,16 +90,41 @@ const compileNode = (node: SdfNode, fields: SvgFields, parentFrame = 1): ScaledD
       return fold((a, b) => a + b);
     case 'subtract':
       return fold((a, b) => a - b);
-    // ripples along the distance of its children
+    // a wave along the distance of its children, and around their angle
     case 'sine': {
-      const { amplitude, period } = node;
+      const { amplitude, period, detail } = node;
       if (!(period > 0)) return () => 0;
-      const k = (2 * Math.PI) / period;
-      return (x, y, z, s) => {
-        const sc = s * scale;
+      const sum: ScaledDistanceMethod = (x, y, z, sc) => {
         let d = 0;
         for (const child of children) d += child(x, y, z, sc);
-        return gain * amplitude * Math.sin(k * d);
+        return d;
+      };
+      const wave = waves[node.wave];
+      const layout = layouts[node.layout];
+      // rings have no angle
+      const polar = node.layout !== 'rings';
+      const outline = polar && node.around === 'outline';
+      const turns = polar ? node.count / (2 * Math.PI) : 0;
+      const twist = (node.twist * Math.PI) / 180;
+      // how often it repeats along the distance, per mm
+      const radial = 1 / period + turns * Math.abs(twist);
+      const e = GRADIENT_STEP;
+      return (x, y, z, s) => {
+        const sc = s * scale;
+        const d = sum(x, y, z, sc);
+        // the angle, and how fast it turns per mm across the distance: the curvature of the line of that distance
+        let angle = 0;
+        let curvature = 0;
+        if (outline) {
+          const [xp, xm, zp, zm] = [sum(x + e, y, z, sc), sum(x - e, y, z, sc), sum(x, y, z + e, sc), sum(x, y, z - e, sc)];
+          const [gx, gz] = [xp - xm, zp - zm];
+          angle = angleOf(gx, gz);
+          curvature = Math.abs(xp + xm + zp + zm - 4 * d) / (e * e) / Math.max(Math.hypot(gx, gz) / (2 * e), TINY);
+        } else if (polar) {
+          angle = angleOf(x, z);
+          curvature = 1 / Math.max(Math.hypot(x, z), TINY);
+        }
+        return gain * amplitude * fade(radial, turns * curvature, detail) * layout(wave, d / period, turns * (angle + twist * d));
       };
     }
   }

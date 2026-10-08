@@ -2,6 +2,7 @@ import type { IVector } from '../createMesh';
 import type { IDistanceField } from '../field';
 import type { ICurve } from '../curve';
 import { DistanceMethodType } from '../sdMethods';
+import type { Around, Layout, Wave } from './waves';
 
 // the pattern is a tree of distance functions, see evaluate.ts for what every node computes
 
@@ -85,11 +86,23 @@ export interface ITextNode extends INodeBase, IProfile, IPlacement {
   angle: number;
 }
 
-/** a modifier: the distance d of its children (their sum) as amplitude * sin(2 pi d / period), ripples along it, in mm */
+/**
+ * A modifier: a wave along the distance d of its children (their sum), in mm. As rings it is amplitude * wave(d / period), the
+ * other layouts add the angle to it, count times around (see layouts in waves.ts)
+ */
 export interface ISineNode extends INodeBase {
   kind: 'sine';
   amplitude: number;
   period: number;
+  wave: Wave;
+  layout: Layout;
+  /** how many times the layout repeats around the angle, a whole number so it closes */
+  count: number;
+  /** turns the angle along the distance, in degrees per mm */
+  twist: number;
+  around: Around;
+  /** the wave flattens where it gets finer than this, in mm (see fade in waves.ts), 0 is everywhere as it is */
+  detail: number;
   children: SdfNode[];
 }
 
@@ -161,7 +174,10 @@ export const textNode = (text = 'Chaud'): ITextNode => ({
   curve: null,
   angle: 0,
 });
-export const sineNode = (amplitude = 0.5, period = 4, children: SdfNode[] = []): ISineNode => ({ ...base(), kind: 'sine', amplitude, period, children });
+/** what a sine has but its amplitude and period: with these it is a plain sine along the distance */
+export const DEFAULT_WAVE: Pick<ISineNode, 'wave' | 'layout' | 'count' | 'twist' | 'around' | 'detail'> = { wave: 'sine', layout: 'rings', count: 5, twist: 0, around: 'centre', detail: 0 };
+
+export const sineNode = (amplitude = 0.5, period = 4, children: SdfNode[] = []): ISineNode => ({ ...base(), ...DEFAULT_WAVE, kind: 'sine', amplitude, period, children });
 export const constantNode = (value = 0): IConstantNode => ({ ...base(), kind: 'constant', value });
 
 export const groupNode = (kind: GroupKind, children: SdfNode[] = []): GroupNode => {

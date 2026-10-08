@@ -39,6 +39,17 @@ export const PRESETS: IPreset[] = [
       ])
     ),
   },
+  // a spiral winding out of the points of a star, the star itself flat
+  {
+    name: 'Spiral',
+    make: () => ({
+      root: groupNode('union', [
+        { ...sineNode(0.3, 4, [svgNode(STAR, 30)]), layout: 'spiral', detail: 0.8 },
+        { ...svgNode(STAR, 30), inner: 0.6, outer: 0.6, beveled: true, innerBevel: 0.4, outerBevel: 0.6 },
+      ]),
+      svgs: { [STAR]: { name: 'star', source: STAR_SVG } },
+    }),
+  },
   {
     name: 'Stars',
     make: () => ({

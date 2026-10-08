@@ -38,6 +38,7 @@ test('a tree with every kind of node survives a round trip', () => {
   const root = groupNode('union', [
     groupNode('chain', [methodNode(DistanceMethodType.SDGyroid, 0.3), { ...svgNode(svgKey(logo), 25), alignX: 'left', paddingX: 4.5, repeat: 40 }]),
     { ...(groupNode('difference', [sineNode(2.5, 17, [methodNode(DistanceMethodType.SDSphere, 0.5)]), constantNode(-0.75)]) as IBooleanNode), smooth: 1.5 },
+    { ...sineNode(-0.4, 3.25, [constantNode(1)]), wave: 'sawtooth', layout: 'weave', count: 12, twist: -7.5, around: 'outline', detail: 0.45 },
     { ...groupNode('intersection', [svgNode(star)]), gain: -2 },
     groupNode('add', [methodNode(DistanceMethodType.SDTorus, 1e-3)]),
     groupNode('subtract', [
@@ -163,6 +164,20 @@ test('a state of version 8 still reads, its numbers clamped into the ranges of t
   expectClose(decodeState(encodeState(bar), library), bar);
 });
 
+// written by version 9: the default tablet with its wireframe on, an add with a gain of 2 of a sine of the text 'v9' and a constant
+const V9 = 'CTOBhGU8jA2su5Xgu8DTiAnEBOICMoAV-yYmKE4hV8BGnEKQROINSBJOIUggCAHYAORQA5gDCANwA5gBaAOYAygDkANIAzIVGAAJxATiA4QAAAAAAAAAicQpBDB2Q';
+
+test('a state of version 9 still reads, its sine a plain sine along the distance', () => {
+  const bar = decodeState(V9, library)!;
+  expect(bar).toMatchObject({ kind: BarKind.Tablet, displayWireframe: true });
+  const root = bar.sdfSetting.root as { gain: number; children: SdfNode[] };
+  expect(root).toMatchObject({ kind: 'add', gain: 2 });
+  expect(root.children[0]).toMatchObject({ kind: 'sine', amplitude: 2.5, period: 17, wave: 'sine', layout: 'rings', count: 5, twist: 0, around: 'centre', detail: 0 });
+  expect((root.children[0] as { children: SdfNode[] }).children[0]).toMatchObject({ kind: 'text', text: 'v9', size: 14 });
+  expect(root.children[1]).toMatchObject({ kind: 'constant', value: -0.75 });
+  expectClose(decodeState(encodeState(bar), library), bar);
+});
+
 // how every version is written: a version that is out can never change, a change of the current one needs a new version
 const FINGERPRINTS: Record<number, string> = {
   4: '119400cc',
@@ -171,6 +186,7 @@ const FINGERPRINTS: Record<number, string> = {
   7: '5e339f22',
   8: '19cb9349',
   9: 'eaad37f7',
+  10: '097e2c58',
 };
 
 test('the schema of every version is as it was written', () => {
@@ -178,8 +194,8 @@ test('the schema of every version is as it was written', () => {
   Object.entries(FINGERPRINTS).forEach(([version, fingerprint]) => expect([version, schemaFingerprint(Number(version))]).toEqual([version, fingerprint]));
 });
 
-test('the default bar is written as it was by densing 0.3', () => {
-  expect(encodeState(defaultBar())).toBe('CTOBhGU8jA2su5Xgu4DTiAnEBOICMoAV-yYmKk4hO6BAnEKQQwNy1IIQ');
+test('the default bar is written as it was by densing 0.3, but for its version', () => {
+  expect(encodeState(defaultBar())).toBe('CjOBhGU8jA2su5Xgu4DTiAnEBOICMoAV-yYmKk4hO6BAnEKQQwNy1IIQ');
 });
 
 test('a number of the state is found by its path, with its range', () => {
@@ -188,6 +204,8 @@ test('a number of the state is found by its path, with its range', () => {
   // a field of a node, in the union that is the root: densing 0.4 looks into it
   expect(numberField('root.gain')).toMatchObject({ min: -20, max: 20 });
   expect(numberField('root.size')).toMatchObject({ min: 0.5, max: 200 });
+  // a whole number
+  expect(numberField('root.count')).toMatchObject({ min: 1, max: 24, precision: 1 });
   expect(numberField('root.points[].point.x')).toMatchObject({ min: -400, max: 400 });
   expect(() => numberField('hieght')).toThrow();
   // not a number

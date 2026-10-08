@@ -2,6 +2,7 @@ import { DistanceMethodType } from '../../geometry/sdMethods';
 import { IPattern, IProfile, SdfNode, SvgFields, textFieldKey } from '../../geometry/sdf/tree';
 import { IFieldLevel, LEVEL_BLEND, LEVEL_MARGIN, LEVEL_REACH } from '../../geometry/field';
 import { LEVEL_COUNT } from '../../geometry/outline/outlineField';
+import { GRADIENT_STEP, Layout, PETAL_SWAY, TINY } from '../../geometry/sdf/waves';
 
 // glsl port of geometry/sdf/evaluate.ts. The structure of the tree is generated into the shader, its numbers are uniforms,
 // so only adding, removing or changing the kind of a node compiles a new shader, editing a number does not.
@@ -21,6 +22,8 @@ const methodGLSL: Record<DistanceMethodType, string> = {
   [DistanceMethodType.SDTorus]: 'length(vec2(length(q.xz) - 1.0, q.y)) - 0.25',
   [DistanceMethodType.SDCylinder]: 'length(vec2(length(vec2(q.x, length(q.yz))) - 1.0, length(q.yz)))',
 };
+
+const TURN = (2 * Math.PI).toFixed(12);
 
 const methodFunctions = Object.entries(methodGLSL)
   .map(([method, body]) => `float sd${method.slice(2)}(vec3 q) { return ${body}; }`)
@@ -141,6 +144,18 @@ float svgDistance(sampler2D field, vec2 v, float width, vec2 offset, float perio
   if (l0.z <= 0.0 || width <= 0.0) return 0.0;
   return width * centredFieldDistance(field, opRepeat(v - offset, period) / width, l0, l1);
 }
+
+// see waves in geometry/sdf/waves.ts, t is a phase in turns
+float waveSine(float t) { return sin(${TURN} * t); }
+float waveTriangle(float t) { return 4.0 * abs(fract(t - 0.25) - 0.5) - 1.0; }
+float waveSawtooth(float t) { return 2.0 * fract(t + 0.5) - 1.0; }
+
+float angleOf(vec2 v) { return v == vec2(0.0) ? 0.0 : atan(v.y, v.x); }
+
+// see fade in geometry/sdf/waves.ts
+float waveFade(float radial, float angular, float detail) {
+  return detail > 0.0 ? smoothstep(detail, 2.0 * detail, 1.0 / max(length(vec2(radial, angular)), ${TINY})) : 1.0;
+}
 `;
 
 type Param = (fields: SvgFields) => number;
@@ -157,7 +172,10 @@ export interface ISdfShaderPlan {
 }
 
 const buildPlan = (root: SdfNode): ISdfShaderPlan => {
-  const lines: string[] = [];
+  // of the function that is being written, sdf itself or one of the functions before it
+  let lines: string[] = [];
+  // the children of a sine that are evaluated at more than one point, see its case in generate
+  const functions: string[] = [];
   const params: Param[] = [];
   const fieldKeys: string[] = [];
   const slot = (key: string) => {
@@ -236,12 +254,55 @@ const buildPlan = (root: SdfNode): ISdfShaderPlan => {
         d = ds.length ? ds.join(node.kind === 'add' ? ' + ' : ' - ') : '0.0';
         break;
       }
-      // ripples along the distance of its children, k is 2 pi / period (0 without a period, as is the amplitude then)
+      // a wave along the distance of its children and around their angle, see the sine case in geometry/sdf/evaluate.ts.
+      // Its wave, its layout and where its angle comes from are structure, without a period its amplitude is 0
       case 'sine': {
-        const ds = node.children.map((c) => generate(c, sk, frame));
+        const polar = node.layout !== 'rings';
+        const outline = polar && node.around === 'outline';
+        // around an outline its children are a function of their own, for the points around p
+        const outer = lines;
+        if (outline) lines = [];
+        const ds = node.children.map((c) => generate(c, outline ? 's' : sk, frame));
+        if (outline) {
+          if (ds.length) functions.push(`float f${k}(vec3 p, float s) {\n  ${lines.join('\n  ')}\n  return ${ds.join(' + ')};\n}`);
+          lines = outer;
+        }
         const amplitude = param(() => (node.period > 0 ? node.amplitude : 0));
-        const k = param(() => (node.period > 0 ? (2 * Math.PI) / node.period : 0));
-        d = ds.length ? `${amplitude} * sin(${k} * (${ds.join(' + ')}))` : '0.0';
+        const frequency = param(() => (node.period > 0 ? 1 / node.period : 0));
+        const detail = param(() => node.detail);
+        if (!ds.length) {
+          d = '0.0';
+          break;
+        }
+        const wave = `wave${node.wave[0].toUpperCase()}${node.wave.slice(1)}`;
+        const c = `c${k}`;
+        lines.push(`float ${c} = ${outline ? `f${k}(p, ${sk})` : ds.join(' + ')};`);
+        if (!polar) {
+          d = `${amplitude} * waveFade(${frequency}, 0.0, ${detail}) * ${wave}(${c} * ${frequency})`;
+          break;
+        }
+        const turns = param(() => node.count / (2 * Math.PI));
+        const twist = param(() => (node.twist * Math.PI) / 180);
+        // the angle and the curvature
+        const [a, kappa] = [`a${k}`, `k${k}`];
+        if (outline) {
+          const e = GRADIENT_STEP;
+          const at = (offset: string) => `f${k}(p ${offset}, ${sk})`;
+          lines.push(
+            `vec4 n${k} = vec4(${at(`+ vec3(${e}, 0.0, 0.0)`)}, ${at(`- vec3(${e}, 0.0, 0.0)`)}, ${at(`+ vec3(0.0, 0.0, ${e})`)}, ${at(`- vec3(0.0, 0.0, ${e})`)});`,
+            `vec2 g${k} = vec2(n${k}.x - n${k}.y, n${k}.z - n${k}.w);`,
+            `float ${a} = angleOf(g${k});`,
+            `float ${kappa} = abs(n${k}.x + n${k}.y + n${k}.z + n${k}.w - 4.0 * ${c}) / ${(e * e).toFixed(6)} / max(length(g${k}) / ${(2 * e).toFixed(6)}, ${TINY});`
+          );
+        } else lines.push(`float ${a} = angleOf(p.xz);`, `float ${kappa} = 1.0 / max(length(p.xz), ${TINY});`);
+        const [r, an] = [`${c} * ${frequency}`, `${turns} * (${a} + ${twist} * ${c})`];
+        const shape: Record<Layout, string> = {
+          rings: `${wave}(${r})`,
+          spiral: `${wave}(${r} + ${an})`,
+          petals: `${wave}(${r} + ${PETAL_SWAY} * sin(${TURN} * ${an}))`,
+          weave: `${wave}(${r}) * ${wave}(${an})`,
+        };
+        d = `${amplitude} * waveFade(${frequency} + ${turns} * abs(${twist}), ${turns} * ${kappa}, ${detail}) * ${shape[node.layout]}`;
         break;
       }
     }
@@ -260,6 +321,7 @@ uniform vec3 uCenter;
 uniform vec2 uRotation;
 ${samplers}
 ${libraryGLSL}
+${functions.join('\n')}
 float sdf(vec3 position) {
   vec3 p = position - uCenter;
   p.xz = vec2(uRotation.x * p.x - uRotation.y * p.z, uRotation.y * p.x + uRotation.x * p.z);

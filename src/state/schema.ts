@@ -2,6 +2,7 @@ import { DenseField, FixedPointField, array, bool, densing, enumeration, fixed, 
 import { BarKind, IBar, defaultBar } from '../geometry/grid';
 import { DistanceMethodType } from '../geometry/sdMethods';
 import { IPattern, ISvgAsset, NodeKind, SdfNode, isGroup, newId, svgHash } from '../geometry/sdf/tree';
+import { AROUNDS, LAYOUTS, WAVES } from '../geometry/sdf/waves';
 import { CHOCOLATE_TYPES, nearestChocolate } from '../geometry/chocolates';
 import { COLUMNS, DEFAULT_PIECES, IPiece, PIECE_SIZES, ROWS, TABLET_SIZES, isLayout } from '../geometry/tablets';
 
@@ -10,7 +11,7 @@ import { COLUMNS, DEFAULT_PIECES, IPiece, PIECE_SIZES, ROWS, TABLET_SIZES, isLay
 // The ranges of the numbers of the current version are the ranges of the panels too (see numberField), the older versions are frozen
 // as they were written
 
-export const STATE_VERSION = 9;
+export const STATE_VERSION = 10;
 // the oldest version a state can still be read from, see MIGRATIONS
 const OLDEST_VERSION = 4;
 
@@ -41,6 +42,68 @@ const withField = (state: ReturnType<typeof schema>, node: DenseField) => ({ sch
 
 /** the schema of the state as it is now */
 const currentSchema = () => {
+  // every node has a scale (as log10) and a gain
+  const variant = (...fields: DenseField[]) => [fixed('scale', -5, 5, 0.001), fixed('gain', -20, 20, 0.001), ...fields];
+  const profile = [size('inner', 0, 50), size('outer', 0, 50), bool('beveled'), size('innerBevel', 0, 50), size('outerBevel', 0, 50)];
+  const placement = [...placementAlign, size('paddingX', -400, 400), size('paddingZ', -400, 400)];
+  const smooth = size('smooth', 0, 20);
+  const node = union('root', enumeration('kind', NODE_KINDS), {
+    method: variant(enumeration('method', Object.values(DistanceMethodType))),
+    svg: variant(int('asset', 0, MAX_SVGS - 1), fixed('width', 0, 400, 0.1), ...placement, fixed('repeat', 0, 400, 0.1), ...profile),
+    text: variant(
+      ...textOwn,
+      size('size', 0.5, 200),
+      // the mode of the base curve, the points are its points
+      enumeration('curve', curveModes),
+      array('points', 0, MAX_POINTS, object('point', size('x', -400, 400), size('z', -400, 400))),
+      ...placement,
+      fixed('angle', -360, 360, 0.1),
+      ...profile
+    ),
+    sine: variant(
+      size('amplitude', -10, 10),
+      size('period', 0, 200),
+      enumeration('wave', [...WAVES]),
+      enumeration('layout', [...LAYOUTS]),
+      // a whole number
+      fixed('count', 1, 24, 1),
+      fixed('twist', -90, 90, 0.1),
+      enumeration('around', [...AROUNDS]),
+      size('detail', 0, 20),
+      children
+    ),
+    constant: variant(fixed('value', -100, 100, 0.001)),
+    union: variant(smooth, children),
+    difference: variant(smooth, children),
+    intersection: variant(smooth, children),
+    add: variant(children),
+    subtract: variant(children),
+    chain: variant(children),
+  });
+  const state = schema(
+    int('version', 0, 255),
+    enumeration('kind', Object.values(BarKind)),
+    enumeration('tablet', TABLET_SIZES),
+    array('pieces', 1, MAX_PIECES, object('piece', enumeration('size', PIECE_SIZES), int('u', 0, COLUMNS - 1), int('v', 0, ROWS - 1))),
+    size('width', 5, 400),
+    size('length', 5, 400),
+    size('height', 2.5, 10),
+    size('inset', -10, 10),
+    size('divPerMM', 0.25, 32),
+    bool('displayWireframe'),
+    array('chocolates', 1, MAX_PIECES, enumeration('chocolate', CHOCOLATE_TYPES)),
+    bool('sameChocolate'),
+    object('center', size('x', -400, 400), size('y', -400, 400), size('z', -400, 400)),
+    size('rotation', -360, 360),
+    svgs,
+    node
+  );
+  return withField(state, node);
+};
+
+// version 9, as it was written: never change it. Its sine was only a sine along the distance
+
+const schemaV9 = () => {
   // every node has a scale (as log10) and a gain
   const variant = (...fields: DenseField[]) => [fixed('scale', -5, 5, 0.001), fixed('gain', -20, 20, 0.001), ...fields];
   const profile = [size('inner', 0, 50), size('outer', 0, 50), bool('beveled'), size('innerBevel', 0, 50), size('outerBevel', 0, 50)];
@@ -186,7 +249,8 @@ export const schemaFingerprint = (version: number): string | undefined => {
   return s && svgHash(JSON.stringify(s.schema)).toString(16).padStart(8, '0');
 };
 
-const SCHEMAS = new Map([...Array(STATE_VERSION - OLDEST_VERSION).keys()].map((i) => [OLDEST_VERSION + i, legacySchema(OLDEST_VERSION + i)]));
+const SCHEMAS = new Map([...Array(9 - OLDEST_VERSION).keys()].map((i) => [OLDEST_VERSION + i, legacySchema(OLDEST_VERSION + i)]));
+SCHEMAS.set(9, schemaV9());
 SCHEMAS.set(STATE_VERSION, currentSchema());
 const CURRENT = SCHEMAS.get(STATE_VERSION)!;
 export const StateSchema = CURRENT.schema;
@@ -268,6 +332,8 @@ const MIGRATIONS: Record<number, (n: NodeData) => NodeData> = {
   7: (n) => (n.kind === 'sine' ? { kind: 'sine', scale: n.scale, gain: n.gain, amplitude: n.amplitude, period: n.period, children: [] } : n),
   // only the ranges changed, its numbers are clamped into them
   8: (n) => n,
+  // a sine was a plain sine along the distance
+  9: (n) => (n.kind === 'sine' ? { ...n, wave: 'sine', layout: 'rings', count: 5, twist: 0, around: 'centre', detail: 0 } : n),
 };
 
 const migrate = (data: NodeData, from: number): NodeData => {
@@ -283,7 +349,8 @@ const migrate = (data: NodeData, from: number): NodeData => {
  */
 const upgradeBars = (data: Record<string, unknown>, version: number): Record<string, unknown> => {
   if (version >= STATE_VERSION) return data;
-  const upgraded = { ...data, version: STATE_VERSION, displayWireframe: data.wireframe };
+  // the wireframe got its name in version 9
+  const upgraded = { ...data, version: STATE_VERSION, ...(version < 9 && { displayWireframe: data.wireframe }) };
   if (version >= 8) return upgraded;
   const { cellWidth, cellLength, inset, amplitude, colors } = data as Record<string, number> & { colors: number[] };
   const root = data.root as NodeData;

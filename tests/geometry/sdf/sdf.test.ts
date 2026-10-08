@@ -4,6 +4,7 @@ import { compilePattern, fromNode, nodeScaleAt, profile, repeat, smoothMin, toPa
 import { DEFAULT_PROFILE, IPattern, SdfNode, constantNode, defaultPattern, groupNode, isGroup, methodNode, sineNode, svgKey, svgNode, textNode } from '../../../src/geometry/sdf/tree';
 import { canUnwrap, changeKind, duplicateNode, findPath, insertChild, moveInto, moveNode, moveOut, moveTargets, nodeFrame, removeNode, staticScale, unwrap, updateNode, wrapNode } from '../../../src/geometry/sdf/treeOps';
 import { formula } from '../../../src/geometry/sdf/formula';
+import { LAYOUTS, WAVES, fade } from '../../../src/geometry/sdf/waves';
 import { MAX_FIELD_SLOTS, sdfShaderPlan } from '../../../src/three/shaders/sdfCodegen';
 
 // the method chain the tree replaced: every method's scale is the output of the one after it, the last gets the product of all the numbers
@@ -85,6 +86,69 @@ test('a sine ripples along the distance of its children', () => {
   // the scale of the sine is the scale of its children
   const scaled = compilePattern(pattern({ ...sineNode(2, 7, [methodNode(DistanceMethodType.SDSphere)]), scale: 0.1 }));
   points.forEach(([x, y, z]) => expect(scaled(x, y, z)).toBeCloseTo(2 * Math.sin((2 * Math.PI * child(x, y, z)) / 7), 12));
+});
+
+test('a sine is a wave in a layout, along the distance of its children and around the centre', () => {
+  const sphere = methodNode(DistanceMethodType.SDSphere, 0.1);
+  const child = compilePattern(pattern(sphere));
+  const turn = 2 * Math.PI;
+  const wave = {
+    sine: (t: number) => Math.sin(turn * t),
+    triangle: (t: number) => (2 / Math.PI) * Math.asin(Math.sin(turn * t)),
+    sawtooth: (t: number) => 2 * (t - Math.floor(t + 0.5)),
+  };
+  const layout = {
+    rings: (w: (t: number) => number, r: number) => w(r),
+    spiral: (w: (t: number) => number, r: number, an: number) => w(r + an),
+    petals: (w: (t: number) => number, r: number, an: number) => w(r + 0.35 * Math.sin(turn * an)),
+    weave: (w: (t: number) => number, r: number, an: number) => w(r) * w(an),
+  };
+  LAYOUTS.forEach((l) =>
+    WAVES.forEach((w) => {
+      const sdf = compilePattern(pattern({ ...sineNode(2, 7, [sphere]), layout: l, wave: w, count: 3, twist: 12, gain: 1.5 }));
+      points.forEach(([x, y, z]) => {
+        const d = child(x, y, z);
+        const an = (3 / turn) * (Math.atan2(z, x) + ((12 * Math.PI) / 180) * d);
+        expect([l, w, sdf(x, y, z)]).toEqual([l, w, expect.closeTo(1.5 * 2 * layout[l](wave[w], d / 7, an), 6)]);
+      });
+    })
+  );
+  // the pattern turns with its count around the centre: a third of a turn further it is the same
+  const spiral = compilePattern(pattern({ ...sineNode(2, 7, [sphere]), layout: 'spiral', count: 3 }));
+  const [c, s] = [Math.cos(turn / 3), Math.sin(turn / 3)];
+  points.forEach(([x, y, z]) => expect(spiral(c * x - s * z, y, s * x + c * z)).toBeCloseTo(spiral(x, y, z), 9));
+});
+
+test('the angle of a sine around an outline is the direction away from it', () => {
+  // away from a sphere at the centre is away from the centre
+  const sphere = methodNode(DistanceMethodType.SDSphere, 0.1);
+  const weave = { ...sineNode(2, 7, [sphere]), layout: 'weave' as const, count: 4, twist: 5 };
+  const [centre, outline] = [compilePattern(pattern(weave)), compilePattern(pattern({ ...weave, around: 'outline' }))];
+  points.forEach(([x, y, z]) => expect(outline(x, y, z)).toBeCloseTo(centre(x, y, z), 4));
+  // where the distance is flat there is no direction, the angle is 0 as it is at the centre
+  const flat = { ...sineNode(2, 7, [constantNode(3)]), layout: 'weave' as const };
+  expect(compilePattern(pattern({ ...flat, around: 'outline' }))(5, 0, 5)).toBeCloseTo(compilePattern(pattern(flat))(0, 0, 0), 12);
+  // rings have no angle
+  const rings = { ...sineNode(2, 7, [sphere]), around: 'outline' as const };
+  points.forEach(([x, y, z]) => expect(compilePattern(pattern(rings))(x, y, z)).toBe(compilePattern(pattern({ ...rings, around: 'centre' }))(x, y, z)));
+});
+
+test('a sine fades where it gets finer than its detail', () => {
+  // by its wavelength: nothing at the detail, all of it at twice the detail
+  expect(fade(1 / 4, 0, 0)).toBe(1);
+  expect(fade(1 / 4, 0, 1)).toBe(1);
+  expect(fade(1, 0, 1)).toBe(0);
+  expect(fade(1 / 1.5, 0, 1)).toBeCloseTo(0.5, 12);
+  // along the distance and around the angle together
+  expect(fade(3 / 5, 4 / 5, 1)).toBe(0);
+  // around the centre a spiral gets finer towards it
+  const sphere = methodNode(DistanceMethodType.SDSphere, 0.1);
+  const spiral = { ...sineNode(2, 7, [sphere]), layout: 'spiral' as const };
+  const [plain, faded] = [compilePattern(pattern(spiral)), compilePattern(pattern({ ...spiral, detail: 1 }))];
+  expect(plain(0.01, 0, 0.02)).not.toBe(0);
+  expect(Math.abs(faded(0.01, 0, 0.02))).toBe(0);
+  expect(Math.abs(faded(0, 0, 0))).toBe(0);
+  points.forEach(([x, y, z]) => expect(faded(x, y, z)).toBeCloseTo(plain(x, y, z), 12));
 });
 
 test('svg keys depend on the source only', () => {
@@ -189,6 +253,9 @@ describe('tree edits', () => {
 test('formula', () => {
   expect(formula(defaultPattern().root, {})).toBe('0.2×(Neovius ∘ SchwarzD@0.034)');
   expect(formula(sineNode(0.5, 4, [textNode('a'), constantNode(1)]), {})).toBe('Sine(0.5, 4)("a" + 1)');
+  // rings are named after their wave, another layout after itself with its count
+  expect(formula({ ...sineNode(0.5, 4, [constantNode(1)]), wave: 'triangle' }, {})).toBe('Triangle(0.5, 4)(1)');
+  expect(formula({ ...sineNode(0.5, 4, [constantNode(1)]), wave: 'triangle', layout: 'petals', count: 7 }, {})).toBe('Petals(0.5, 4, 7)(1)');
   const star = { ...svgNode('s'), gain: 2 };
   expect(formula(groupNode('union', [methodNode(DistanceMethodType.SDGyroid, 0.3), star]), { s: { name: 'star', source: '' } })).toBe('Gyroid@0.3 ∪ 2×star');
 });
@@ -212,10 +279,29 @@ describe('shader plan', () => {
   });
 
   test('a sine has its numbers as params', () => {
-    // scale, amplitude, 2 pi / period, gain
-    expect([...sdfShaderPlan(pattern(sineNode(2, 7))).params(new Map())]).toEqual([1, 2, Math.fround((2 * Math.PI) / 7), 1]);
+    // scale, amplitude, 1 / period, detail, gain
+    expect([...sdfShaderPlan(pattern({ ...sineNode(2, 7), detail: 0.5 })).params(new Map())]).toEqual([1, 2, Math.fround(1 / 7), 0.5, 1, 0, 0, 0]);
     // its child comes first, then its own; without a period it is 0
-    expect([...sdfShaderPlan(pattern(sineNode(2, 0, [constantNode(3)]))).params(new Map())]).toEqual([1, 1, 3, 1, 0, 0, 1, 0]);
+    expect([...sdfShaderPlan(pattern(sineNode(2, 0, [constantNode(3)]))).params(new Map())]).toEqual([1, 1, 3, 1, 0, 0, 0, 1]);
+    // with an angle, its count in turns per radian and its twist in radians come after
+    const spiral = { ...sineNode(2, 7, [constantNode(3)]), layout: 'spiral' as const, count: 4, twist: 90 };
+    expect([...sdfShaderPlan(pattern(spiral)).params(new Map())].slice(4, 10)).toEqual([2, Math.fround(1 / 7), 0, Math.fround(2 / Math.PI), Math.fround(Math.PI / 2), 1]);
+  });
+
+  test('the wave, the layout and where the angle comes from of a sine are structure, its numbers are not', () => {
+    const sine = sineNode(2, 7, [methodNode(DistanceMethodType.SDSphere)]);
+    const glsl = (node: SdfNode) => sdfShaderPlan(pattern(node)).glsl;
+    const variants = [...WAVES.map((wave) => ({ ...sine, wave })), ...LAYOUTS.map((layout) => ({ ...sine, layout })), { ...sine, layout: 'weave' as const, around: 'outline' as const }];
+    // the sine in rings is in it twice
+    expect(new Set(variants.map(glsl)).size).toBe(variants.length - 1);
+    expect(glsl({ ...sine, layout: 'spiral', count: 9, twist: 3, detail: 1, amplitude: 1, period: 2 })).toBe(glsl({ ...sine, layout: 'spiral' }));
+    // around an outline its children are a function, called at the point and at the four around it
+    const outline = glsl({ ...sine, layout: 'spiral', around: 'outline' });
+    expect(outline).toContain('float f0(vec3 p, float s) {');
+    expect(outline.match(/f0\(p/g)).toHaveLength(5);
+    expect(glsl({ ...sine, layout: 'spiral' })).not.toContain('float f0(');
+    // rings have no angle
+    expect(glsl({ ...sine, around: 'outline' })).toBe(glsl(sine));
   });
 
   test('an svg and a text node have their profile as params', () => {

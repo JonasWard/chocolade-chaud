@@ -60,9 +60,9 @@ export const KINDS: Kinds = {
     group: 'Modifiers',
     make: () => sineNode(),
     icon: <path d='M2 12c2.5-8 5.5-8 8 0s5.5 8 8 0c1.2-4 2.7-6 4-6' />,
-    hint: 'Ripples along the distance of what it holds: amplitude × sin(2π · distance / period), in mm. Wrap a text or a shape to echo its outline.',
-    // amplitude and period are in its name
-    details: (node) => [items(node)],
+    hint: 'A wave along the distance of what it holds: amplitude × wave(distance / period), in mm. Wrap a text or a shape to echo its outline as rings, or wind them around its angle as a spiral, petals or a weave.',
+    // its layout, amplitude and period are in its name, as is its wave when it is rings
+    details: (node) => [items(node), node.layout !== 'rings' && node.wave !== 'sine' && node.wave, node.layout !== 'rings' && node.twist !== 0 && `↻ ${f(node.twist)}°`],
     Inspector: SineInspector,
   },
   union: { group: 'Booleans', make: group('union'), icon: <path d='M6 4.5v7.5a6 6 0 0 0 12 0V4.5' />, details: smoothDetails, Inspector: BooleanInspector },
