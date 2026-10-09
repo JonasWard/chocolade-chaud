@@ -110,11 +110,7 @@ export const TextInspector: React.FC<IInspectorProps<ITextNode>> = (props) => {
       <NumberSetting label='Size mm' field={SIZE} step={0.5} {...bind('size')} />
       <OnBars pattern={pattern} node={node} mm={node.size} />
       <PlacementFields placement={node} onChange={(patch) => onChange({ ...node, ...patch })} />
-      {!node.curve && (
-        <Expert name='angle' changed={node.angle !== 0}>
-          <NumberSetting label='Angle °' field={ANGLE} step={5} {...bind('angle')} />
-        </Expert>
-      )}
+      {!node.curve && <NumberSetting label='Angle °' field={ANGLE} step={5} {...bind('angle')} />}
       <CurveFields node={node} onChange={onChange} />
       <ProfileFields {...props} />
     </>
