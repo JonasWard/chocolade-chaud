@@ -1,0 +1,21 @@
+import { DistanceMethodType } from '../../src/geometry/sdMethods';
+import { IBooleanNode, NodeKind, constantNode, defaultPattern, groupNode, sineNode } from '../../src/geometry/sdf/tree';
+import { KINDS, KIND_GROUPS, kindsIn, newNode, nodeDetails } from '../../src/components/shared/pattern/Kinds';
+
+test('every kind is in one section of the menus and is made as itself', () => {
+  const kinds = Object.keys(KINDS) as NodeKind[];
+  expect(KIND_GROUPS.flatMap(kindsIn).sort()).toEqual([...kinds].sort());
+  kinds.forEach((kind) => expect(newNode(kind, defaultPattern()).kind).toBe(kind));
+  expect(newNode('method', defaultPattern(), DistanceMethodType.SDTorus)).toMatchObject({ kind: 'method', method: DistanceMethodType.SDTorus });
+  // the menus keep their order
+  expect(KIND_GROUPS.flatMap(kindsIn)).toEqual(['method', 'svg', 'text', 'constant', 'sine', 'union', 'difference', 'intersection', 'add', 'subtract', 'chain']);
+});
+
+test('a card shows the key attributes of its node', () => {
+  const svg = { ...newNode('svg', defaultPattern()), repeat: 20, gain: 2 };
+  expect(nodeDetails(svg)).toBe('30 mm · ↻ 20 · ×2');
+  expect(nodeDetails({ ...(groupNode('union') as IBooleanNode), smooth: 1.5 })).toBe('0 items · ~1.5');
+  // the layout of a sine is in its name, its wave too when it is rings
+  expect(nodeDetails({ ...sineNode(0.5, 4, [constantNode()]), wave: 'triangle', twist: 5 })).toBe('1 item');
+  expect(nodeDetails({ ...sineNode(0.5, 4, [constantNode()]), wave: 'triangle', layout: 'weave', twist: 5 })).toBe('1 item · triangle · ↻ 5°');
+});

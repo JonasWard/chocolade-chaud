@@ -11,14 +11,14 @@
     "preview": "vite preview",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src",
+    "lint": "eslint src tests",
     "predeploy": "bun run build",
     "deploy": "gh-pages -d build"
   },
   "dependencies": {
     "@react-three/drei": "^10",
     "@react-three/fiber": "^9",
-    "densing": "^0.3.0",
+    "densing": "^0.4.0",
     "fflate": "^0.8.3",
     "react": "~19.3",
     "react-dom": "~19.3",
@@ -26,6 +26,8 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -35,6 +37,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "gh-pages": "^6.3.0",
     "globals": "^17.12.0",
+    "jsdom": "^30.1.2",
     "typescript": "~6.0",
     "typescript-eslint": "^8.71.0",
     "vite": "^8.3.1",

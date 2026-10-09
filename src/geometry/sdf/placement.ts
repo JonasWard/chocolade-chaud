@@ -13,14 +13,26 @@ export const inkBox = (node: ISvgNode | ITextNode, fields: SvgFields): IBox | un
   return b && { minX: b.minX * node.width, minZ: b.minZ * node.width, maxX: b.maxX * node.width, maxZ: b.maxZ * node.width };
 };
 
+type IPoint = { x: number; z: number };
+const ORIGIN: IPoint = { x: 0, z: 0 };
+
 /**
  * Where the placement moves a node to, in its plane: its ink against the edges of the box (in the plane of the node) it is aligned
- * to, the padding away from them, or by the padding where it is centred. Without its ink the node itself goes against the edges
+ * to, the padding away from them, or by the padding where it is centred: from the centre (in the plane of the node too), which is
+ * the centre of the pattern unless one is given. Without its ink the node itself goes against the edges
  */
-export const placementOffset = ({ alignX, alignZ, paddingX, paddingZ }: IPlacement, box: IBox, ink: IBox = { minX: 0, minZ: 0, maxX: 0, maxZ: 0 }) => ({
-  x: alignX === 'left' ? box.minX + paddingX - ink.minX : alignX === 'right' ? box.maxX - paddingX - ink.maxX : paddingX,
-  z: alignZ === 'top' ? box.minZ + paddingZ - ink.minZ : alignZ === 'bottom' ? box.maxZ - paddingZ - ink.maxZ : paddingZ,
+export const placementOffset = (
+  { alignX, alignZ, paddingX, paddingZ }: IPlacement,
+  box: IBox,
+  ink: IBox = { minX: 0, minZ: 0, maxX: 0, maxZ: 0 },
+  centre: IPoint = ORIGIN
+) => ({
+  x: alignX === 'left' ? box.minX + paddingX - ink.minX : alignX === 'right' ? box.maxX - paddingX - ink.maxX : centre.x + paddingX,
+  z: alignZ === 'top' ? box.minZ + paddingZ - ink.minZ : alignZ === 'bottom' ? box.maxZ - paddingZ - ink.maxZ : centre.z + paddingZ,
 });
+
+/** a place on the bars (in mm on them) in the plane of the node with the id, at its static scale */
+export const pointInNode = (pattern: IPattern, point: IPoint, id: string): IPoint => toPattern(pattern, nodeFrame(pattern.root, id)?.scale ?? 1, point);
 
 /** the box around the bars (in mm on them) in the plane of the node with the id, at its static scale */
 export const boxInNode = (pattern: IPattern, bars: IBox, id: string): IBox => {
@@ -35,12 +47,15 @@ export const boxInNode = (pattern: IPattern, bars: IBox, id: string): IBox => {
   return { minX: Math.min(...xs), minZ: Math.min(...zs), maxX: Math.max(...xs), maxZ: Math.max(...zs) };
 };
 
-/** the pattern with every svg shape and text moved to where its placement puts it on the bars, the box around them */
-export const placePattern = (pattern: IPattern, bars: IBox, fields: SvgFields = new Map()): IPattern => {
+/**
+ * the pattern with every svg shape and text moved to where its placement puts it on the bars, the box around them. A centred one is
+ * at the centre of the pattern, or at centre (in mm on the bars) when it is given: the middle of a piece that has a frame of its own
+ */
+export const placePattern = (pattern: IPattern, bars: IBox, fields: SvgFields = new Map(), centre?: IPoint): IPattern => {
   const place = (node: SdfNode): SdfNode => {
     if (isGroup(node)) return { ...node, children: node.children.map(place) };
     if (node.kind !== 'svg' && node.kind !== 'text') return node;
-    const { x, z } = placementOffset(node, boxInNode(pattern, bars, node.id), inkBox(node, fields));
+    const { x, z } = placementOffset(node, boxInNode(pattern, bars, node.id), inkBox(node, fields), centre && pointInNode(pattern, centre, node.id));
     return node.offsetX === x && node.offsetZ === z ? node : { ...node, offsetX: x, offsetZ: z };
   };
   return { ...pattern, root: place(pattern.root) };

@@ -10,6 +10,8 @@ import { fromNode, toPattern, toWorld } from '../geometry/sdf/evaluate';
 
 /** the curve of the selected text node */
 export interface ICurveEditing {
+  /** the pattern of the node as the bar it is edited on sees it (see IFrame in geometry/pieces.ts) */
+  pattern: IPattern;
   curve: ICurve;
   /** where the placement moved the text to, in its plane (see placePattern) */
   offset: IPoint2;
@@ -57,7 +59,7 @@ const runs = (points: (THREE.Vector3 | undefined)[]): THREE.Vector3[][] =>
     return all;
   }, []);
 
-export const CurveEditor: React.FC<ICurveEditing & { pattern: IPattern; y: number }> = ({
+export const CurveEditor: React.FC<ICurveEditing & { y: number }> = ({
   curve,
   offset,
   scaleAt,
