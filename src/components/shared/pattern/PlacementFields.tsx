@@ -2,18 +2,11 @@ import React from 'react';
 import { AlignX, AlignZ, IPlacement } from '../../../geometry/sdf/tree';
 import { numberField } from '../../../state/schema';
 import { Field, NumberSetting, PairSetting } from '../Fields';
-import { Choices } from '../Choices';
+import { PlacePicker } from '../PlacePicker';
 import { Expert, useMode } from '../Mode';
-
-const ROWS: AlignZ[] = ['top', 'middle', 'bottom'];
-const COLUMNS: AlignX[] = ['left', 'center', 'right'];
 
 // x and z have the same range
 const PADDING = numberField('root.paddingX');
-
-type Place = `${AlignZ}-${AlignX}`;
-const PLACES = ROWS.flatMap((z) => COLUMNS.map((x): Place => `${z}-${x}`));
-const label = (z: AlignZ, x: AlignX) => (z === 'middle' && x === 'center' ? 'centre' : `${z === 'middle' ? '' : z} ${x === 'center' ? '' : x}`.trim());
 
 /**
  * where an svg shape or a text goes on the bars: a grid of the nine places, and the padding away from the edges. Simple has one
@@ -33,20 +26,7 @@ export const PlacementFields: React.FC<{ placement: IPlacement; onChange: (patch
   return (
     <>
       <Field label='Position' group>
-        <Choices<Place>
-          label='position'
-          className='anchor'
-          value={`${alignZ}-${alignX}`}
-          options={PLACES}
-          onChange={(place) => {
-            const [z, x] = place.split('-') as [AlignZ, AlignX];
-            pick(x, z);
-          }}
-          name={(place) => {
-            const [z, x] = place.split('-') as [AlignZ, AlignX];
-            return label(z, x);
-          }}
-        />
+        <PlacePicker label='position' x={alignX} z={alignZ} onChange={pick} />
       </Field>
       <Expert
         name='padding'

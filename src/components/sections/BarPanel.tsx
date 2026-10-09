@@ -1,48 +1,17 @@
 import React from 'react';
 import { BarKind, IBar, MAX_DIVS_ONE_SIDE, MAX_VERTICES, chocolateOf, effectiveDivPerMM } from '../../geometry/grid';
 import { CHOCOLATES, CHOCOLATE_TYPES, ChocolateType } from '../../geometry/chocolates';
-import { COLUMNS, IPiece, ROWS, TABLET_LAYOUTS, TABLET_SIZES, TabletSize, sameLayout, tabletSize, units } from '../../geometry/tablets';
+import { TABLET_LAYOUTS, TABLET_SIZES, TabletSize, sameLayout, tabletSize } from '../../geometry/tablets';
 import { numberField } from '../../state/schema';
 import { Field, NumberSetting, binder } from '../shared/Fields';
 import { Choices, Segmented } from '../shared/Choices';
 import { Hint } from '../shared/Hint';
 import { Expert, useMode } from '../shared/Mode';
+import { LayoutDrawing, sizeLabel } from '../shared/LayoutDrawing';
 
 const [WIDTH, LENGTH, HEIGHT, INSET, DIV_PER_MM] = ['width', 'length', 'height', 'inset', 'divPerMM'].map(numberField);
 
 const KIND_LABEL: Record<BarKind, string> = { [BarKind.Tablet]: '1 tablet', [BarKind.Combined]: 'Combined', [BarKind.Custom]: 'Custom size' };
-const sizeLabel = (size: TabletSize) => size.replace('x', '×');
-
-/** the pieces of a layout in a 6 by 2 drawing, filled by fill, a tap on a piece picks it when onPick is given */
-const LayoutDrawing: React.FC<{ pieces: IPiece[]; fill: (i: number) => string; selected?: number; onPick?: (i: number) => void; className: string }> = ({
-  pieces,
-  fill,
-  selected,
-  onPick,
-  className,
-}) => (
-  <svg className={className} viewBox={`-0.1 -0.1 ${COLUMNS + 0.2} ${ROWS * 1.4 + 0.2}`} aria-hidden={!onPick}>
-    {pieces.map(({ size, u, v }, i) => {
-      const n = units(size);
-      return (
-        <rect
-          key={i}
-          x={u + 0.06}
-          y={v * 1.4 + 0.06}
-          width={n.u - 0.12}
-          height={n.v * 1.4 - 0.12}
-          rx={0.12}
-          fill={fill(i)}
-          className={i === selected ? 'piece selected' : 'piece'}
-          role={onPick ? 'button' : undefined}
-          aria-label={onPick ? `piece ${i + 1}, ${sizeLabel(size)}` : undefined}
-          onClick={onPick && (() => onPick(i))}
-        />
-      );
-    })}
-  </svg>
-);
-
 const ChocolatePicker: React.FC<{ value: ChocolateType; onChange: (c: ChocolateType) => void }> = ({ value, onChange }) => (
   <Choices
     label='chocolate'
