@@ -74,7 +74,13 @@ function App() {
             <div className={hidden ? 'app panels-hidden' : 'app'}>
               <main className='viewport'>
                 <Scene grid={bar} fields={fields} meshes={result} curve={curve} piece={alone ? piece : undefined} onPick={isUnique(bar) && !editing ? pick : undefined} />
-                <Toolbar curve={!!curve} editing={editing} setEditing={setCurveEdit} {...{ undo, redo, canUndo, canRedo, panelsHidden, setPanelsHidden }} />
+                <Toolbar
+                  curve={!!curve}
+                  rotate={!!curve?.rotate}
+                  editing={editing}
+                  setEditing={setCurveEdit}
+                  {...{ undo, redo, canUndo, canRedo, panelsHidden, setPanelsHidden }}
+                />
                 <ExpertToggle />
                 <SceneStatus pending={pending} error={error} />
               </main>

@@ -1,10 +1,11 @@
 import React from 'react';
 import { useMode } from '../shared/Mode';
 
-/** the buttons over the scene: editing the curve (when there is one), undo and redo, and hiding the settings on a desktop */
+/** the buttons over the scene: editing the curve or turning a straight text (when a text is selected), undo and redo, and hiding the settings on a desktop */
 export const Toolbar: React.FC<{
-  /** whether the selected node has a curve to edit, and whether it is edited */
+  /** whether the selected node has a curve to edit, or is a straight text to turn (rotate), and whether it is edited */
   curve: boolean;
+  rotate?: boolean;
   editing: boolean;
   setEditing: (editing: boolean) => void;
   undo: () => void;
@@ -13,7 +14,7 @@ export const Toolbar: React.FC<{
   canRedo: boolean;
   panelsHidden: boolean;
   setPanelsHidden: (hidden: boolean) => void;
-}> = ({ curve, editing, setEditing, undo, redo, canUndo, canRedo, panelsHidden, setPanelsHidden }) => {
+}> = ({ curve, rotate, editing, setEditing, undo, redo, canUndo, canRedo, panelsHidden, setPanelsHidden }) => {
   const { mobile } = useMode();
   return (
     <div className='toolbar'>
@@ -22,9 +23,9 @@ export const Toolbar: React.FC<{
           className={editing ? 'mode primary' : 'mode'}
           aria-pressed={editing}
           onClick={() => setEditing(!editing)}
-          title='Edit the curve from above (Esc to leave)'
+          title={rotate ? 'Turn the text from above (Esc to leave)' : 'Edit the curve from above (Esc to leave)'}
         >
-          {editing ? '👁 View' : '✎ Edit curve'}
+          {editing ? '👁 View' : rotate ? '↻ Rotate' : '✎ Edit curve'}
         </button>
       )}
       <button onClick={undo} disabled={!canUndo} aria-label='undo' title='Undo (Ctrl+Z)'>

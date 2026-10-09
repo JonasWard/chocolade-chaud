@@ -21,8 +21,11 @@ export interface ICurveEditing {
   editing: boolean;
   /** whether the controls of a spline are shown, else only its anchors */
   handles: boolean;
+  /** a straight text: its line only turns it, its ends are dragged, no points are added or deleted */
+  rotate?: boolean;
   point?: number;
-  onChange: (curve: ICurve) => void;
+  /** the curve after an edit, with the point that was dragged */
+  onChange: (curve: ICurve, index?: number) => void;
   onSelectPoint: (index?: number) => void;
 }
 
@@ -64,6 +67,7 @@ export const CurveEditor: React.FC<ICurveEditing & { y: number }> = ({
   offset,
   scaleAt,
   handles: showControls,
+  rotate,
   point,
   onChange,
   onSelectPoint,
@@ -80,7 +84,9 @@ export const CurveEditor: React.FC<ICurveEditing & { y: number }> = ({
   useFrame(({ camera, size }) => {
     if (!handles.current) return;
     const unit =
-      camera instanceof THREE.OrthographicCamera ? 1 / camera.zoom : (2 * camera.position.y * Math.tan(((camera as THREE.PerspectiveCamera).fov * Math.PI) / 360)) / size.height;
+      camera instanceof THREE.OrthographicCamera
+        ? 1 / camera.zoom
+        : (2 * camera.position.y * Math.tan(((camera as THREE.PerspectiveCamera).fov * Math.PI) / 360)) / size.height;
     handles.current.children.forEach((h) => h.scale.setScalar(unit));
   });
 
@@ -103,7 +109,7 @@ export const CurveEditor: React.FC<ICurveEditing & { y: number }> = ({
       const p = toPattern(pattern, 1, { x: hit.x, z: hit.z });
       const s = scaleAt(p.x, p.z);
       current = moveAt(current, index, { x: p.x * s - offset.x, z: p.z * s - offset.z });
-      onChange(current);
+      onChange(current, index);
     };
     const end = () => {
       window.removeEventListener('pointermove', move);
@@ -130,7 +136,7 @@ export const CurveEditor: React.FC<ICurveEditing & { y: number }> = ({
 
   // the selected point is deleted with delete or backspace
   React.useEffect(() => {
-    if (point === undefined) return;
+    if (point === undefined || rotate) return;
     const onKey = (e: KeyboardEvent) => {
       if ((e.key !== 'Delete' && e.key !== 'Backspace') || isTyping(e.target)) return;
       e.preventDefault();
@@ -139,11 +145,11 @@ export const CurveEditor: React.FC<ICurveEditing & { y: number }> = ({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [point, curve, onChange, onSelectPoint]);
+  }, [point, rotate, curve, onChange, onSelectPoint]);
 
   const path = runs(toScene(flatten(curve)));
   const points = toScene(curve.points);
-  const midpoints = toScene(segmentMidpoints(curve));
+  const midpoints = rotate ? [] : toScene(segmentMidpoints(curve));
 
   return (
     <group renderOrder={10}>

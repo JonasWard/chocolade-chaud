@@ -63,6 +63,16 @@ export const CurveFields: React.FC<{ node: ITextNode; onChange: (node: ITextNode
           />
         </Expert>
       </Field>
+      {!curve && (
+        <>
+          <div className='row'>
+            <button className={curveEdit ? 'primary' : ''} aria-pressed={curveEdit} onClick={() => setCurveEdit(!curveEdit)}>
+              {curveEdit ? '👁 Back to view' : '↻ Rotate in 3D'}
+            </button>
+          </div>
+          <Hint>In 3D: drag an end of the line to turn the text around its centre.</Hint>
+        </>
+      )}
       {curve && (
         <>
           <div className='row'>

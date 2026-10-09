@@ -40,6 +40,7 @@ const lookingDown = (position: THREE.Vector3, target: THREE.Vector3) =>
 
 export const ViewController: React.FC<{ editing: boolean; focus?: IViewFocus }> = ({ editing, focus }) => {
   const set = useThree((state) => state.set);
+  const get = useThree((state) => state.get);
   const size = useThree((state) => state.size);
   const controls = useThree((state) => state.controls) as unknown as Controls;
   const initialCamera = useThree((state) => state.camera);
@@ -68,9 +69,11 @@ export const ViewController: React.FC<{ editing: boolean; focus?: IViewFocus }> 
         to,
         t: 0,
         done: () => {
-          // the same view, orthographic: its frustum is in pixels, see the camera handling of react-three-fiber
-          Object.assign(orthographic, { left: -size.width / 2, right: size.width / 2, top: size.height / 2, bottom: -size.height / 2 });
-          orthographic.zoom = size.height / visibleHeight(distance);
+          // the same view, orthographic: its frustum is in pixels, see the camera handling of react-three-fiber. The size is the one
+          // now, on a phone the settings make room for the scene while it moves
+          const now = get().size;
+          Object.assign(orthographic, { left: -now.width / 2, right: now.width / 2, top: now.height / 2, bottom: -now.height / 2 });
+          orthographic.zoom = now.height / (MARGIN * Math.max(focus.depth, focus.width / (now.width / now.height)));
           orthographic.position.copy(to.position);
           orthographic.quaternion.copy(to.quaternion);
           orthographic.up.copy(UP_ON_SCREEN);
@@ -101,6 +104,13 @@ export const ViewController: React.FC<{ editing: boolean; focus?: IViewFocus }> 
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only a change of mode starts a move, not a change of focus or size
   }, [editing, phase]);
+
+  // in edit mode the frustum follows the size of the scene, at the same zoom, so the view is never stretched
+  React.useEffect(() => {
+    if (phase !== 'edit') return;
+    Object.assign(orthographic, { left: -size.width / 2, right: size.width / 2, top: size.height / 2, bottom: -size.height / 2 });
+    orthographic.updateProjectionMatrix();
+  }, [phase, size, orthographic]);
 
   // back in view mode, orbit around what was orbited around before
   React.useEffect(() => {
