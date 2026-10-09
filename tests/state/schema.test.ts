@@ -1,4 +1,6 @@
-import { BarKind, IBar, defaultBar } from '../../src/geometry/grid';
+import { BarKind, IBar, defaultBar, piecePattern, withPiecePattern } from '../../src/geometry/grid';
+import { DEFAULT_REPEAT, IRepeat, differs } from '../../src/geometry/pieces';
+import { insertChild, updateNode } from '../../src/geometry/sdf/treeOps';
 import { DistanceMethodType } from '../../src/geometry/sdMethods';
 import { IBooleanNode, IPattern, IProfile, SdfNode, constantNode, defaultPattern, groupNode, methodNode, sineNode, svgKey, svgNode, textNode } from '../../src/geometry/sdf/tree';
 import { STATE_VERSION, decodeState, encodeState, numberField, schemaFingerprint } from '../../src/state/schema';
@@ -74,6 +76,66 @@ test('a combined tablet keeps its layout and the chocolate of every piece, out o
   expect(decodeState(encodeState({ ...grid, sameChocolate: true }), library)).toMatchObject({ chocolates: [ChocolateType.Dark85], sameChocolate: true });
   // pieces that don't fill the tablet are the default layout
   expect(decodeState(encodeState({ ...grid, pieces: pieces.slice(1) }), library)?.pieces).toEqual(DEFAULT_PIECES);
+});
+
+describe('the pieces of a combined tablet', () => {
+  const logo = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"><rect width="1" height="1"/></svg>';
+  const withLogo = { ...library, [svgKey(logo)]: { name: 'logo', source: logo } };
+  const text = { ...textNode('all'), size: 6 };
+  const inner = groupNode('add', [text, constantNode(1)]);
+  const root = groupNode('union', [methodNode(DistanceMethodType.SDGyroid, 0.3), inner, svgNode(Object.keys(library)[0])]);
+  const repeat: IRepeat = { anchorX: 'left', anchorZ: 'bottom', fit: 'inside', reference: 'custom', referenceWidth: 80.5, referenceLength: 30 };
+  const base: IBar = { ...single(), kind: BarKind.Combined, sdfSetting: { ...defaultPattern(), root }, repeat };
+
+  test('one design is not written, a repeat is with where the pattern is on a piece', () => {
+    expect(decodeState(encodeState(base), library)).toMatchObject({ pieceMode: 'one', repeat: DEFAULT_REPEAT, overrides: [] });
+    // one bit more than a single tablet with the pattern
+    expect(encodeState(base).length).toBeLessThanOrEqual(encodeState({ ...base, pieceMode: 'repeat' }).length - 5);
+    expect(decodeState(encodeState({ ...base, pieceMode: 'repeat' }), library)).toMatchObject({ pieceMode: 'repeat', repeat, overrides: [] });
+  });
+
+  test('a unique tablet keeps what differs on every piece: settings of a node, the centre and the rotation, a group of its own', () => {
+    let unique: IBar = { ...base, pieceMode: 'unique' };
+    unique = withPiecePattern(unique, 1, {
+      ...piecePattern(unique, 1),
+      rotation: 30,
+      center: { x: 1.5, y: 0, z: -2 },
+      root: updateNode(root, text.id, (n) => ({ ...n, text: 'Jonas', bold: false }) as SdfNode),
+    });
+    // with an svg shape only this piece has
+    unique = withPiecePattern(unique, 3, { ...piecePattern(unique, 3), root: insertChild(root, inner.id, svgNode(svgKey(logo), 9)) });
+
+    const decoded = decodeState(encodeState(unique), withLogo)!;
+    expect(decoded).toMatchObject({ pieceMode: 'unique', repeat });
+    expect(decoded.overrides.map((o) => differs(o))).toEqual([false, true, false, true]);
+    unique.pieces.forEach((_, i) => expectClose(piecePattern(decoded, i), piecePattern(unique, i)));
+    expectClose(decoded.sdfSetting, unique.sdfSetting);
+
+    const [named, own] = [decoded.overrides[1]!, decoded.overrides[3]!];
+    expect(named).toMatchObject({ rotation: 30, center: { x: 1.5, y: 0, z: -2 } });
+    expect(Object.values(named.nodes)).toEqual([{ values: { text: 'Jonas', bold: false } }]);
+    // by the node of the shared tree as it is read now
+    const [, add] = (decoded.sdfSetting.root as { children: SdfNode[] }).children;
+    expect(Object.keys(own.nodes)).toEqual([add.id]);
+    expect(own.nodes[add.id]).toMatchObject({ own: { kind: 'add', id: add.id, children: [{ text: 'all' }, { value: 1 }, { kind: 'svg', asset: svgKey(logo), width: 9 }] } });
+    // and it is written the same again
+    expect(encodeState(decoded)).toBe(encodeState(unique));
+    // what differs is only read by a unique tablet
+    expect(decodeState(encodeState({ ...unique, pieceMode: 'repeat' }), withLogo)?.overrides).toEqual([]);
+  });
+
+  test('six pieces with a name each are a short link', () => {
+    const pieces = TABLET_LAYOUTS.find((layout) => layout.length === 6)!;
+    const names = ['Ada', 'Jonas', 'Marie', 'Linus', 'Grace', 'Alan'];
+    const bar = names.reduce<IBar>(
+      (b, name, i) => withPiecePattern(b, i, { ...b.sdfSetting, root: updateNode(root, text.id, (n) => ({ ...n, text: name }) as SdfNode) }),
+      { ...base, pieces, pieceMode: 'unique' }
+    );
+    const encoded = encodeState(bar);
+    expect(encoded.length).toBeLessThan(600);
+    const decoded = decodeState(encoded, library)!;
+    expect(pieces.map((_, i) => ((piecePattern(decoded, i).root as { children: SdfNode[] }).children[1] as { children: SdfNode[] }).children[0])).toMatchObject(names.map((name) => ({ text: name })));
+  });
 });
 
 test('anything else is not a state', () => {
@@ -169,12 +231,24 @@ const V9 = 'CTOBhGU8jA2su5Xgu8DTiAnEBOICMoAV-yYmKE4hV8BGnEKQROINSBJOIUggCAHYAORQ
 
 test('a state of version 9 still reads, its sine a plain sine along the distance', () => {
   const bar = decodeState(V9, library)!;
-  expect(bar).toMatchObject({ kind: BarKind.Tablet, displayWireframe: true });
+  expect(bar).toMatchObject({ kind: BarKind.Tablet, displayWireframe: true, pieceMode: 'one', overrides: [] });
   const root = bar.sdfSetting.root as { gain: number; children: SdfNode[] };
   expect(root).toMatchObject({ kind: 'add', gain: 2 });
   expect(root.children[0]).toMatchObject({ kind: 'sine', amplitude: 2.5, period: 17, wave: 'sine', layout: 'rings', count: 5, twist: 0, around: 'centre', detail: 0 });
   expect((root.children[0] as { children: SdfNode[] }).children[0]).toMatchObject({ kind: 'text', text: 'v9', size: 14 });
   expect(root.children[1]).toMatchObject({ kind: 'constant', value: -0.75 });
+  expectClose(decodeState(encodeState(bar), library), bar);
+});
+
+// written by version 10: the default tablet with a union of a spiral of 5 around the star, fading below 0.8 mm, and the star with limits
+const V10 = 'CjOBhGU8jA2su5Xgu4DTiAnEBOICMoAV-yYmJU4hSCAACNOIUgiAwGQEjhAUAinEKQQASwE4gJxAAAAAAAAAAAAKcQpBABLATiAnEAAAB4A8gKAHg';
+
+test('a state of version 10 still reads, its tablet one design', () => {
+  const bar = decodeState(V10, library)!;
+  expect(bar).toMatchObject({ kind: BarKind.Tablet, pieceMode: 'one', repeat: DEFAULT_REPEAT, overrides: [] });
+  const [spiral, star] = (bar.sdfSetting.root as { children: SdfNode[] }).children;
+  expect(spiral).toMatchObject({ kind: 'sine', amplitude: 0.3, period: 4, wave: 'sine', layout: 'spiral', count: 5, around: 'centre', detail: 0.8, children: [{ kind: 'svg', width: 30 }] });
+  expect(star).toMatchObject({ kind: 'svg', inner: 0.6, outer: 0.6, beveled: true });
   expectClose(decodeState(encodeState(bar), library), bar);
 });
 
@@ -187,6 +261,7 @@ const FINGERPRINTS: Record<number, string> = {
   8: '19cb9349',
   9: 'eaad37f7',
   10: '097e2c58',
+  11: '86ab083b',
 };
 
 test('the schema of every version is as it was written', () => {
@@ -194,8 +269,8 @@ test('the schema of every version is as it was written', () => {
   Object.entries(FINGERPRINTS).forEach(([version, fingerprint]) => expect([version, schemaFingerprint(Number(version))]).toEqual([version, fingerprint]));
 });
 
-test('the default bar is written as it was by densing 0.3, but for its version', () => {
-  expect(encodeState(defaultBar())).toBe('CjOBhGU8jA2su5Xgu4DTiAnEBOICMoAV-yYmKk4hO6BAnEKQQwNy1IIQ');
+test('the default bar is written as it was by densing 0.3, but for its version and for the pieces it does not have', () => {
+  expect(encodeState(defaultBar())).toBe('CzOBhGU8jA2su5Xgu4DJxATiAnEBGUAK_ZMTFScQndAgTiFIIYG5akEI');
 });
 
 test('a number of the state is found by its path, with its range', () => {
@@ -206,6 +281,8 @@ test('a number of the state is found by its path, with its range', () => {
   expect(numberField('root.size')).toMatchObject({ min: 0.5, max: 200 });
   // a whole number
   expect(numberField('root.count')).toMatchObject({ min: 1, max: 24, precision: 1 });
+  // a field of what is only there for the pieces of a combined tablet
+  expect(numberField('repeat.frames.referenceWidth')).toMatchObject({ min: 5, max: 400 });
   expect(numberField('root.points[].point.x')).toMatchObject({ min: -400, max: 400 });
   expect(() => numberField('hieght')).toThrow();
   // not a number

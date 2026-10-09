@@ -1,5 +1,6 @@
-import { DenseField, FixedPointField, array, bool, densing, enumeration, fixed, getFieldByPath, int, object, pointer, schema, undensing, union } from 'densing';
+import { DenseField, FixedPointField, array, bool, densing, enumeration, fixed, getFieldByPath, int, object, optional, pointer, schema, undensing, union } from 'densing';
 import { BarKind, IBar, defaultBar } from '../geometry/grid';
+import { DEFAULT_REPEAT, FITS, IPieceOverride, IRepeat, REFERENCES, differs, settleOverride } from '../geometry/pieces';
 import { DistanceMethodType } from '../geometry/sdMethods';
 import { IPattern, ISvgAsset, NodeKind, SdfNode, isGroup, newId, svgHash } from '../geometry/sdf/tree';
 import { AROUNDS, LAYOUTS, WAVES } from '../geometry/sdf/waves';
@@ -11,7 +12,7 @@ import { COLUMNS, DEFAULT_PIECES, IPiece, PIECE_SIZES, ROWS, TABLET_SIZES, isLay
 // The ranges of the numbers of the current version are the ranges of the panels too (see numberField), the older versions are frozen
 // as they were written
 
-export const STATE_VERSION = 10;
+export const STATE_VERSION = 11;
 // the oldest version a state can still be read from, see MIGRATIONS
 const OLDEST_VERSION = 4;
 
@@ -21,6 +22,10 @@ const MAX_TEXT = 128;
 const MAX_FONT = 64;
 const MAX_POINTS = 64;
 const MAX_PIECES = COLUMNS * ROWS;
+// the nodes of the shared tree that differ on a piece, by their place in it
+const MAX_OVERRIDES = 64;
+const MAX_NODE_INDEX = 4095;
+const MAX_SETTINGS = 32;
 // up to version 7, a grid of bars
 const MAX_UV_COUNT = 10;
 
@@ -80,6 +85,34 @@ const currentSchema = () => {
     subtract: variant(children),
     chain: variant(children),
   });
+  // what differs on a piece of a unique tablet: the centre and the rotation of the pattern, and nodes of the shared tree by their index
+  // in it (parents first). An own node is the whole of it, of another one only the settings that are set count (see settingFields)
+  const override = object(
+    'piece',
+    optional('center', object('centre', size('x', -400, 400), size('y', -400, 400), size('z', -400, 400))),
+    optional('rotation', size('turn', -360, 360)),
+    array(
+      'nodes',
+      0,
+      MAX_OVERRIDES,
+      object('override', int('index', 0, MAX_NODE_INDEX), bool('own'), array('set', 0, MAX_SETTINGS, bool('differs')), pointer('node', 'root'))
+    )
+  );
+  // only there when the pieces of a combined tablet each have the pattern, see geometry/pieces.ts
+  const repeat = optional(
+    'repeat',
+    object(
+      'frames',
+      enumeration('mode', ['repeat', 'unique']),
+      enumeration('anchorX', ['center', 'left', 'right']),
+      enumeration('anchorZ', ['middle', 'top', 'bottom']),
+      enumeration('fit', [...FITS]),
+      enumeration('reference', [...REFERENCES]),
+      size('referenceWidth', 5, 400),
+      size('referenceLength', 5, 400),
+      array('overrides', 0, MAX_PIECES, override)
+    )
+  );
   const state = schema(
     int('version', 0, 255),
     enumeration('kind', Object.values(BarKind)),
@@ -93,6 +126,7 @@ const currentSchema = () => {
     bool('displayWireframe'),
     array('chocolates', 1, MAX_PIECES, enumeration('chocolate', CHOCOLATE_TYPES)),
     bool('sameChocolate'),
+    repeat,
     object('center', size('x', -400, 400), size('y', -400, 400), size('z', -400, 400)),
     size('rotation', -360, 360),
     svgs,
@@ -101,9 +135,10 @@ const currentSchema = () => {
   return withField(state, node);
 };
 
-// version 9, as it was written: never change it. Its sine was only a sine along the distance
+// versions 9 and 10, as they were written: never change these. The sine of version 9 was only a sine along the distance, the pieces of
+// a combined tablet had one design up to version 10
 
-const schemaV9 = () => {
+const schemaV9to10 = (version: number) => {
   // every node has a scale (as log10) and a gain
   const variant = (...fields: DenseField[]) => [fixed('scale', -5, 5, 0.001), fixed('gain', -20, 20, 0.001), ...fields];
   const profile = [size('inner', 0, 50), size('outer', 0, 50), bool('beveled'), size('innerBevel', 0, 50), size('outerBevel', 0, 50)];
@@ -122,7 +157,21 @@ const schemaV9 = () => {
       fixed('angle', -360, 360, 0.1),
       ...profile
     ),
-    sine: variant(size('amplitude', -10, 10), size('period', 0, 200), children),
+    sine:
+      version >= 10
+        ? variant(
+            size('amplitude', -10, 10),
+            size('period', 0, 200),
+            enumeration('wave', [...WAVES]),
+            enumeration('layout', [...LAYOUTS]),
+            // a whole number
+            fixed('count', 1, 24, 1),
+            fixed('twist', -90, 90, 0.1),
+            enumeration('around', [...AROUNDS]),
+            size('detail', 0, 20),
+            children
+          )
+        : variant(size('amplitude', -10, 10), size('period', 0, 200), children),
     constant: variant(fixed('value', -100, 100, 0.001)),
     union: variant(smooth, children),
     difference: variant(smooth, children),
@@ -250,7 +299,8 @@ export const schemaFingerprint = (version: number): string | undefined => {
 };
 
 const SCHEMAS = new Map([...Array(9 - OLDEST_VERSION).keys()].map((i) => [OLDEST_VERSION + i, legacySchema(OLDEST_VERSION + i)]));
-SCHEMAS.set(9, schemaV9());
+SCHEMAS.set(9, schemaV9to10(9));
+SCHEMAS.set(10, schemaV9to10(10));
 SCHEMAS.set(STATE_VERSION, currentSchema());
 const CURRENT = SCHEMAS.get(STATE_VERSION)!;
 export const StateSchema = CURRENT.schema;
@@ -334,6 +384,8 @@ const MIGRATIONS: Record<number, (n: NodeData) => NodeData> = {
   8: (n) => n,
   // a sine was a plain sine along the distance
   9: (n) => (n.kind === 'sine' ? { ...n, wave: 'sine', layout: 'rings', count: 5, twist: 0, around: 'centre', detail: 0 } : n),
+  // only the pieces of a combined tablet got a choice, nothing of a node changed
+  10: (n) => n,
 };
 
 const migrate = (data: NodeData, from: number): NodeData => {
@@ -410,10 +462,65 @@ const barNumbers = (data: Pick<IBar, (typeof BAR_NUMBERS)[number]>) => Object.fr
 
 const svgNodes = (n: SdfNode): string[] => (n.kind === 'svg' ? [n.asset] : isGroup(n) ? n.children.flatMap(svgNodes) : []);
 
+/** the nodes of a tree, parents first: where a node is in it is how what differs on a piece refers to it */
+const inOrder = (n: SdfNode): SdfNode[] => [n, ...(isGroup(n) ? n.children.flatMap(inOrder) : [])];
+
+/** the svg shapes of what differs on a piece */
+const overrideSvgs = (override?: IPieceOverride): string[] =>
+  Object.values(override?.nodes ?? {}).flatMap((o) => ('own' in o ? svgNodes(o.own) : typeof o.values.asset === 'string' ? [o.values.asset] : []));
+
+/**
+ * the fields of a kind of node that are a setting of it, in the order of the schema: which of them differ on a piece is written as a
+ * list of that order. The curve of a text is two of them, its mode and its points
+ */
+const settingFields = (kind: NodeKind): DenseField[] => (CURRENT.node.type === 'union' ? CURRENT.node.variants[kind] : []).filter((f) => f.name !== 'children');
+const settingOf = (field: DenseField) => (field.name === 'points' ? 'curve' : field.name);
+
+const overrideData = (pattern: IPattern, override: IPieceOverride | undefined, assets: string[]) => {
+  const shared = inOrder(pattern.root);
+  const nodes = Object.entries(override?.nodes ?? {})
+    .flatMap(([id, o]) => {
+      const index = shared.findIndex((n) => n.id === id);
+      if (index < 0) return [];
+      if ('own' in o) return [{ index, own: true, set: [], node: nodeData(o.own, assets) }];
+      // only the settings that differ are read back: the texts and the points of the others are left out
+      const fields = settingFields(shared[index].kind);
+      const set = fields.map((f) => settingOf(f) in o.values);
+      const node = nodeData({ ...shared[index], ...o.values, ...(isGroup(shared[index]) ? { children: [] } : {}) } as SdfNode, assets);
+      fields.forEach((f, i) => !set[i] && f.type === 'array' && (node[f.name] = []));
+      return [{ index, own: false, set: set.slice(0, set.lastIndexOf(true) + 1), node }];
+    })
+    .sort((a, b) => a.index - b.index);
+  return { center: override?.center ?? null, rotation: override?.rotation ?? null, nodes };
+};
+
+type OverrideData = { center: IPattern['center'] | null; rotation: number | null; nodes: { index: number; own: boolean; set: boolean[]; node: NodeData }[] };
+
+const overrideFrom = (pattern: IPattern, data: OverrideData, assets: string[]): IPieceOverride | undefined => {
+  const shared = inOrder(pattern.root);
+  const nodes: IPieceOverride['nodes'] = {};
+  for (const { index, own, set, node } of data.nodes) {
+    const target = shared[index];
+    if (!target) continue;
+    // an own node stands where the shared one is
+    const read = { ...nodeFrom(node, assets), id: target.id } as SdfNode;
+    if (own) nodes[target.id] = { own: read };
+    else if (read.kind === target.kind) {
+      const names = new Set(settingFields(target.kind).flatMap((f, i) => (set[i] ? [settingOf(f)] : [])));
+      nodes[target.id] = { values: Object.fromEntries([...names].map((name) => [name, (read as unknown as Record<string, unknown>)[name]])) };
+    }
+  }
+  const override = settleOverride(pattern, { ...(data.center ? { center: data.center } : {}), ...(data.rotation === null ? {} : { rotation: data.rotation }), nodes });
+  return differs(override) ? override : undefined;
+};
+
 /** the state as a short url safe string */
 export const encodeState = (bar: IBar): string => {
   const pattern = bar.sdfSetting;
-  const assets = [...new Set([...Object.keys(pattern.svgs), ...svgNodes(pattern.root)])].slice(0, MAX_SVGS);
+  const overrides = bar.pieceMode === 'unique' ? bar.pieces.map((_, i) => bar.overrides[i]) : [];
+  const assets = [...new Set([...Object.keys(pattern.svgs), ...svgNodes(pattern.root), ...overrides.flatMap(overrideSvgs)])].slice(0, MAX_SVGS);
+  // as many as there are pieces that differ
+  const last = overrides.reduce((n, o, i) => (differs(o) ? i + 1 : n), 0);
   const data = {
     version: STATE_VERSION,
     kind: bar.kind,
@@ -424,6 +531,7 @@ export const encodeState = (bar: IBar): string => {
     // only as many as it needs
     chocolates: bar.sameChocolate ? bar.chocolates.slice(0, 1) : bar.chocolates.slice(0, Math.max(bar.pieces.length, 1)),
     sameChocolate: bar.sameChocolate,
+    repeat: bar.pieceMode === 'one' ? null : { mode: bar.pieceMode, ...bar.repeat, overrides: overrides.slice(0, last).map((o) => overrideData(pattern, o, assets)) },
     center: pattern.center,
     rotation: pattern.rotation,
     svgs: assets.map(hashOf),
@@ -444,7 +552,22 @@ export const decodeState = (encoded: string, library: Record<string, ISvgAsset>)
     const { kind, tablet, displayWireframe, chocolates, sameChocolate } = data;
     // pieces that don't fill the tablet are not a layout
     const pieces = isLayout(data.pieces as IPiece[]) ? data.pieces : defaultBar().pieces;
-    return { ...defaultBar(), kind, tablet, pieces, ...barNumbers(data), displayWireframe, chocolates, sameChocolate, sdfSetting };
+    const frames = data.repeat as ({ mode: 'repeat' | 'unique'; overrides: OverrideData[] } & IRepeat) | null;
+    const { anchorX, anchorZ, fit: scale, reference, referenceWidth, referenceLength } = frames ?? DEFAULT_REPEAT;
+    return {
+      ...defaultBar(),
+      kind,
+      tablet,
+      pieces,
+      ...barNumbers(data),
+      displayWireframe,
+      chocolates,
+      sameChocolate,
+      sdfSetting,
+      pieceMode: frames?.mode ?? 'one',
+      repeat: { anchorX, anchorZ, fit: scale, reference, referenceWidth, referenceLength },
+      overrides: frames?.mode === 'unique' ? frames.overrides.map((o) => overrideFrom(sdfSetting, o, assets)) : [],
+    };
   } catch {
     return undefined;
   }
