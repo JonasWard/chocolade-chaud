@@ -25,7 +25,7 @@ export const PlacementFields: React.FC<{ placement: IPlacement; onChange: (patch
   const apart = (!edgeX && paddingX !== 0) || (!edgeZ && paddingZ !== 0) || (edgeX && edgeZ && paddingX !== paddingZ);
   return (
     <>
-      <Field label='Position' group>
+      <Field label='Position' group mark={['alignX', 'alignZ']}>
         <PlacePicker label='position' x={alignX} z={alignZ} onChange={pick} />
       </Field>
       <Expert
@@ -37,6 +37,7 @@ export const PlacementFields: React.FC<{ placement: IPlacement; onChange: (patch
               label='Padding mm'
               field={PADDING}
               step={1}
+              name={['paddingX', 'paddingZ']}
               value={padding}
               onChange={(v) => onChange({ ...(edgeX ? { paddingX: v } : {}), ...(edgeZ ? { paddingZ: v } : {}) })}
             />
@@ -46,8 +47,8 @@ export const PlacementFields: React.FC<{ placement: IPlacement; onChange: (patch
         <PairSetting
           label='Padding mm'
           sides={[
-            { caption: caption(alignX, 'x'), field: PADDING, step: 1, bound: { value: paddingX, onChange: (v) => onChange({ paddingX: v }) } },
-            { caption: caption(alignZ, 'z'), field: PADDING, step: 1, bound: { value: paddingZ, onChange: (v) => onChange({ paddingZ: v }) } },
+            { caption: caption(alignX, 'x'), field: PADDING, step: 1, bound: { value: paddingX, onChange: (v) => onChange({ paddingX: v }), name: 'paddingX' } },
+            { caption: caption(alignZ, 'z'), field: PADDING, step: 1, bound: { value: paddingZ, onChange: (v) => onChange({ paddingZ: v }), name: 'paddingZ' } },
           ]}
         />
       </Expert>

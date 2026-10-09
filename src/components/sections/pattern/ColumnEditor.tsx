@@ -6,6 +6,7 @@ import { NodeInspector } from '../../shared/pattern/NodeInspector';
 import { ADD_SECTIONS, ActionPicker, KindPicker, NodeMenu, WRAP_SECTIONS } from '../../shared/pattern/NodeMenu';
 import { usePatternEditorContext } from '../../../hooks/usePatternEditor';
 import { nodeDetails } from '../../shared/pattern/Kinds';
+import { NodeMark } from '../../shared/pattern/NodeMark';
 
 const scrollBehavior = (): ScrollBehavior => (window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth');
 
@@ -56,6 +57,7 @@ export const ColumnEditor: React.FC = () => {
             <span className='name'>{nodeLabel(child, svgs)}</span>
             <span className='meta'>{nodeDetails(child)}</span>
           </button>
+          <NodeMark id={child.id} />
           {isGroup(child) && (
             <button
               aria-label='open'
@@ -85,6 +87,7 @@ export const ColumnEditor: React.FC = () => {
           </button>
         )}
         <KindPicker node={group} pattern={pattern} onChange={onChange} />
+        <NodeMark id={group.id} />
         <details>
           <summary>
             {nodeLabel(group, svgs)} <span className='meta'>{nodeDetails(group)}</span>

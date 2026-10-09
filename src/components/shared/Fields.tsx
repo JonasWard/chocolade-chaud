@@ -1,22 +1,24 @@
 import React from 'react';
 import type { FixedPointField } from 'densing';
+import { MarkNames, Marked } from './Marks';
 
 // the fields of the panels: a caption and its control, numbers and selects, plain html styled by ui.css
 
 /**
- * a caption and its control. A group of buttons is a group, not a label: a label passes a click on its caption to its first button
+ * a caption and its control. A group of buttons is a group, not a label: a label passes a click on its caption to its first button.
+ * mark is the names of the settings it sets, for the mark it gets when one differs on a piece (see Marks.tsx)
  */
-export const Field: React.FC<{ label: string; group?: boolean; children: React.ReactNode }> = ({ label, group, children }) => {
+export const Field: React.FC<{ label: string; group?: boolean; mark?: MarkNames; children: React.ReactNode }> = ({ label, group, mark, children }) => {
   const id = React.useId();
   return group ? (
     <div className='field' role='group' aria-labelledby={id}>
       <span id={id}>{label}</span>
-      {children}
+      <Marked names={mark}>{children}</Marked>
     </div>
   ) : (
     <label className='field'>
       <span>{label}</span>
-      {children}
+      <Marked names={mark}>{children}</Marked>
     </label>
   );
 };
@@ -28,12 +30,14 @@ export type Range = Pick<FixedPointField, 'min' | 'max'>;
 export interface IBound<V> {
   value: V;
   onChange: (value: V) => void;
+  /** the name of the setting, see Field */
+  name?: MarkNames;
 }
 
 /** the properties of an object as values a control can show and change, a change is the object with it changed */
 export const binder =
   <T extends object>(object: T, onChange: (object: T) => void) =>
-  <K extends keyof T>(key: K): IBound<T[K]> => ({ value: object[key], onChange: (value) => onChange({ ...object, [key]: value }) });
+  <K extends keyof T>(key: K): IBound<T[K]> => ({ value: object[key], onChange: (value) => onChange({ ...object, [key]: value }), name: String(key) });
 
 /**
  * keeps what is typed until it is a number in range, so typing "-" or "0." doesn't reset the input. A field gives its range
@@ -74,8 +78,8 @@ export const NumberField: React.FC<{ value: number; onChange: (v: number) => voi
 };
 
 /** a number of the state with its caption, in the range of its field. A log one is on a slider, its field holds its log10 */
-export const NumberSetting: React.FC<IBound<number> & { label: string; field: Range; step: number; log?: boolean }> = ({ label, field, step, log, value, onChange }) => (
-  <Field label={label}>
+export const NumberSetting: React.FC<IBound<number> & { label: string; field: Range; step: number; log?: boolean }> = ({ label, field, step, log, value, onChange, name }) => (
+  <Field label={label} mark={name}>
     {log ? (
       <LogSlider label={label.toLowerCase()} value={value} min={field.min} max={field.max} onChange={onChange} />
     ) : (
@@ -102,7 +106,9 @@ export const PairSetting: React.FC<{ label: string; sides: [IPairSide, IPairSide
         <label key={caption} className='mini'>
           <span>{caption}</span>
           {bound ? (
-            <NumberField label={`${label} ${caption}`} value={bound.value} field={field} step={step} onChange={bound.onChange} />
+            <Marked names={bound.name}>
+              <NumberField label={`${label} ${caption}`} value={bound.value} field={field} step={step} onChange={bound.onChange} />
+            </Marked>
           ) : (
             <span className='meta'>{placeholder}</span>
           )}

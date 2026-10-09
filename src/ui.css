@@ -861,3 +861,51 @@ input[type='range'] {
     font-size: 16px;
   }
 }
+
+/* what differs on a piece of a unique tablet: its control with the way back to what the pieces share next to it */
+
+.marked {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.marked > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.mark,
+.node-mark {
+  color: var(--accent);
+}
+
+.mark,
+button.node-mark {
+  flex: none;
+  min-height: 0;
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.mark {
+  width: var(--control);
+  height: var(--control);
+  padding: 0;
+}
+
+.mark::before {
+  content: '●';
+  margin-right: 2px;
+  font-size: 7px;
+  vertical-align: middle;
+}
+
+.node-mark {
+  font-size: 11px;
+}
+
+button.node-mark {
+  padding: 0 6px;
+}

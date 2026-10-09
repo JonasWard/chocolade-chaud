@@ -6,6 +6,7 @@ import { AROUNDS, Around, LAYOUTS, Layout, WAVES, Wave } from '../../../geometry
 import { numberField } from '../../../state/schema';
 import { Field, NumberSetting, PairSetting, Select, binder } from '../Fields';
 import { Segmented } from '../Choices';
+import { Marked } from '../Marks';
 import { Hint } from '../Hint';
 import { FontField } from './FontField';
 import { CurveFields } from './CurveFields';
@@ -59,7 +60,7 @@ const ProfileFields: React.FC<IInspectorProps<ISvgNode | ITextNode>> = ({ node, 
         ]}
       />
       <Expert name='bevels' changed={node.beveled}>
-        <Field label='Custom bevel'>
+        <Field label='Custom bevel' mark='beveled'>
           <input
             type='checkbox'
             checked={node.beveled}
@@ -90,8 +91,10 @@ export const TextInspector: React.FC<IInspectorProps<ITextNode>> = (props) => {
   const bind = binder(node, onChange);
   return (
     <>
-      <input aria-label='text' placeholder='text' value={node.text} onChange={(e) => onChange({ ...node, text: e.target.value })} />
-      <Field label='Font' group>
+      <Marked names='text'>
+        <input aria-label='text' placeholder='text' value={node.text} onChange={(e) => onChange({ ...node, text: e.target.value })} />
+      </Marked>
+      <Field label='Font' group mark={['font', 'fontSource']}>
         <div className='stack'>
           <FontField
             font={node.font}
@@ -101,7 +104,7 @@ export const TextInspector: React.FC<IInspectorProps<ITextNode>> = (props) => {
           />
         </div>
       </Field>
-      <Field label='Bold'>
+      <Field label='Bold' mark='bold'>
         <input type='checkbox' checked={node.bold} onChange={(e) => onChange({ ...node, bold: e.target.checked })} />
       </Field>
       <NumberSetting label='Size mm' field={SIZE} step={0.5} {...bind('size')} />
@@ -123,7 +126,7 @@ export const SvgInspector: React.FC<IInspectorProps<ISvgNode>> = (props) => {
   const bind = binder(node, onChange);
   return (
     <>
-      <Field label='Shape'>
+      <Field label='Shape' mark='asset'>
         <Select
           label='shape'
           value={node.asset}
@@ -151,8 +154,12 @@ export const SineInspector: React.FC<IInspectorProps<ISineNode>> = ({ node, onCh
   const polar = node.layout !== 'rings';
   return (
     <>
-      <Segmented<Layout> label='layout' value={node.layout} options={LAYOUTS.map((l) => [l, LAYOUT_LABEL[l]])} onChange={(layout) => onChange({ ...node, layout })} />
-      <Segmented<Wave> label='wave' value={node.wave} options={WAVES.map((w) => [w, WAVE_LABEL[w]])} onChange={(wave) => onChange({ ...node, wave })} />
+      <Marked names='layout'>
+        <Segmented<Layout> label='layout' value={node.layout} options={LAYOUTS.map((l) => [l, LAYOUT_LABEL[l]])} onChange={(layout) => onChange({ ...node, layout })} />
+      </Marked>
+      <Marked names='wave'>
+        <Segmented<Wave> label='wave' value={node.wave} options={WAVES.map((w) => [w, WAVE_LABEL[w]])} onChange={(wave) => onChange({ ...node, wave })} />
+      </Marked>
       <NumberSetting label='Amplitude mm' field={AMPLITUDE} step={0.1} {...bind('amplitude')} />
       <NumberSetting label='Period mm' field={PERIOD} step={0.5} {...bind('period')} />
       {polar && <NumberSetting label='Count' field={COUNT} step={1} {...bind('count')} />}
@@ -163,7 +170,7 @@ export const SineInspector: React.FC<IInspectorProps<ISineNode>> = ({ node, onCh
       )}
       {polar && (
         <Expert name='angle' changed={node.around !== 'centre'}>
-          <Field label='Angle around'>
+          <Field label='Angle around' mark='around'>
             <Segmented<Around> label='angle around' value={node.around} options={AROUNDS.map((a) => [a, AROUND_LABEL[a]])} onChange={(around) => onChange({ ...node, around })} />
           </Field>
           <Hint>

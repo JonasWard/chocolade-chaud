@@ -33,7 +33,7 @@ export const CurveFields: React.FC<{ node: ITextNode; onChange: (node: ITextNode
 
   return (
     <>
-      <Field label='Base curve' group>
+      <Field label='Base curve' group mark='curve'>
         <Expert
           name='curve kind'
           changed={!!curve && curve.mode !== 'smooth'}

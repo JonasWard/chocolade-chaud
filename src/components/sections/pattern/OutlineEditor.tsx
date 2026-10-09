@@ -6,6 +6,7 @@ import { NodeInspector } from '../../shared/pattern/NodeInspector';
 import { KindPicker, NodeMenu } from '../../shared/pattern/NodeMenu';
 import { usePatternEditorContext } from '../../../hooks/usePatternEditor';
 import { nodeSummary } from '../../shared/pattern/Kinds';
+import { NodeMark } from '../../shared/pattern/NodeMark';
 import { Hint } from '../../shared/Hint';
 
 /** desktop: the whole tree as an indented outline, the selected node is edited below it */
@@ -35,6 +36,7 @@ export const OutlineEditor: React.FC = () => {
           )}
           <KindPicker node={node} pattern={pattern} onChange={onChange} />
           <span className='name'>{nodeLabel(node, pattern.svgs)}</span>
+          <NodeMark id={node.id} />
           <span className='meta'>{nodeSummary(node)}</span>
           <NodeMenu node={node} pattern={pattern} isRoot={isRoot} onAction={(a) => onAction(node.id, a)} />
         </div>
