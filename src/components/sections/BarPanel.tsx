@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarKind, IBar, MAX_DIVS_ONE_SIDE, MAX_VERTICES, chocolateOf, effectiveDivPerMM } from '../../geometry/grid';
+import { BarKind, IBar, MAX_DIVS_ONE_SIDE, MAX_VERTICES, chocolateOf, effectiveDivPerMM, withPieces } from '../../geometry/grid';
 import { CHOCOLATES, CHOCOLATE_TYPES, ChocolateType } from '../../geometry/chocolates';
 import { TABLET_LAYOUTS, TABLET_SIZES, TabletSize, sameLayout, tabletSize } from '../../geometry/tablets';
 import { numberField } from '../../state/schema';
@@ -8,6 +8,7 @@ import { Choices, Segmented } from '../shared/Choices';
 import { Hint } from '../shared/Hint';
 import { Expert, useMode } from '../shared/Mode';
 import { LayoutDrawing, sizeLabel } from '../shared/LayoutDrawing';
+import { usePieces } from '../../hooks/usePieces';
 
 const [WIDTH, LENGTH, HEIGHT, INSET, DIV_PER_MM] = ['width', 'length', 'height', 'inset', 'divPerMM'].map(numberField);
 
@@ -31,7 +32,7 @@ export const BarPanel: React.FC<{ bar: IBar; setBar: (bar: IBar) => void }> = ({
   const set = (patch: Partial<IBar>) => setBar({ ...bar, ...patch });
   const bind = binder(bar, setBar);
   // the piece of a combined tablet whose chocolate is picked
-  const [piece, setPiece] = React.useState(0);
+  const { piece, setPiece } = usePieces();
   const combined = bar.kind === BarKind.Combined;
   const perPiece = combined && !bar.sameChocolate;
   const current = Math.min(piece, bar.pieces.length - 1);
@@ -65,7 +66,7 @@ export const BarPanel: React.FC<{ bar: IBar; setBar: (bar: IBar) => void }> = ({
           itemClassName='layout'
           value={TABLET_LAYOUTS.findIndex((layout) => sameLayout(layout, bar.pieces))}
           options={TABLET_LAYOUTS.map((_, i) => i)}
-          onChange={(i) => set({ pieces: TABLET_LAYOUTS[i] })}
+          onChange={(i) => setBar(withPieces(bar, TABLET_LAYOUTS[i]))}
           name={(i) => `layout ${i + 1}`}
         >
           {(i) => <LayoutDrawing className='layout-drawing' pieces={TABLET_LAYOUTS[i]} fill={() => 'currentColor'} />}

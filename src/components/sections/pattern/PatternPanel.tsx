@@ -1,4 +1,5 @@
 import React from 'react';
+import { BarKind, IBar } from '../../../geometry/grid';
 import { IPattern, svgKey } from '../../../geometry/sdf/tree';
 import { MAX_SVG_BYTES } from '../../../geometry/svg/rasterizeSvg';
 import { numberField } from '../../../state/schema';
@@ -12,6 +13,9 @@ import { usePatternEditorContext } from '../../../hooks/usePatternEditor';
 import { Picker } from '../../shared/Picker';
 import { PRESETS } from '../../../geometry/sdf/presets';
 import { Expert, useMode } from '../../shared/Mode';
+import { IMarks, MarksContext } from '../../shared/Marks';
+import { usePieces } from '../../../hooks/usePieces';
+import { PiecesFields } from './PiecesFields';
 
 // x, y and z have the same range
 const [CENTER, ROTATION] = ['center.x', 'rotation'].map(numberField);
@@ -55,10 +59,19 @@ const SvgAssets: React.FC<{ pattern: IPattern; setPattern: (p: IPattern) => void
   );
 };
 
-/** the pattern of the bars: its tree of distance functions, its placement and the svg shapes it can use */
-export const PatternPanel: React.FC = () => {
+/**
+ * the pattern of the bars: its tree of distance functions, its placement and the svg shapes it can use. A combined tablet says how
+ * its pieces have it first
+ */
+export const PatternPanel: React.FC<{ bar: IBar; setBar: (bar: IBar) => void }> = ({ bar, setBar }) => {
   const { mobile } = useMode();
   const { pattern, setPattern, pickPreset } = usePatternEditorContext();
+  // the centre and the rotation that differ on the piece that is edited alone
+  const { override, setOverride } = usePieces();
+  const marks: IMarks | undefined = override && {
+    names: new Set(['center', 'rotation'].filter((name) => override[name as 'center' | 'rotation'] !== undefined)),
+    reset: (names) => setOverride({ ...override, ...Object.fromEntries(names.map((name) => [name, undefined])) }),
+  };
   const center = (axis: 'x' | 'y' | 'z') => (
     <NumberField
       label={axis}
@@ -71,6 +84,7 @@ export const PatternPanel: React.FC = () => {
 
   return (
     <>
+      {bar.kind === BarKind.Combined && <PiecesFields bar={bar} setBar={setBar} />}
       <Expert
         fallback={
           <Picker<number>
@@ -90,16 +104,18 @@ export const PatternPanel: React.FC = () => {
       </Expert>
       {mobile ? <ColumnEditor /> : <OutlineEditor />}
       <SubPanel id='placement' title='Placement'>
-        <Expert>
-          <Field label='Centre mm' group>
-            <div className='row'>
-              {center('x')}
-              {center('y')}
-              {center('z')}
-            </div>
-          </Field>
-        </Expert>
-        <NumberSetting label='Rotation °' field={ROTATION} step={5} value={pattern.rotation} onChange={(rotation) => setPattern({ ...pattern, rotation })} />
+        <MarksContext.Provider value={marks}>
+          <Expert>
+            <Field label='Centre mm' group mark='center'>
+              <div className='row'>
+                {center('x')}
+                {center('y')}
+                {center('z')}
+              </div>
+            </Field>
+          </Expert>
+          <NumberSetting label='Rotation °' field={ROTATION} step={5} name='rotation' value={pattern.rotation} onChange={(rotation) => setPattern({ ...pattern, rotation })} />
+        </MarksContext.Provider>
       </SubPanel>
       <SubPanel id='svgs' title='SVG shapes'>
         <SvgAssets pattern={pattern} setPattern={setPattern} />

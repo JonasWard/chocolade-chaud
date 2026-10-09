@@ -59,16 +59,21 @@ export interface IPatternFields {
   errors: Record<string, string>;
 }
 
-/** the distance fields of the svg assets and text nodes of a pattern. The map stays the same object until a field changes */
-export const usePatternFields = (pattern: IPattern): IPatternFields => {
+/**
+ * the distance fields of the svg assets and of the text nodes of the trees: the one of the pattern, or the ones the pieces of a
+ * combined tablet have in their frames. The map stays the same object until a field changes
+ */
+export const usePatternFields = (svgs: IPattern['svgs'], trees: SdfNode[]): IPatternFields => {
   const [state, setState] = React.useState<IPatternFields>({ fields: new Map(), errors: {} });
-  const { svgs, root } = pattern;
+  // the same list while it holds the same trees
+  const [roots, setRoots] = React.useState(trees);
+  if (roots.length !== trees.length || roots.some((r, i) => r !== trees[i])) setRoots(trees);
   const { texts, svgDetails } = React.useMemo(() => {
-    const nodes = fieldNodes(root);
+    const nodes = roots.flatMap((root) => fieldNodes(root));
     const textDetails = detailsOf(nodes, (n) => (n.kind === 'text' ? textFieldKey(n) : ''));
     const texts = new Map(nodes.flatMap(({ node }) => (node.kind === 'text' ? [[textFieldKey(node), { node, detail: textDetails.get(textFieldKey(node))! }] as const] : [])));
     return { texts, svgDetails: detailsOf(nodes, (n) => (n.kind === 'svg' ? n.asset : '')) };
-  }, [root]);
+  }, [roots]);
 
   React.useEffect(() => {
     let cancelled = false;

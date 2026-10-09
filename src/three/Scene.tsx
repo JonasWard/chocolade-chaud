@@ -1,7 +1,7 @@
 import React from 'react';
 import * as THREE from 'three';
 import { Canvas, useThree } from '@react-three/fiber';
-import { Bounds, useBounds } from '@react-three/drei';
+import { Bounds, Line, useBounds } from '@react-three/drei';
 import { GridMeshes } from '../hooks/useGridMeshes';
 import { IBar, barBases, gridCells } from '../geometry/grid';
 import { ChocolateMesh } from './ChocolateMesh';
@@ -34,6 +34,47 @@ const FitCamera: React.FC<{ fitKey?: string }> = ({ fitKey }) => {
 
 // fields are the distance fields of the svg and text nodes, meshes what the worker made for the export
 type SceneProps = { grid: IBar; fields: SvgFields; meshes?: GridMeshes };
+
+const ACCENT = '#a73a08';
+const flat = new THREE.Euler(-Math.PI / 2, 0, 0);
+// in pixels, how far a tap can move
+const TAP = 4;
+
+/**
+ * The pieces of a combined tablet to tap: over the top of every bar an area that is not drawn, a bar itself has no place to hit (its
+ * vertices get theirs in its shader). The picked piece has an outline
+ */
+const Pieces: React.FC<{ grid: IBar; piece?: number; onPick?: (index: number) => void }> = ({ grid, piece, onPick }) => {
+  const tops = React.useMemo(() => gridCells(grid).map(({ geometrySettings: g }) => ({ x: g.basePosition.x, z: g.basePosition.z, width: g.innerWidth, length: g.innerLength })), [grid]);
+  const y = grid.height;
+  const picked = piece === undefined ? undefined : tops[piece];
+  return (
+    <>
+      {onPick &&
+        tops.map(({ x, z, width, length }, i) => (
+          <mesh key={i} position={[x + width / 2, y, z + length / 2]} rotation={flat} onClick={(e) => e.delta <= TAP && (e.stopPropagation(), onPick(i))}>
+            <planeGeometry args={[width, length]} />
+            <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+          </mesh>
+        ))}
+      {picked && (
+        <Line
+          points={[
+            [picked.x, y, picked.z],
+            [picked.x + picked.width, y, picked.z],
+            [picked.x + picked.width, y, picked.z + picked.length],
+            [picked.x, y, picked.z + picked.length],
+            [picked.x, y, picked.z],
+          ]}
+          color={ACCENT}
+          lineWidth={2}
+          depthTest={false}
+          renderOrder={1}
+        />
+      )}
+    </>
+  );
+};
 // the camera is not fitted while a curve is edited
 type MeshesProps = SceneProps & { fit: boolean };
 
@@ -91,8 +132,7 @@ const Meshes: React.FC<MeshesProps> = ({ grid, fields, meshes, fit }) => {
 };
 
 // the box around a curve on the bars, what the camera looks at while it is edited
-const curveFocus = (grid: IBar, { curve, scaleAt, offset }: ICurveEditing): IViewFocus => {
-  const pattern = grid.sdfSetting;
+const curveFocus = (grid: IBar, { pattern, curve, scaleAt, offset }: ICurveEditing): IViewFocus => {
   const found = curveToWorld(pattern, { scaleAt, offset }, curve.points).filter((p) => !!p);
   const points = found.length ? found : [{ x: 0, z: 0 }];
   const [xs, zs] = [points.map((p) => p.x), points.map((p) => p.z)];
@@ -100,10 +140,12 @@ const curveFocus = (grid: IBar, { curve, scaleAt, offset }: ICurveEditing): IVie
   return { x: (x0 + x1) / 2, y: grid.height, z: (z0 + z1) / 2, width: Math.max(x1 - x0, 20), depth: Math.max(z1 - z0, 20) };
 };
 
-/** curve is the base curve of the selected text node, when it has one: shown and edited from above in edit mode */
-export const Scene: React.FC<SceneProps & { curve?: ICurveEditing }> = ({ grid, fields, meshes, curve }) => {
+/**
+ * curve is the base curve of the selected text node, when it has one: shown and edited from above in edit mode. piece is the piece
+ * of a combined tablet that is edited alone, onPick is told which piece is tapped
+ */
+export const Scene: React.FC<SceneProps & { curve?: ICurveEditing; piece?: number; onPick?: (index: number) => void }> = ({ grid, fields, meshes, curve, piece, onPick }) => {
   const editing = !!curve?.editing;
-  const pattern = grid.sdfSetting;
   return (
     <div className='scene'>
       {/* looking down on the bar, slightly off the pole so the orbit controls keep a stable up direction */}
@@ -115,7 +157,8 @@ export const Scene: React.FC<SceneProps & { curve?: ICurveEditing }> = ({ grid, 
         <Bounds margin={1.2}>
           <Meshes grid={grid} fields={fields} meshes={meshes} fit={!editing} />
         </Bounds>
-        {curve?.editing && <CurveEditor {...curve} pattern={pattern} y={grid.height} />}
+        <Pieces grid={grid} piece={piece} onPick={onPick} />
+        {curve?.editing && <CurveEditor {...curve} y={grid.height} />}
         <ViewController editing={editing} focus={curve && curveFocus(grid, curve)} />
       </Canvas>
     </div>

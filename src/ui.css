@@ -909,3 +909,10 @@ button.node-mark {
 button.node-mark {
   padding: 0 6px;
 }
+
+.piece-mark {
+  fill: var(--accent);
+  stroke: var(--bg);
+  stroke-width: 0.05;
+  pointer-events: none;
+}
