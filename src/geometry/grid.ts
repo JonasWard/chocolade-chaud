@@ -4,6 +4,7 @@ import { IBox } from './field';
 import { placePattern } from './sdf/placement';
 import { ChocolateType, DEFAULT_CHOCOLATE } from './chocolates';
 import { DEFAULT_PIECES, IPiece, TabletSize, centredBox, pieceBoxes, tabletSize } from './tablets';
+import { DEFAULT_REPEAT, IFrame, IPieceOverride, IRepeat, NO_OVERRIDE, PieceMode, diffPattern, pieceFrame, referenceSize, resolvePattern, settleOverride } from './pieces';
 
 /** what the bars are: one tablet, a whole tablet of smaller ones, or one bar of any size */
 export enum BarKind {
@@ -32,7 +33,14 @@ export interface IBar {
   inset: number;
   divPerMM: number;
   displayWireframe: boolean;
+  /** the pattern, of a combined tablet that is unique the one its pieces share */
   sdfSetting: IPattern;
+  /** of a combined tablet: how its pieces see the pattern, see pieces.ts */
+  pieceMode: PieceMode;
+  /** the frame of every piece when they repeat the pattern or are unique */
+  repeat: IRepeat;
+  /** what differs on every piece when they are unique, by the index of the piece, undefined for one that follows the shared pattern */
+  overrides: (IPieceOverride | undefined)[];
 }
 
 export type CellData = {
@@ -122,14 +130,80 @@ export const cellsBox = (cells: CellData[]): IBox => {
 /** the box around the tops of the bars */
 export const gridBox = (bar: IBar): IBox => cellsBox(layoutCells(bar, false));
 
+/** whether every piece sees the pattern in a frame of its own: a combined tablet that repeats it or is unique */
+export const isPieced = (bar: IBar): boolean => bar.kind === BarKind.Combined && bar.pieceMode !== 'one';
+/** whether the pieces can differ from the shared pattern */
+export const isUnique = (bar: IBar): boolean => bar.kind === BarKind.Combined && bar.pieceMode === 'unique';
+
+export const overrideOf = (bar: IBar, piece: number): IPieceOverride => bar.overrides[piece] ?? NO_OVERRIDE;
+
+/** the pattern of a piece of a unique tablet, before its frame: what the editors show of it */
+export const piecePattern = (bar: IBar, piece: number): IPattern => resolvePattern(bar.sdfSetting, overrideOf(bar, piece));
+
+/**
+ * The frame the pattern (the shared one, or the one of the piece) is in on the bar with the index: all the bars together, or the
+ * piece itself when every piece has its own
+ */
+export const frameOf = (bar: IBar, pattern: IPattern, piece: number): IFrame => {
+  if (!isPieced(bar)) return { pattern, box: gridBox(bar) };
+  const tops = barTops(bar);
+  return pieceFrame(pattern, tops[Math.min(piece, tops.length - 1)], referenceSize(tops, bar.repeat), bar.repeat);
+};
+
+/** the frame of every bar with the pattern it has in it */
+export const barFrames = (bar: IBar): IFrame[] => {
+  const tops = barTops(bar);
+  if (!isPieced(bar)) {
+    const frame = frameOf(bar, bar.sdfSetting, 0);
+    return tops.map(() => frame);
+  }
+  const reference = referenceSize(tops, bar.repeat);
+  return tops.map((top, i) => pieceFrame(isUnique(bar) ? piecePattern(bar, i) : bar.sdfSetting, top, reference, bar.repeat));
+};
+
+/** the bar with another shared pattern, what differs on its pieces as far as it still holds on it */
+export const withSharedPattern = (bar: IBar, sdfSetting: IPattern): IBar => {
+  const overrides = bar.overrides.map((o) => o && settleOverride(sdfSetting, o));
+  return { ...bar, sdfSetting, overrides: overrides.every((o, i) => o === bar.overrides[i]) ? bar.overrides : overrides };
+};
+
+/** the bar with another override of a piece */
+export const withOverride = (bar: IBar, piece: number, override: IPieceOverride): IBar => {
+  const settled = settleOverride(bar.sdfSetting, override);
+  // without holes
+  const overrides = Array.from({ length: Math.max(bar.overrides.length, piece + 1) }, (_, i) => (i === piece ? settled : bar.overrides[i]));
+  return { ...bar, overrides };
+};
+
+/** the bar with another pattern on one of its pieces: what differs from the shared one is its override. The svg shapes are shared */
+export const withPiecePattern = (bar: IBar, piece: number, pattern: IPattern): IBar => {
+  const sdfSetting = pattern.svgs === bar.sdfSetting.svgs ? bar.sdfSetting : { ...bar.sdfSetting, svgs: pattern.svgs };
+  return withOverride({ ...bar, sdfSetting }, piece, diffPattern(sdfSetting, pattern));
+};
+
+/** the bar in another mode: leaving unique, the pattern of the piece becomes the shared one and what differed on the others is gone */
+export const withPieceMode = (bar: IBar, pieceMode: PieceMode, piece: number): IBar =>
+  bar.pieceMode === 'unique' && pieceMode !== 'unique' ? { ...bar, pieceMode, sdfSetting: piecePattern(bar, piece), overrides: [] } : { ...bar, pieceMode };
+
+/** the bar with another layout: a piece of the same size at the same place keeps what differs on it */
+export const withPieces = (bar: IBar, pieces: IPiece[]): IBar => {
+  const was = (piece: IPiece) => bar.pieces.findIndex((p) => p.size === piece.size && p.u === piece.u && p.v === piece.v);
+  const overrides = pieces.map((p) => bar.overrides[was(p)]);
+  return { ...bar, pieces, overrides: overrides.some((o) => o) ? overrides : [] };
+};
+
 /**
  * the settings of every bar, fields are the distance fields of the svg and text nodes of its pattern. The svg shapes and texts of the
- * pattern are placed on the bars (see placePattern)
+ * pattern are placed on the bars, or on every piece when it has its own frame (see placePattern)
  */
 export const gridCells = (bar: IBar, withSupports = false, fields?: SvgFields): CellData[] => {
   const cells = layoutCells(bar, withSupports, fields);
-  const placed = placePattern(bar.sdfSetting, cellsBox(cells), fields);
-  return cells.map((cell) => ({ ...cell, sdfSettings: placed }));
+  if (!isPieced(bar)) {
+    const placed = placePattern(bar.sdfSetting, cellsBox(cells), fields);
+    return cells.map((cell) => ({ ...cell, sdfSettings: placed }));
+  }
+  const frames = barFrames(bar);
+  return cells.map((cell, i) => ({ ...cell, sdfSettings: placePattern(frames[i].pattern, frames[i].box, fields, frames[i].centre) }));
 };
 
 export const defaultBar = (): IBar => ({
@@ -145,6 +219,9 @@ export const defaultBar = (): IBar => ({
   divPerMM: 4,
   displayWireframe: false,
   sdfSetting: defaultPattern(),
+  pieceMode: 'one',
+  repeat: DEFAULT_REPEAT,
+  overrides: [],
 });
 
 export const GridParser = (bar: IBar, cellData: CellData[] = [], withSupports = false, fields?: SvgFields): ITriangularMesh[] => {
