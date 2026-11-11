@@ -10,6 +10,9 @@ const LIBRARY_KEY = 'chocolade-chaud:svgs';
 const URL_STATE_KEY = 'chocolade-chaud:url-state';
 const MAX_LIBRARY = 50;
 export const URL_PARAM = 's';
+/** the bar of a first visit: dark chocolate with triangle rings around the unicorn, which is a built-in svg */
+export const START_STATE =
+  'CzOBGVg-5B-ku5Xj24wUxOICcQE4gIygCX7JiYgUnjCU04hSCIrAV5COEAACqcQnQgAAynEKQQEUfhSCAiRAnE1O6AAE4gAAEiAFA';
 
 const read = (key: string): string | null => {
   try {
@@ -57,7 +60,7 @@ export const loadState = (): IBar => {
     const grid = encoded && decodeState(encoded, library);
     if (grid) return grid;
   }
-  return defaultBar();
+  return decodeState(START_STATE, library) ?? defaultBar();
 };
 
 /**

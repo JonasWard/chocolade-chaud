@@ -2,7 +2,7 @@ import { DenseField, FixedPointField, array, bool, densing, enumeration, fixed, 
 import { BarKind, IBar, defaultBar } from '../geometry/grid';
 import { DEFAULT_REPEAT, FITS, IPieceOverride, IRepeat, REFERENCES, differs, settleOverride } from '../geometry/pieces';
 import { DistanceMethodType } from '../geometry/sdMethods';
-import { IPattern, ISvgAsset, NodeKind, SdfNode, isGroup, newId, svgHash } from '../geometry/sdf/tree';
+import { BUILT_IN_SVGS, IPattern, ISvgAsset, NodeKind, SVG_ALIASES, SdfNode, isGroup, newId, svgHash } from '../geometry/sdf/tree';
 import { AROUNDS, LAYOUTS, WAVES } from '../geometry/sdf/waves';
 import { CHOCOLATE_TYPES, nearestChocolate } from '../geometry/chocolates';
 import { COLUMNS, DEFAULT_PIECES, IPiece, PIECE_SIZES, ROWS, TABLET_SIZES, isLayout } from '../geometry/tablets';
@@ -547,7 +547,9 @@ export const decodeState = (encoded: string, library: Record<string, ISvgAsset>)
     if (!read) return undefined;
     const data = fit(CURRENT.field, read) as ReturnType<typeof undensing>;
     const assets = (data.svgs as number[]).map(keyOf);
-    const svgs: IPattern['svgs'] = Object.fromEntries(assets.flatMap((key) => (library[key] ? [[key, library[key]]] : [])));
+    // a built-in svg is there without the library, also under an older key of it
+    const lookup = (key: string) => library[key] ?? BUILT_IN_SVGS[key] ?? BUILT_IN_SVGS[SVG_ALIASES[key] ?? ''];
+    const svgs: IPattern['svgs'] = Object.fromEntries(assets.flatMap((key) => (lookup(key) ? [[key, lookup(key)]] : [])));
     const sdfSetting: IPattern = { root: nodeFrom(data.root, assets), center: data.center, rotation: data.rotation, svgs };
     const { kind, tablet, displayWireframe, chocolates, sameChocolate } = data;
     // pieces that don't fill the tablet are not a layout

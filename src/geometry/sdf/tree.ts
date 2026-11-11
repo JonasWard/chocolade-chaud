@@ -1,4 +1,5 @@
 import type { IVector } from '../createMesh';
+import { UNICORN_SVG } from './unicornSvg';
 import type { IDistanceField } from '../field';
 import type { ICurve } from '../curve';
 import { DistanceMethodType } from '../sdMethods';
@@ -214,10 +215,24 @@ export const fieldKey = (node: SdfNode): string | undefined => (node.kind === 's
 
 export const STAR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path d="M50 4l13.5 30.5 33 3.5-24.8 22.2 7 32.6L50 76.2 21.3 92.8l7-32.6L3.5 38l33-3.5z"/></svg>`;
 
+export { UNICORN_SVG };
+
+/** the svgs every pattern can use without an upload */
+export const BUILT_IN_SVGS: IPattern['svgs'] = {
+  [svgKey(STAR_SVG)]: { name: 'star', source: STAR_SVG },
+  [svgKey(UNICORN_SVG)]: { name: 'unicorn', source: UNICORN_SVG },
+};
+
+/**
+ * other keys of a built-in svg in links: the unicorn was uploaded before it was built in, from a file with other whitespace,
+ * so links made with that upload refer to it by the key of that file
+ */
+export const SVG_ALIASES: Record<string, string> = { h05278c25: svgKey(UNICORN_SVG) };
+
 export const defaultPattern = (): IPattern => ({
   // the same as the old method chain of neovius 0.004 and schwarz d 8.5, 0.2 mm deep per unit
   root: { ...groupNode('chain', [methodNode(DistanceMethodType.SDNeovius), methodNode(DistanceMethodType.SDSchwarzD, 0.004 * 8.5)]), gain: 0.2 },
   center: { x: 0, y: 0, z: 0 },
   rotation: 0,
-  svgs: { [svgKey(STAR_SVG)]: { name: 'star', source: STAR_SVG } },
+  svgs: { ...BUILT_IN_SVGS },
 });
