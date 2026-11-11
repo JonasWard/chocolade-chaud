@@ -2,7 +2,8 @@ import { BarKind, IBar, defaultBar, piecePattern, withPiecePattern } from '../..
 import { DEFAULT_REPEAT, IRepeat, differs } from '../../src/geometry/pieces';
 import { insertChild, updateNode } from '../../src/geometry/sdf/treeOps';
 import { DistanceMethodType } from '../../src/geometry/sdMethods';
-import { IBooleanNode, IPattern, IProfile, SdfNode, constantNode, defaultPattern, groupNode, methodNode, sineNode, svgKey, svgNode, textNode } from '../../src/geometry/sdf/tree';
+import { IBooleanNode, IPattern, IProfile, STAR_SVG, SdfNode, UNICORN_SVG, constantNode, defaultPattern, groupNode, methodNode, sineNode, svgKey, svgNode, textNode } from '../../src/geometry/sdf/tree';
+import { START_STATE } from '../../src/state/persist';
 import { STATE_VERSION, decodeState, encodeState, numberField, schemaFingerprint } from '../../src/state/schema';
 import { profile } from '../../src/geometry/sdf/evaluate';
 import { ChocolateType } from '../../src/geometry/chocolates';
@@ -270,7 +271,10 @@ test('the schema of every version is as it was written', () => {
 });
 
 test('the default bar is written as it was by densing 0.3, but for its version and for the pieces it does not have', () => {
-  expect(encodeState(defaultBar())).toBe('CzOBhGU8jA2su5Xgu4DJxATiAnEBGUAK_ZMTFScQndAgTiFIIYG5akEI');
+  // the default bar of then, with only the star: the unicorn was built in later
+  const star = svgKey(STAR_SVG);
+  const bar = { ...defaultBar(), sdfSetting: { ...defaultPattern(), svgs: { [star]: defaultPattern().svgs[star] } } };
+  expect(encodeState(bar)).toBe('CzOBhGU8jA2su5Xgu4DJxATiAnEBGUAK_ZMTFScQndAgTiFIIYG5akEI');
 });
 
 test('a number of the state is found by its path, with its range', () => {
@@ -287,4 +291,16 @@ test('a number of the state is found by its path, with its range', () => {
   expect(() => numberField('hieght')).toThrow();
   // not a number
   expect(() => numberField('sameChocolate')).toThrow();
+});
+
+test('the unicorn is built in: a link to it needs no library, also under the key of the upload it was before', () => {
+  const unicorn = svgKey(UNICORN_SVG);
+  expect(defaultPattern().svgs[unicorn]).toEqual({ name: 'unicorn', source: UNICORN_SVG });
+  const root = sineNode(1, 3.5, [svgNode(unicorn, 29)]);
+  const bar = { ...defaultBar(), sdfSetting: { ...defaultPattern(), root, svgs: { [unicorn]: defaultPattern().svgs[unicorn] } } };
+  expect(decodeState(encodeState(bar), {})?.sdfSetting.svgs[unicorn]?.source).toBe(UNICORN_SVG);
+  // the bar of a first visit was made with the uploaded unicorn
+  const start = decodeState(START_STATE, {});
+  expect(start?.sdfSetting.svgs.h05278c25).toEqual({ name: 'unicorn', source: UNICORN_SVG });
+  expect(start?.chocolates[0]).toBe(ChocolateType.Dark85);
 });
